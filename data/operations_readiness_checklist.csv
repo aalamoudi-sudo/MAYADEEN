@@ -1,0 +1,8 @@
+﻿check_id,category,title,owner,status,evidence,required_action,source_metric
+OPS-CHK-001,Schedule Recovery,Close or rebaseline all critical tasks,Project Manager / PMO,not_ready,9 critical tasks currently open,Escalate each critical task and assign recovery owner/date,schedule.critical
+OPS-CHK-002,Risk Closure,Close critical risks or approve treatment plans,Project Manager,not_ready,9 critical risks currently open,Approve treatment plan and mitigation owner for every critical risk,risks.critical
+OPS-CHK-003,Decision Closure,Resolve urgent decisions blocking readiness,Project Director,not_ready,9 urgent decisions pending,Hold decision session and record decision outcome,decisions.urgent
+OPS-CHK-004,Approval Cleanup,Reduce pending approvals to launch-safe threshold,PMO / Approval Owners,not_ready,197 approvals pending,Separate launch-blocking approvals from non-blocking approvals,approvals.total
+OPS-CHK-005,Daily Control,Refresh stale task updates,Workstream Owners,not_ready,241 stale tasks out of 452,Require every owner to update today status and next action,schedule.stale
+OPS-CHK-006,Data Quality,Confirm data is reliable for executive decisions,PMO,ready,Data quality score is 100,Fix validation errors before executive reporting,data_quality.score
+OPS-CHK-007,Operations Setup,Activate daily operations room rhythm,Operations Lead,at_risk,Phase 7 structure generated; live team assignments still required,"Assign operations lead, review cadence, escalation channels, and launch-day rota",manual.operations_setup
