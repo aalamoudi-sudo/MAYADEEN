@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-07-01T13:37:03+00:00",
+  "go_no_go_status": "no_go",
+  "readiness_score": 5,
+  "next_review": "2026-07-02T13:37:03+00:00",
+  "metrics": {
+    "health_score": 37,
+    "completion_pct": 0.0,
+    "total_tasks": 452,
+    "critical_tasks": 9,
+    "stale_tasks": 241,
+    "not_started_tasks": 202,
+    "critical_risks": 9,
+    "open_risks": 9,
+    "urgent_decisions": 9,
+    "pending_approvals": 197,
+    "data_quality_score": 100,
+    "owners": 90
+  },
+  "blockers": [
+    "9 critical tasks are still open",
+    "9 critical risks are still open",
+    "9 urgent decisions are still pending"
+  ],
+  "required_actions": [
+    "Escalate each critical task and assign recovery owner/date",
+    "Approve treatment plan and mitigation owner for every critical risk",
+    "Hold decision session and record decision outcome",
+    "Separate launch-blocking approvals from non-blocking approvals",
+    "Require every owner to update today status and next action",
+    "Assign operations lead, review cadence, escalation channels, and launch-day rota"
+  ],
+  "readiness_counts": {
+    "ready": 1,
+    "at_risk": 1,
+    "not_ready": 5
+  }
+}
