@@ -1,0 +1,30 @@
+{
+  "source": "KAG_Dashboard_Final.html",
+  "generated": "2026-06-28 23:41",
+  "extracted_at": "2026-07-01T10:19:51Z",
+  "today": "2026-07-01",
+  "counts": {
+    "rows": 486,
+    "tasks": 452,
+    "milestones": 34,
+    "by_schedule_status": {
+      "on_track": 477,
+      "critical": 9
+    },
+    "by_phase": {
+      "غير محدد": 34,
+      "البدء": 7,
+      "التخطيط": 280,
+      "التنفيذ": 138,
+      "الإغلاق": 27
+    },
+    "owners": 90
+  },
+  "quality": {
+    "score": 100,
+    "errors_count": 0,
+    "warnings_count": 0,
+    "errors": [],
+    "warnings": []
+  }
+}
