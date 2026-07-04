@@ -1,2 +1,0 @@
-change_order_id,title,reason,requester,time_impact,cost_impact,scope_impact,quality_impact,risk_level,status,stage,attachment,approval_log,notes,decision_log,linked_items,stage_due,created_at
-CO-001,توسعة مسار كبار الزوار قبل الافتتاح,زيادة متطلبات التدفق والضيافة,المشرف العام,5,160000,مرتفع,متوسط,حرج,تحت المراجعة,تحليل الأثر,رابط المرفقات,مراجعة المشرف العام مطلوبة,مرتبط بمشتريات وتصاريح إضافية,تحليل أثر الوقت والتكلفة,"PR-001, PER-001",2026-07-05,2026-07-04

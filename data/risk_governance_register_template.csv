@@ -1,2 +1,0 @@
-risk_id,title,category,probability,impact,severity,owner,treatment_plan,escalation_level,status,due_date,updated_at
-RISK-001,تأخر اعتماد مخطط التشغيل,اعتمادات,4,4,مرتفع,بندر الهضيبة,تصعيد PMO وتحديد قرار مطلوب,L2,مفتوح,2026-07-05,2026-07-03

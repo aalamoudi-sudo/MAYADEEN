@@ -1,3 +1,0 @@
-approval_history_id,record_type,record_id,decision,approver,decision_at,notes,version
-DAH-001,مشتريات,PR-002,اعتماد,أحمد العمودي,2026-07-03 16:00,اعتماد داخلي مكتمل,v1.0
-DAH-002,أمر تغيير,CO-002,اعتماد,مالك المشروع,2026-07-03 17:00,تنفيذ ضمن الميزانية,v1.1
