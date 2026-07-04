@@ -1,5 +1,0 @@
-event_type,priority,in_app,slack,email,whatsapp_future,dedupe_rule
-تصعيد حرج,حرج,TRUE,TRUE,TRUE,للحالات الحرجة فقط,مرة واحدة لكل عنصر/مستوى
-تأخر طلب شراء,مرتفع,TRUE,TRUE,TRUE,لا,مرة واحدة لكل مرحلة
-تصريح ينتهي قريباً,متوسط,TRUE,FALSE,TRUE,اليوم الأخير فقط مستقبلاً,مرة يومياً
-مخالفة مورد,مرتفع,TRUE,TRUE,TRUE,للمخالفة الحرجة فقط,مرة لكل مخالفة
