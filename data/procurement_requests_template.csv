@@ -1,2 +1,0 @@
-request_id,title,supplier,value,created_at,approved_at,owner,priority,status,approval_status,attachment,notes,updates,linked_task,linked_zone,stage_due
-PR-001,توريد مواد تجهيز منطقة كبار الزوار,شركة تجهيزات الرياض,185000,2026-07-04,,منذر الأنصاري,عاجل,اعتماد داخلي,قيد الاعتماد,رابط المرفقات,نقص اعتماد داخلي قبل الإرسال للمورد,تم استلام عرض السعر;تم تحويل الطلب للاعتماد الداخلي,التنفيذ,منطقة كبار الزوار,2026-07-06
