@@ -1,0 +1,5 @@
+page_id,action,allowed_condition,notes
+evidenceCenter,إنشاء,"allowed_pages includes evidenceCenter and access_level in manager/control/coordinator/executive/full",إضافة دليل أو مرفق
+issuesIncidentsCenter,تصعيد,"can_escalate TRUE or access_level full",تحويل بلاغ إلى تصعيد
+changeOrdersCenter,اعتماد,"can_approve TRUE and only مالك المشروع / المشرف العام for change orders",لا تغيير في الأدوار الحالية
+evidenceCenter,حذف مرفق,"can_manage_users TRUE or access_level full",حذف المرفقات الحساسة مقيد
