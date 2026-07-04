@@ -1,0 +1,353 @@
+{
+  "generated_at": "2026-07-01T10:29:55Z",
+  "source": "data/daily_control_queue.csv",
+  "counts": {
+    "queue_items": 452,
+    "risks": 9,
+    "decisions": 9,
+    "approvals": 197,
+    "approval_types": {
+      "contract": 9,
+      "approval": 179,
+      "review": 9
+    },
+    "risk_statuses": {
+      "submitted": 9
+    },
+    "decision_priorities": {
+      "urgent": 9
+    }
+  },
+  "top_risks": [
+    {
+      "risk_id": "RISK-0001",
+      "linked_wbs_code": "1.001",
+      "title": "تأخر حرج: استلام خطاب الترسية وتثبيت نقطة الاتصال الرسمية مع الجهة المالكة",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير المشروع",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0002",
+      "linked_wbs_code": "1.002",
+      "title": "تأخر حرج: تنفيذ وتوثيق استلام خطاب الترسية وتثبيت نقطة الاتصال الرسمية مع الجهة المالكة",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير المشروع",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0003",
+      "linked_wbs_code": "1.003",
+      "title": "تأخر حرج: توقيع العقد وإصدار أمر المباشرة وتفعيل فريق المشروع",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير المشروع",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0004",
+      "linked_wbs_code": "1.008",
+      "title": "تأخر حرج: إعداد عقد اجتماع الانطلاق الرسمي مع الجهة المالكة وتثبيت قنوات التواصل",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير المشروع",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0005",
+      "linked_wbs_code": "1.009",
+      "title": "تأخر حرج: اعتماد عقد اجتماع الانطلاق الرسمي مع الجهة المالكة وتثبيت قنوات التواصل",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير المشروع",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0006",
+      "linked_wbs_code": "1.006",
+      "title": "تأخر حرج: إعداد خطة الحوكمة ومصفوفة الصلاحيات وآلية الاعتماد والتصعيد",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير المشروع / PMO",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0007",
+      "linked_wbs_code": "1.007",
+      "title": "تأخر حرج: تعميد خطة الحوكمة ومصفوفة الصلاحيات وآلية الاعتماد والتصعيد",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير المشروع / PMO",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0008",
+      "linked_wbs_code": "1.004",
+      "title": "تأخر حرج: إعداد ميثاق المشروع وتحديد الأهداف والنطاق والافتراضات وحدود المسؤولية",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير مكتب المشروع PMO",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    },
+    {
+      "risk_id": "RISK-0009",
+      "linked_wbs_code": "1.005",
+      "title": "تأخر حرج: اعتماد إعداد ميثاق المشروع وتحديد الأهداف والنطاق والافتراضات وحدود المسؤولية",
+      "category": "schedule",
+      "probability": 5,
+      "impact": 4,
+      "severity": 20,
+      "owner_name": "مدير مكتب المشروع PMO",
+      "treatment_plan": "تصعيد فوري وتحديث خطة التعافي وتحديد مالك إجراء واضح",
+      "due_date": "2026-06-15",
+      "status": "submitted"
+    }
+  ],
+  "top_decisions": [
+    {
+      "decision_id": "DEC-0001",
+      "linked_wbs_code": "1.001",
+      "title": "قرار معالجة تأخر: استلام خطاب الترسية وتثبيت نقطة الاتصال الرسمية مع الجهة المالكة",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0002",
+      "linked_wbs_code": "1.002",
+      "title": "قرار معالجة تأخر: تنفيذ وتوثيق استلام خطاب الترسية وتثبيت نقطة الاتصال الرسمية مع الجهة المالكة",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0003",
+      "linked_wbs_code": "1.003",
+      "title": "قرار معالجة تأخر: توقيع العقد وإصدار أمر المباشرة وتفعيل فريق المشروع",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0004",
+      "linked_wbs_code": "1.008",
+      "title": "قرار معالجة تأخر: إعداد عقد اجتماع الانطلاق الرسمي مع الجهة المالكة وتثبيت قنوات التواصل",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0005",
+      "linked_wbs_code": "1.009",
+      "title": "قرار معالجة تأخر: اعتماد عقد اجتماع الانطلاق الرسمي مع الجهة المالكة وتثبيت قنوات التواصل",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0006",
+      "linked_wbs_code": "1.006",
+      "title": "قرار معالجة تأخر: إعداد خطة الحوكمة ومصفوفة الصلاحيات وآلية الاعتماد والتصعيد",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0007",
+      "linked_wbs_code": "1.007",
+      "title": "قرار معالجة تأخر: تعميد خطة الحوكمة ومصفوفة الصلاحيات وآلية الاعتماد والتصعيد",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0008",
+      "linked_wbs_code": "1.004",
+      "title": "قرار معالجة تأخر: إعداد ميثاق المشروع وتحديد الأهداف والنطاق والافتراضات وحدود المسؤولية",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    },
+    {
+      "decision_id": "DEC-0009",
+      "linked_wbs_code": "1.005",
+      "title": "قرار معالجة تأخر: اعتماد إعداد ميثاق المشروع وتحديد الأهداف والنطاق والافتراضات وحدود المسؤولية",
+      "reason": "overdue by 16 days",
+      "decision_owner": "مدير المشروع",
+      "priority": "urgent",
+      "due_date": "2026-06-15",
+      "status": "submitted",
+      "impact_if_delayed": "استمرار التأخير قد يؤثر على المسار الزمني ونقطة الافتتاح"
+    }
+  ],
+  "sample_approvals": [
+    {
+      "approval_id": "APP-0001",
+      "linked_wbs_code": "1.003",
+      "type": "contract",
+      "title": "توقيع العقد وإصدار أمر المباشرة وتفعيل فريق المشروع",
+      "requester": "مدير المشروع",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-06-15",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0002",
+      "linked_wbs_code": "1.008",
+      "type": "contract",
+      "title": "إعداد عقد اجتماع الانطلاق الرسمي مع الجهة المالكة وتثبيت قنوات التواصل",
+      "requester": "مدير المشروع",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-06-15",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0003",
+      "linked_wbs_code": "1.009",
+      "type": "contract",
+      "title": "اعتماد عقد اجتماع الانطلاق الرسمي مع الجهة المالكة وتثبيت قنوات التواصل",
+      "requester": "مدير المشروع",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-06-15",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0004",
+      "linked_wbs_code": "1.006",
+      "type": "approval",
+      "title": "إعداد خطة الحوكمة ومصفوفة الصلاحيات وآلية الاعتماد والتصعيد",
+      "requester": "مدير المشروع / PMO",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-06-15",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0005",
+      "linked_wbs_code": "1.007",
+      "type": "approval",
+      "title": "تعميد خطة الحوكمة ومصفوفة الصلاحيات وآلية الاعتماد والتصعيد",
+      "requester": "مدير المشروع / PMO",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-06-15",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0006",
+      "linked_wbs_code": "1.005",
+      "type": "approval",
+      "title": "اعتماد إعداد ميثاق المشروع وتحديد الأهداف والنطاق والافتراضات وحدود المسؤولية",
+      "requester": "مدير مكتب المشروع PMO",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-06-15",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0007",
+      "linked_wbs_code": "32.004",
+      "type": "approval",
+      "title": "اعتماد إصدار التقرير الأسبوعي الأول شاملاً المسار الحرج والقرارات المطلوبة",
+      "requester": "PMO",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-07-16",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0008",
+      "linked_wbs_code": "32.037",
+      "type": "approval",
+      "title": "اعتماد إعداد نموذج محضر الاجتماع ونموذج التقرير الأسبوعي ونموذج طلب التغيير",
+      "requester": "PMO",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-07-16",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0009",
+      "linked_wbs_code": "32.016",
+      "type": "approval",
+      "title": "اعتماد إصدار جدول تسليم الموردين ومتابعة الالتزام الأسبوعية",
+      "requester": "PMO / المشتريات",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-07-16",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    },
+    {
+      "approval_id": "APP-0010",
+      "linked_wbs_code": "16.002",
+      "type": "approval",
+      "title": "اعتماد إعداد خطة البيئة وإدارة المخلفات وحماية التربة والحياة الفطرية",
+      "requester": "المسؤول البيئي",
+      "approver": "الجهة المالكة / مدير المشروع",
+      "due_date": "2026-08-30",
+      "status": "draft",
+      "notes": "تم توليده أولياً من WBS ويحتاج مراجعة PMO"
+    }
+  ]
+}
