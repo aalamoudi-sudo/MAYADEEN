@@ -1,4 +1,0 @@
-person,team,assigned_tasks,open_tasks,delayed_tasks,active_escalations,average_response_time,average_close_time,compliance_rate,operational_pressure,most_delayed_task_type,last_activity,needs_support
-منذر الأنصاري,PMO,8,4,1,1,4 ساعات,18 ساعة,88%,متوسط,مشتريات,2026-07-04,FALSE
-المشرف العام,الإشراف العام,3,2,0,1,2 ساعات,8 ساعات,100%,متوسط,أوامر تغيير,2026-07-04,FALSE
-مالك المشروع,مالك المشروع,2,1,0,1,1 ساعة,6 ساعات,100%,منخفض,أوامر تغيير,2026-07-04,FALSE
