@@ -1840,8 +1840,29 @@ select option{background:#0f1220}
       <!-- APPROVALS PAGE -->
       <section class="page" id="approvals">
         <div class="page-header">
-          <h1>مركز الاعتمادات</h1>
-          <p>سجل مستقل للاعتمادات المطلوبة، المتأخرة، والمعتمدة للمشروع</p>
+          <div>
+            <h1>مركز الاعتمادات</h1>
+            <p>سجل مستقل للاعتمادات المطلوبة، المتأخرة، والمعتمدة للمشروع</p>
+          </div>
+          <button id="addApprovalBtn" class="ops-mini-btn" onclick="toggleApprovalForm(true)" style="display:none;background:linear-gradient(135deg,var(--green),#12b981);color:#06131f;border-color:rgba(16,232,122,.45)">+ إضافة طلب اعتماد</button>
+        </div>
+
+        <div class="card" id="approvalRequestFormCard" style="display:none;margin-bottom:14px;border-color:rgba(16,232,122,.28)">
+          <div class="sec-title"><h2>نموذج الإدخال اليدوي</h2><span>يحفظ مباشرة في Approvals Register</span></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:12px">
+            <input id="approval-title" placeholder="عنوان طلب الاعتماد *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-linked" placeholder="الكود المرتبط WBS" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <select id="approval-type" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option>اعتماد</option><option>مراجعة</option><option>توقيع</option><option>تعميد</option></select>
+            <input id="approval-approver" placeholder="المعتمد / جهة الاعتماد *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-due" type="date" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-ref" placeholder="مرجع رسمي / رابط دليل" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+          </div>
+          <textarea id="approval-notes" placeholder="ملاحظات الطلب" style="width:100%;min-height:70px;margin-top:10px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none;resize:vertical"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+            <button id="approvalSubmitBtn" class="ops-mini-btn" onclick="submitApprovalRequest()">إرسال الطلب إلى Apps Script</button>
+            <button class="ops-mini-btn" onclick="toggleApprovalForm(false)" style="background:rgba(255,255,255,.05);color:var(--muted)">إغلاق النموذج</button>
+            <span id="approval-form-status" style="font-size:12px;color:var(--muted)"></span>
+          </div>
         </div>
 
         <div class="card" style="margin-bottom:14px;border-color:rgba(16,232,122,.28)"><div class="sec-title"><h2>الاعتمادات الرسمية</h2><span>Approvals Register بعد استبعاد SUG</span></div><div class="dec-kpi-grid" id="app-kpis"></div></div>
@@ -2745,7 +2766,10 @@ function applyPermissions(){
   if(nameEl) nameEl.textContent=display;
   if(roleEl) roleEl.textContent=currentUser.role||'User';
   if(initEl) initEl.textContent=display.trim().charAt(0)||'U';
+  const addApprovalBtn=document.getElementById('addApprovalBtn');
+  if(addApprovalBtn) addApprovalBtn.style.display=canAccessPage('approvals')&&boolFlag(currentUser.can_approve)?'':'none';
 }
+
 function authPayload(payload){
   if(!sessionToken) throw new Error('Missing secure session');
   return Object.assign({},payload,{session_token:sessionToken});
@@ -6261,6 +6285,54 @@ function renderApprovalSuggestions(){
   if(!body) return;
   const suggestions=window._approvalSuggestions||[];
   body.innerHTML=suggestions.length?suggestions.map(a=>`<tr><td style="color:var(--muted)">${escapeHtml(a.id)}</td><td>${escapeHtml(a.title)}</td><td>${escapeHtml(a.type)}</td><td>${escapeHtml(a.source||'SUG')}</td><td>مقترح فقط وغير محتسب</td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;padding:22px;color:var(--muted)">لا توجد اعتمادات مقترحة SUG</td></tr>';
+}
+
+function toggleApprovalForm(show){
+  const card=document.getElementById('approvalRequestFormCard');
+  if(!card) return;
+  if(show&&!boolFlag(currentUser.can_approve)){alert('ليست لديك صلاحية إضافة طلب اعتماد.');return;}
+  card.style.display=show?'block':'none';
+}
+
+async function submitApprovalRequest(){
+  if(!boolFlag(currentUser.can_approve)){alert('ليست لديك صلاحية إضافة طلب اعتماد.');return;}
+  const baseUrl=getConfiguredApiUrl();
+  const statusEl=document.getElementById('approval-form-status');
+  const btn=document.getElementById('approvalSubmitBtn');
+  const title=(document.getElementById('approval-title')?.value||'').trim();
+  const approver=(document.getElementById('approval-approver')?.value||'').trim();
+  if(!baseUrl){alert('رابط Apps Script غير مضبوط.');return;}
+  if(!title||!approver){alert('أدخل عنوان طلب الاعتماد وجهة الاعتماد.');return;}
+  const payload={
+    action:'approval_request',
+    title,
+    linked_wbs_code:(document.getElementById('approval-linked')?.value||'').trim(),
+    type:(document.getElementById('approval-type')?.value||'اعتماد').trim(),
+    requester:currentUser.display_name||currentUser.username||'PMO',
+    approver,
+    due_date:(document.getElementById('approval-due')?.value||'').trim(),
+    status:'مطلوب',
+    current_stage:'طلب اعتماد',
+    notes:(document.getElementById('approval-notes')?.value||'').trim(),
+    official_reference:(document.getElementById('approval-ref')?.value||'').trim(),
+    is_suggestion:'FALSE'
+  };
+  if(btn) btn.disabled=true;
+  if(statusEl) statusEl.textContent='جارٍ إرسال الطلب...';
+  try{
+    const res=await postApi(baseUrl,payload);
+    const data=await res.json();
+    if(!res.ok||!data.ok) throw new Error(data.error||'approval request failed');
+    if(statusEl) statusEl.textContent='تم حفظ الطلب في Approvals Register.';
+    ['approval-title','approval-linked','approval-approver','approval-due','approval-ref','approval-notes'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+    toggleApprovalForm(false);
+    await loadExternal(false);
+  }catch(e){
+    console.warn('Approval request failed',e);
+    if(statusEl) statusEl.textContent='تعذر إرسال الطلب. تحقق من الصلاحيات والربط.';
+  }finally{
+    if(btn) btn.disabled=false;
+  }
 }
 
 function renderApprovalTable(){
