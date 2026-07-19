@@ -1212,7 +1212,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
 @keyframes loginCardIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .login h1{font-size:24px;margin-bottom:8px;letter-spacing:-.2px}.login-sub{font-size:13.5px;line-height:1.8;color:#9eacd0}.login-brand{margin-bottom:28px}.login-brand img{width:142px}.login-brand-text h2{font-size:12px;color:#dcd3ff}.login-brand-text p{font-size:10.5px;letter-spacing:1px}
 .input-group{margin-bottom:14px}.input-group label{font-size:12.5px;color:#aab6d6;margin-bottom:7px}.input-group input{padding:14px 15px;background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.10);box-shadow:0 1px 0 rgba(255,255,255,.04) inset}.input-group input::placeholder{color:#586581}.login-btn{position:relative;overflow:hidden;padding:15px 18px;margin-top:10px;border-radius:14px;background:linear-gradient(135deg,#5f3ff0,#8c70ff 48%,#00bfe8);box-shadow:0 14px 36px rgba(124,92,255,.34),0 1px 0 rgba(255,255,255,.20) inset}.login-btn::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.24),transparent);transform:translateX(120%);transition:transform .7s ease}.login-btn:hover::after{transform:translateX(-120%)}.login-btn:disabled{cursor:wait;opacity:.92;transform:none}.login.is-authenticating .login-card{transform:scale(.985);box-shadow:0 26px 80px rgba(0,0,0,.68),0 0 60px rgba(124,92,255,.18)}.login.exiting{animation:loginExit .42s ease forwards}@keyframes loginExit{to{opacity:0;transform:scale(1.015)}}
-.login-transition{position:fixed;inset:0;z-index:130;display:grid;place-items:center;background:radial-gradient(circle at 50% 36%,rgba(124,92,255,.20),transparent 28%),rgba(7,9,15,.84);backdrop-filter:blur(16px);opacity:0;pointer-events:none;transition:opacity .22s ease}.login-transition.active{opacity:1;pointer-events:auto}.intro-orb{width:118px;height:118px;border-radius:32px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(124,92,255,.22),rgba(0,212,255,.10));border:1px solid rgba(255,255,255,.12);box-shadow:0 0 55px rgba(124,92,255,.28);animation:introPulse 1.1s ease-in-out infinite}.intro-orb::before{content:"";width:48px;height:48px;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#fff;border-right-color:#a07dff;animation:spin .78s linear infinite}.intro-caption{margin-top:18px;color:#dfe7ff;font-weight:800;font-size:13px;letter-spacing:.2px;text-align:center}.intro-caption small{display:block;margin-top:6px;color:var(--muted);font-weight:600;font-size:11px}@keyframes spin{to{transform:rotate(360deg)}}@keyframes introPulse{50%{transform:scale(1.035)}}
+.login-transition{position:fixed;inset:0;z-index:130;display:grid;place-items:center;background:#070a14;opacity:0;pointer-events:none;transition:opacity .28s ease}.login-transition.active{opacity:1;pointer-events:auto}.command-intro{width:min(460px,calc(100vw - 48px));padding:0 10px;text-align:center;animation:commandIntroIn .42s cubic-bezier(.2,.8,.2,1) both}.command-kicker{font-size:11px;font-weight:800;letter-spacing:2.8px;color:#9f8cff;text-transform:uppercase;margin-bottom:13px;animation:commandMarkDrift 1.8s ease-in-out infinite alternate}.command-title{font-size:22px;line-height:1.75;font-weight:800;color:#f3f6ff;letter-spacing:-.2px}.command-rule{position:relative;width:min(280px,62vw);height:1px;margin:18px auto 16px;background:rgba(255,255,255,.13);overflow:hidden}.command-rule::after{content:"";position:absolute;top:0;height:100%;width:42%;right:0;background:linear-gradient(90deg,transparent,rgba(124,92,255,.85),rgba(0,169,206,.55),transparent);animation:commandRuleScan 1.65s ease-in-out infinite}.command-status{min-height:22px;color:#aebbd8;font-size:13px;font-weight:700;line-height:1.7}.command-progress{width:min(320px,70vw);height:3px;margin:18px auto 0;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden}.command-progress span{display:block;height:100%;width:18%;border-radius:inherit;background:linear-gradient(90deg,#7c5cff,#00a9ce);transition:width .32s ease}.login-transition.ready .command-rule::after,.login-transition.ready .command-kicker{animation:none}.login-transition.ready .command-progress span{width:100%}@keyframes commandIntroIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes commandMarkDrift{to{transform:translateY(-2px)}}@keyframes commandRuleScan{0%{transform:translateX(130%)}100%{transform:translateX(-260%)}}
 .app.visible{animation:appReveal .42s cubic-bezier(.2,.8,.2,1) both}@keyframes appReveal{from{opacity:0;transform:translateY(10px) scale(.995)}to{opacity:1;transform:none}}
 .sidebar{background:linear-gradient(180deg,rgba(13,16,32,.98),rgba(7,9,18,.995));border-left-color:rgba(255,255,255,.08)}.nav-item{border-radius:12px;margin-bottom:3px;min-height:38px}.nav-item.active{background:linear-gradient(135deg,rgba(124,92,255,.26),rgba(0,212,255,.08));box-shadow:0 8px 22px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.06)}.topbar{padding:14px 26px;background:rgba(9,12,25,.82);box-shadow:0 10px 30px rgba(0,0,0,.18)}.page-area{padding:22px 24px}.page-header{margin-bottom:20px;padding:18px 20px;border:1px solid rgba(255,255,255,.07);border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(124,92,255,.035));box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}.page-header h1{font-size:24px}.page-header p{font-size:13px;color:#91a0c1}.card,.health-card,.phase-card{background:linear-gradient(160deg,rgba(18,23,43,.94),rgba(11,15,30,.96));border-color:rgba(255,255,255,.075);box-shadow:0 12px 35px rgba(0,0,0,.18)}.card{padding:18px 20px}.card:hover,.health-card:hover{transform:translateY(-1px)}.kpi-grid,.health-grid,.charts-row{gap:16px;margin-bottom:20px}.kpi-card{border-radius:18px;padding:22px 16px 18px;background:linear-gradient(160deg,rgba(22,28,55,.96),rgba(10,14,29,.98));box-shadow:0 14px 36px rgba(0,0,0,.20)}.kpi-value{font-size:38px}.kpi-label{font-size:13px}.sec-title{margin-bottom:14px}.sec-title h2{font-size:15px}.data-table{border-spacing:0 6px}.data-table th{font-size:11px;color:#a8b4d0;padding:0 16px 11px}.data-table td{padding:13px 16px;background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.07);font-size:13px}.data-table tr:hover td{background:rgba(124,92,255,.09);border-color:rgba(124,92,255,.18)}.milestone-empty,.data-table td[colspan]{background:linear-gradient(135deg,rgba(255,255,255,.035),rgba(124,92,255,.035))!important;border:1px dashed rgba(124,92,255,.18)!important;border-radius:14px!important;color:#9eacd0!important}.chart-wrap,.line-chart-wrap{border-radius:14px;background:rgba(4,7,18,.20)}button,.ops-mini-btn,.escalate-btn{transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease}button:hover,.ops-mini-btn:hover,.escalate-btn:hover{transform:translateY(-1px)}@media(max-width:1100px){.topbar{position:relative;flex-wrap:wrap}.page-area{padding:16px}.sidebar{position:relative}.sidebar-brand{width:100%}.login-card{padding:32px 24px}}@media(max-width:700px){.login-card{width:min(380px,92vw)}.page-header h1{font-size:20px}.kpi-value{font-size:32px}.topbar-search{max-width:none;order:3;width:100%;flex-basis:100%}.data-table{min-width:720px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
@@ -1241,9 +1241,12 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
     <button class="login-btn" onclick="login()"><span>تسجيل الدخول</span></button>
     <div class="login-error" id="loginErr">ملاحظة: حماية الواجهة فقط ليست بديلاً عن نظام صلاحيات خلفي</div>
     <div class="login-transition" id="loginTransition" aria-live="polite" aria-hidden="true">
-      <div>
-        <div class="intro-orb"></div>
-        <div class="intro-caption">جاري تهيئة مركز القيادة<small>تحميل آمن وناعم للوحة التنفيذية</small></div>
+      <div class="command-intro" role="status">
+        <div class="command-kicker">PROJECT COMMAND CENTER</div>
+        <div class="command-title">مركز قيادة مشروع حدائق الملك عبدالله</div>
+        <div class="command-rule" aria-hidden="true"></div>
+        <div class="command-status" id="loginTransitionStatus">جاري التحقق من الصلاحيات</div>
+        <div class="command-progress" aria-hidden="true"><span id="loginTransitionProgress"></span></div>
       </div>
     </div>
   </div>
@@ -2877,11 +2880,22 @@ function showLoginError(message){
   const el=document.getElementById('loginErr');
   if(el){el.textContent=message;el.style.display='block';}
 }
+function setLoginTransitionStatus(message,progress){
+  const statusEl=document.getElementById('loginTransitionStatus');
+  const progressEl=document.getElementById('loginTransitionProgress');
+  if(statusEl&&message) statusEl.textContent=message;
+  if(progressEl&&typeof progress==='number') progressEl.style.width=Math.max(8,Math.min(100,progress))+'%';
+}
 function setLoginVisualState(state){
   const loginDiv=document.getElementById('login');
   const overlay=document.getElementById('loginTransition');
   if(loginDiv){loginDiv.classList.toggle('is-authenticating',state==='loading');loginDiv.classList.toggle('exiting',state==='success');}
-  if(overlay){overlay.classList.toggle('active',state==='loading'||state==='success');overlay.setAttribute('aria-hidden',state==='idle'?'true':'false');}
+  if(overlay){
+    overlay.classList.toggle('active',state==='loading'||state==='success');
+    overlay.classList.toggle('ready',state==='success');
+    overlay.setAttribute('aria-hidden',state==='idle'?'true':'false');
+  }
+  if(state==='idle') setLoginTransitionStatus('جاري التحقق من الصلاحيات',18);
 }
 function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 function normalizePageList(v){
@@ -2946,6 +2960,7 @@ async function login(){
   const loginErr=document.getElementById('loginErr');
   if(loginErr) loginErr.style.display='none';
   setLoginVisualState('loading');
+  setLoginTransitionStatus('جاري التحقق من الصلاحيات',28);
   if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='جاري التحقق...';}
   markPerf('auth_login_start');
   loginRequestInFlight=(async()=>{
@@ -2957,6 +2972,7 @@ async function login(){
     sessionToken=data.session_token||'';
     if(!sessionToken) throw new Error('missing session token');
     applyPermissions();
+    setLoginTransitionStatus('جاري مزامنة بيانات المشروع',58);
     markPerf('auth_login_end');
     measurePerf('auth_login_duration','auth_login_start','auth_login_end');
   }catch(e){
@@ -2968,17 +2984,19 @@ async function login(){
     loginRequestInFlight=null;
     if(loginBtn){loginBtn.disabled=false;loginBtn.textContent=originalLoginText||'تسجيل الدخول';}
   }
-  setLoginVisualState('success');
-  await wait(420);
-  document.getElementById('login').style.cssText='display:none!important';
-  setLoginVisualState('idle');
-  const appDiv=document.getElementById('app');
-  appDiv.style.cssText='display:flex!important;min-height:100vh';
-  appDiv.classList.add('visible');
+  setLoginTransitionStatus('جاري مزامنة بيانات المشروع',62);
   markPerf('dashboard_shell_ready');
   startClock();
   setSyncLoadingState();
-  loadExternal(true);
+  const synced=await loadExternal(true);
+  setLoginTransitionStatus('تجهيز لوحة القيادة',synced?92:82);
+  const appDiv=document.getElementById('app');
+  appDiv.style.cssText='display:flex!important;min-height:100vh';
+  appDiv.classList.add('visible');
+  setLoginTransitionStatus('تجهيز لوحة القيادة',100);
+  setLoginVisualState('success');
+  document.getElementById('login').style.cssText='display:none!important';
+  setLoginVisualState('idle');
   return true;
   })();
   return loginRequestInFlight;
