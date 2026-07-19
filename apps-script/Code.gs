@@ -49,18 +49,19 @@ function doGet(e) {
 }
 
 function buildDashboardData_(session) {
-  const rows = getTaskRows_();
-  const approvals = getApprovalRows_();
-  const approvalChain = getRegisterRows_(KAG_CONFIG.approvalChainSheetName, getApprovalChainHeaders_());
-  const escalationChain = getRegisterRows_(KAG_CONFIG.escalationChainSheetName, getEscalationChainHeaders_());
-  const escalations = deduplicateEscalationsById_(getExistingEscalationRows_());
-  const riskGovernance = getRegisterRows_(KAG_CONFIG.riskGovernanceSheetName, getRiskGovernanceHeaders_());
-  const assignments = getAssignmentRows_();
-  const meetings = getRegisterRows_(KAG_CONFIG.meetingsSheetName, getMeetingHeaders_());
-  const commitments = getRegisterRows_(KAG_CONFIG.commitmentsSheetName, getCommitmentHeaders_());
-  const files = getRegisterRows_(KAG_CONFIG.filesSheetName, getFileHeaders_());
-  const urgentTasks = getUrgentTaskRows_();
-  const decisions = getDecisionRows_();
+  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const rows = getTaskRows_(ss);
+  const approvals = getApprovalRows_(ss);
+  const approvalChain = getExistingRegisterRows_(ss, KAG_CONFIG.approvalChainSheetName);
+  const escalationChain = getExistingRegisterRows_(ss, KAG_CONFIG.escalationChainSheetName);
+  const escalations = deduplicateEscalationsById_(getExistingEscalationRows_(ss));
+  const riskGovernance = getExistingRegisterRows_(ss, KAG_CONFIG.riskGovernanceSheetName);
+  const assignments = getAssignmentRows_(ss);
+  const meetings = getExistingRegisterRows_(ss, KAG_CONFIG.meetingsSheetName);
+  const commitments = getExistingRegisterRows_(ss, KAG_CONFIG.commitmentsSheetName);
+  const files = getExistingRegisterRows_(ss, KAG_CONFIG.filesSheetName);
+  const urgentTasks = getUrgentTaskRows_(ss);
+  const decisions = getDecisionRows_(ss);
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -337,8 +338,8 @@ function isTestOrSyntheticRecord_(row) {
   return exact || testToken;
 }
 
-function getTaskRows_() {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+function getTaskRows_(ss) {
+  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   const sheet = findTaskSheet_(ss);
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
@@ -686,13 +687,13 @@ function parseBool_(value) {
   return String(value || '').toLowerCase() === 'true' || String(value || '') === '1' || String(value || '').toLowerCase() === 'yes';
 }
 
-function getUrgentTaskSheet_() {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+function getUrgentTaskSheet_(ss) {
+  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   return ss.getSheetByName(KAG_CONFIG.urgentTasksSheetName);
 }
 
-function getUrgentTaskRows_() {
-  const sheet = getUrgentTaskSheet_();
+function getUrgentTaskRows_(ss) {
+  const sheet = getUrgentTaskSheet_(ss);
   if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
@@ -783,7 +784,8 @@ function getDecisionLogHeaders_() {
   return ['decision_id', 'title', 'description', 'decision_owner', 'decision_date', 'status', 'affected_tasks', 'affected_paths', 'official_reference', 'execution_date', 'follow_up_owner', 'created_at', 'updated_at'];
 }
 
-function getDecisionRows_() {
+function getDecisionRows_(ss) {
+  if (ss) return getExistingRegisterRows_(ss, KAG_CONFIG.decisionLogSheetName);
   return getRegisterRows_(KAG_CONFIG.decisionLogSheetName, getDecisionLogHeaders_());
 }
 
@@ -818,8 +820,8 @@ function ensureSheetColumns_(sheet, requiredHeaders) {
   });
 }
 
-function getExistingEscalationRows_() {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+function getExistingEscalationRows_(ss) {
+  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   for (var i = 0; i < KAG_CONFIG.escalationRegisterSheetNames.length; i++) {
     const name = KAG_CONFIG.escalationRegisterSheetNames[i];
     const sheet = ss.getSheetByName(name);
@@ -865,6 +867,13 @@ function escalationSortValue_(record) {
   return Number(record.row_number || 0);
 }
 
+function getExistingRegisterRows_(ss, sheetName) {
+  // data_sync must be read-only: Apps Script / Google Sheets remains the source of truth.
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return [];
+  return readRegisterRowsFromSheet_(sheet, sheetName);
+}
+
 function getRegisterRows_(sheetName, expectedHeaders) {
   const sheet = ensureRegisterSheet_(sheetName, expectedHeaders);
   return readRegisterRowsFromSheet_(sheet, sheetName);
@@ -893,8 +902,9 @@ function nextRegisterId_(sheet, prefix) {
   return prefix + '-' + String(nextNumber).padStart(3, '0');
 }
 
-function getAssignmentRows_() {
-  const sheet = ensureAssignmentSheet_();
+function getAssignmentRows_(ss) {
+  const sheet = ss ? ss.getSheetByName(KAG_CONFIG.assignmentsSheetName) : ensureAssignmentSheet_();
+  if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
 
@@ -1020,8 +1030,9 @@ function nextAssignmentId_(sheet) {
   return 'ASG-' + String(nextNumber).padStart(3, '0');
 }
 
-function getApprovalRows_() {
-  const sheet = ensureApprovalSheet_();
+function getApprovalRows_(ss) {
+  const sheet = ss ? ss.getSheetByName(KAG_CONFIG.approvalsSheetName) : ensureApprovalSheet_();
+  if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
 
