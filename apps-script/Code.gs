@@ -30,6 +30,7 @@ const KAG_CONFIG = {
   meetingsSheetName: 'Meetings Register',
   commitmentsSheetName: 'Commitments Log',
   filesSheetName: 'File Control Register',
+  urgentTasksSheetName: 'Urgent Task',
   auditSheetName: 'Audit Log',
   maxSlackItems: 8,
   sessionTtlSeconds: 6 * 60 * 60
@@ -54,6 +55,7 @@ function buildDashboardData_(session) {
   const meetings = getRegisterRows_(KAG_CONFIG.meetingsSheetName, getMeetingHeaders_());
   const commitments = getRegisterRows_(KAG_CONFIG.commitmentsSheetName, getCommitmentHeaders_());
   const files = getRegisterRows_(KAG_CONFIG.filesSheetName, getFileHeaders_());
+  const urgentTasks = getUrgentTaskRows_();
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -66,7 +68,8 @@ function buildDashboardData_(session) {
     assignments: assignments,
     meetings: meetings,
     commitments: commitments,
-    files: files
+    files: files,
+    urgent_tasks: urgentTasks
   };
 }
 
@@ -168,6 +171,12 @@ function installKagTriggers() {
     .nearMinute(45)
     .create();
 
+  ScriptApp.newTrigger('sendUrgentTaskNotifications')
+    .timeBased()
+    .inTimezone(KAG_CONFIG.timezone)
+    .everyMinutes(5)
+    .create();
+
   sendSlack_('تم تفعيل ربط لوحة KAG مع Slack وجدولة تذكيرات التحديث اليومية.');
 }
 
@@ -175,7 +184,8 @@ function removeKagTriggers_() {
   const names = [
     'sendNoonUpdateRequest',
     'sendEveningUpdateRequest',
-    'sendExecutiveEndOfDaySummary'
+    'sendExecutiveEndOfDaySummary',
+    'sendUrgentTaskNotifications'
   ];
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
     if (names.indexOf(trigger.getHandlerFunction()) !== -1) {
@@ -636,6 +646,98 @@ function hashPassword_(password, salt) {
 
 function parseBool_(value) {
   return String(value || '').toLowerCase() === 'true' || String(value || '') === '1' || String(value || '').toLowerCase() === 'yes';
+}
+
+function getUrgentTaskSheet_() {
+  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  return ss.getSheetByName(KAG_CONFIG.urgentTasksSheetName);
+}
+
+function getUrgentTaskRows_() {
+  const sheet = getUrgentTaskSheet_();
+  if (!sheet) return [];
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values[0].map(function(h) { return normalizeHeader_(h); });
+  return values.slice(1).filter(function(row) {
+    return row.some(function(cell) { return String(cell || '').trim() !== ''; });
+  }).map(function(row, index) {
+    const item = {};
+    headers.forEach(function(header, col) {
+      item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
+    });
+    item.row_number = index + 2;
+    return item;
+  });
+}
+
+function sendUrgentTaskNotifications() {
+  const sheet = getUrgentTaskSheet_();
+  if (!sheet) return;
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return;
+  const headers = values[0].map(function(h) { return normalizeHeader_(h); });
+  const notifyCol = headers.indexOf(normalizeHeader_('إرسال الإشعار'));
+  const emailCol = headers.indexOf(normalizeHeader_('البريد الإلكتروني'));
+  if (notifyCol === -1 || emailCol === -1) return;
+
+  requireSupportSender_();
+
+  for (var r = 1; r < values.length; r++) {
+    const notifyValue = String(values[r][notifyCol] || '').trim();
+    if (notifyValue !== 'نعم') continue;
+    const task = urgentTaskFromRow_(headers, values[r], r + 1);
+    if (!task.email) continue;
+    sendUrgentTaskEmail_(task);
+    sheet.getRange(r + 1, notifyCol + 1).setValue('تم الإرسال');
+  }
+}
+
+function urgentTaskFromRow_(headers, row, rowNumber) {
+  const item = { row_number: rowNumber };
+  headers.forEach(function(header, col) {
+    item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
+  });
+  return {
+    id: item.id || '',
+    task: item[normalizeHeader_('المهمة')] || '',
+    description: item[normalizeHeader_('الوصف')] || '',
+    owner: item[normalizeHeader_('المسؤول')] || '',
+    email: item[normalizeHeader_('البريد الإلكتروني')] || '',
+    assigned_date: item[normalizeHeader_('تاريخ الإسناد')] || '',
+    due_date: item[normalizeHeader_('تاريخ الاستحقاق')] || '',
+    status: item[normalizeHeader_('الحالة')] || '',
+    notify: item[normalizeHeader_('إرسال الإشعار')] || ''
+  };
+}
+
+function sendUrgentTaskEmail_(task) {
+  const body = [
+    'السلام عليكم،',
+    '',
+    'تم إسناد مهمة مستعجلة، يرجى الاطلاع على التفاصيل التالية واتخاذ اللازم:',
+    '',
+    `اسم المهمة: ${task.task || '-'}`,
+    `الوصف: ${task.description || '-'}`,
+    `المسؤول: ${task.owner || '-'}`,
+    `تاريخ الإسناد: ${task.assigned_date || '-'}`,
+    `تاريخ الاستحقاق: ${task.due_date || '-'}`,
+    '',
+    'مع التحية،',
+    'فريق الدعم والخدمات'
+  ].join('\n');
+
+  GmailApp.sendEmail(task.email, 'تم إسناد مهمة مستعجلة', body, {
+    from: 'support.services@mayadeen.sa'
+  });
+}
+
+function requireSupportSender_() {
+  const required = 'support.services@mayadeen.sa';
+  const effective = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  const aliases = GmailApp.getAliases().map(function(alias) { return String(alias || '').toLowerCase(); });
+  if (effective === required || aliases.indexOf(required) !== -1) return;
+  throw new Error('Urgent Task email sender must be support.services@mayadeen.sa or an approved Google Workspace alias.');
 }
 
 function getCommitmentHeaders_() {
