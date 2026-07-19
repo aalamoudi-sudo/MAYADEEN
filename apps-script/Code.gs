@@ -26,6 +26,7 @@ const KAG_CONFIG = {
   approvalHistorySheetName: 'Digital Approval History',
   escalationChainSheetName: 'Escalation Chain Register',
   riskGovernanceSheetName: 'Risk Governance Register',
+  decisionLogSheetName: 'Decision Log',
   usersSheetName: 'User Access Matrix',
   assignmentsSheetName: 'PMO Task Distribution',
   meetingsSheetName: 'Meetings Register',
@@ -57,6 +58,7 @@ function buildDashboardData_(session) {
   const commitments = getRegisterRows_(KAG_CONFIG.commitmentsSheetName, getCommitmentHeaders_());
   const files = getRegisterRows_(KAG_CONFIG.filesSheetName, getFileHeaders_());
   const urgentTasks = getUrgentTaskRows_();
+  const decisions = getDecisionRows_();
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -70,7 +72,8 @@ function buildDashboardData_(session) {
     meetings: meetings,
     commitments: commitments,
     files: files,
-    urgent_tasks: urgentTasks
+    urgent_tasks: urgentTasks,
+    decision_log: decisions
   };
 }
 
@@ -769,6 +772,15 @@ function requireSupportSender_() {
   const aliases = GmailApp.getAliases().map(function(alias) { return String(alias || '').toLowerCase(); });
   if (effective === required || aliases.indexOf(required) !== -1) return;
   throw new Error('Urgent Task email sender must be support.services@mayadeen.sa or an approved Google Workspace alias.');
+}
+
+
+function getDecisionLogHeaders_() {
+  return ['decision_id', 'title', 'description', 'decision_owner', 'decision_date', 'status', 'affected_tasks', 'affected_paths', 'official_reference', 'execution_date', 'follow_up_owner', 'created_at', 'updated_at'];
+}
+
+function getDecisionRows_() {
+  return getRegisterRows_(KAG_CONFIG.decisionLogSheetName, getDecisionLogHeaders_());
 }
 
 function getCommitmentHeaders_() {
