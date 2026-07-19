@@ -3304,13 +3304,13 @@ function normalizeAuditRows(data){
 function normalizeEscalationRows(data){
   const arr=Array.isArray(data)?data:(data?.escalations||data?.escalation_records||data?.rows||[]);
   return arr.map((raw,i)=>{
-    const id=String(valueOf(raw,['id','escalation_id','رقم التصعيد'])||`ESC-${String(i+1).padStart(3,'0')}`).trim();
+    const id=String(valueOf(raw,['escalation_id','ESC number','esc_number','ESC','id','رقم التصعيد'])||'').trim();
     const itemId=String(valueOf(raw,['item_id','record_id','reference','العنصر المرتبط'])||'').trim();
     const itemTitle=String(valueOf(raw,['item_title','title','العنوان'])||'').trim();
     const itemType=String(valueOf(raw,['item_type','type','نوع العنصر'])||'مهمة').trim();
     const from=String(valueOf(raw,['from','original_owner','person','الشخص المسؤول الأصلي'])||'').trim();
     const to=String(valueOf(raw,['to','escalated_to','recipient','الشخص المصعد إليه'])||'').trim();
-    const createdAt=isoDate(valueOf(raw,['created_at','createdAt','تاريخ التصعيد']))||futureDate(0);
+    const createdAt=isoDate(valueOf(raw,['created_at','createdAt','escalated_at','تاريخ التصعيد']))||'';
     const reason=String(valueOf(raw,['reason','سبب التصعيد'])||'').trim();
     const level=String(valueOf(raw,['level','مستوى التصعيد'])||'Level 1').trim();
     const status=String(valueOf(raw,['status','حالة التصعيد'])||'نشط').trim();
@@ -3321,10 +3321,33 @@ function normalizeEscalationRows(data){
     const center=String(valueOf(raw,['center','module','المركز'])||'مركز القيادة').trim();
     const severity=String(valueOf(raw,['severity','risk','الخطورة'])||'متوسط').trim();
     const history=String(valueOf(raw,['history','movement_log','سجل الحركة'])||'').split(/\n|;/).map(x=>x.trim()).filter(Boolean);
-    if(!itemTitle&&!itemId) return null;
-    return {id,itemId,itemTitle,itemType,from,to,createdAt,reason,level,status,slaHours,lastReply,decisionNeeded,attachments,history,center,severity};
+    const updatedAt=isoDate(valueOf(raw,['updated_at','updated','last_update','تاريخ آخر تحديث']))||createdAt;
+    const closedAt=isoDate(valueOf(raw,['closed_at','closed','تاريخ الإغلاق']))||'';
+    const officialReference=String(valueOf(raw,['official_reference','reference_number','reference','المرجع الرسمي'])||'').trim();
+    if(!id||(!itemTitle&&!itemId)) return null;
+    const documentedStatus=(level==='Level 4'||status==='حرج'||status==='مغلق')&&!officialReference?'بانتظار التوثيق الرسمي':status;
+    return {id,itemId,itemTitle,itemType,from,to,createdAt,updatedAt,closedAt,officialReference,reason,level,status:documentedStatus,slaHours,lastReply,decisionNeeded,attachments,history,center,severity,rowNumber:Number(valueOf(raw,['row_number'])||i+2)};
   }).filter(Boolean);
 }
+
+function deduplicateEscalationsById(records){
+  const byId=new Map();
+  (records||[]).filter(r=>!isTestOrSyntheticRecord_(r)).forEach(r=>{
+    const id=String(r.id||'').trim();
+    if(!id) return;
+    const prev=byId.get(id);
+    const score=x=>{
+      const dt=d(x.updatedAt)||d(x.createdAt);
+      return dt?dt.getTime():Number(x.rowNumber||0);
+    };
+    if(!prev||score(r)>=score(prev)) byId.set(id,r);
+  });
+  return [...byId.values()].sort((a,b)=>{
+    const ad=(d(a.updatedAt)||d(a.createdAt)); const bd=(d(b.updatedAt)||d(b.createdAt));
+    return (bd?bd.getTime():Number(b.rowNumber||0))-(ad?ad.getTime():Number(a.rowNumber||0));
+  });
+}
+
 function normalizeEvidenceRows(data){
   const arr=Array.isArray(data)?data:(data?.evidence||data?.evidence_records||data?.rows||[]);
   return arr.map((raw,i)=>{
@@ -3524,7 +3547,6 @@ function persistOperationalData(){
     localStorage.setItem('kag_cached_permits',JSON.stringify(permitsRegister));
     localStorage.setItem('kag_cached_change_orders',JSON.stringify(changeOrders));
     localStorage.setItem('kag_cached_audit_log',JSON.stringify(auditLog));
-    localStorage.setItem('kag_cached_escalations',JSON.stringify(escalationRecords));
     localStorage.setItem('kag_cached_evidence',JSON.stringify(evidenceRecords));
     localStorage.setItem('kag_cached_approval_history',JSON.stringify(approvalHistoryRecords));
     localStorage.setItem('kag_cached_version_history',JSON.stringify(versionHistoryRecords));
@@ -3538,7 +3560,7 @@ function initOperationalDataFromCache(){
   permitsRegister=normalizePermitRows(storageArray('kag_cached_permits',DEFAULT_PERMITS));
   changeOrders=normalizeChangeOrderRows(storageArray('kag_cached_change_orders',DEFAULT_CHANGE_ORDERS));
   auditLog=normalizeAuditRows(storageArray('kag_cached_audit_log',DEFAULT_AUDIT_LOG));
-  escalationRecords=normalizeEscalationRows(storageArray('kag_cached_escalations',DEFAULT_ESCALATIONS));
+  escalationRecords=[]; // التصعيدات الرسمية لا تُستعاد من cache أو fallback؛ تُقرأ فقط من data_sync.
   evidenceRecords=normalizeEvidenceRows(storageArray('kag_cached_evidence',DEFAULT_EVIDENCE_RECORDS));
   approvalHistoryRecords=normalizeApprovalHistoryRows(storageArray('kag_cached_approval_history',DEFAULT_APPROVAL_HISTORY));
   versionHistoryRecords=normalizeVersionHistoryRows(storageArray('kag_cached_version_history',DEFAULT_VERSION_HISTORY));
@@ -3630,11 +3652,11 @@ function runAutomationEngine(){
     const closed=['استلام أو إغلاق الطلب','أرشفة','مغلق'].includes(r.status);
     if(!closed&&r.stageDue&&daysBetween(today,r.stageDue)<0){
       addAuditEvent('مركز المشتريات',r.id,'تنبيه تأخر طلب شراء',`${r.title} تجاوز مدة المرحلة الحالية: ${r.status}.`,'#ff4d6a',`proc-delay-${r.id}-${r.status}`);
-      maybeCreateEscalation('procurement',r,'تأخر طلب شراء','Level 2');
+      // لا إنشاء تصعيد افتراضي من طلب شراء متأخر؛ يكتفى بالتنبيه.
     }
     if(!closed&&(!r.attachment||!r.supplier)){
       addAuditEvent('مركز المشتريات',r.id,'تنبيه نقص بيانات',`${r.title} يحتاج استكمال المورد أو المرفقات قبل الاعتماد.`,'#f5b800',`proc-missing-${r.id}`);
-      maybeCreateEscalation('procurement',r,'نقص مستندات','Level 1');
+      // لا إنشاء تصعيد افتراضي من نقص مستندات؛ يكتفى بالتنبيه.
     }
   });
   permitsRegister.forEach(r=>{
@@ -3642,18 +3664,18 @@ function runAutomationEngine(){
     if(r.status==='نشط'&&days>=0&&days<=14) addAuditEvent('مركز التصاريح',r.id,'تنبيه قرب انتهاء تصريح',`${r.subject||r.party} ينتهي خلال ${days} يوم.`,'#f5b800',`permit-expiry-${r.id}`);
     if(r.status==='نشط'&&days<0){
       addAuditEvent('مركز التصاريح',r.id,'تنبيه تصريح منتهي',`${r.subject||r.party} انتهت صلاحيته ويحتاج إغلاق أو تجديد.`,'#ff4d6a',`permit-expired-${r.id}`);
-      maybeCreateEscalation('permit',r,'تصريح متأخر أو منتهي','Level 2');
+      // لا إنشاء تصعيد افتراضي من تصريح منتهي؛ يكتفى بالتنبيه.
     }
     if(r.stageDue&&daysBetween(today,r.stageDue)<0&&!['منتهي','ملغى','مرفوض'].includes(r.status)){
       addAuditEvent('مركز التصاريح',r.id,'تصعيد تجاوز مدة مرحلة',`${r.id} تجاوز مدة المرحلة الحالية: ${r.stage}.`,'#ff8c42',`permit-stage-${r.id}-${r.stage}`);
-      maybeCreateEscalation('permit',r,'تصريح متأخر','Level 2');
+      // لا إنشاء تصعيد افتراضي من SLA متأخر؛ يكتفى بالتنبيه.
     }
   });
   changeOrders.forEach(r=>{
     r.requester=changeOrderAuthorityName(r.requester,'المشرف العام');
     if(['حرج','مرتفع'].includes(r.risk)&&!['مرفوض','مغلق','معتمد'].includes(r.status)){
       addAuditEvent('أوامر التغيير',r.id,'تنبيه أمر تغيير عالي الخطورة',`${r.title} بمستوى خطورة ${r.risk} ويحتاج متابعة بين المشرف العام ومالك المشروع فقط.`,'#ff4d6a',`co-risk-${r.id}`);
-      maybeCreateEscalation('changeOrder',r,'أمر تغيير عالي الخطورة','Level 4');
+      // لا إنشاء تصعيد افتراضي من أمر تغيير عالي الخطورة؛ يكتفى بالتنبيه.
     }
     if(r.stageDue&&daysBetween(today,r.stageDue)<0&&!['مرفوض','مغلق'].includes(r.status)) addAuditEvent('أوامر التغيير',r.id,'تصعيد تجاوز مدة مرحلة',`${r.id} تجاوز مدة المرحلة الحالية: ${r.stage}.`,'#ff8c42',`co-stage-${r.id}-${r.stage}`);
   });
@@ -3663,8 +3685,7 @@ function runAutomationEngine(){
   runSupplierEscalationAutomation();
   persistOperationalData();
 }
-// تصعيد بلاغات/مخالفات الموردين تلقائياً بنفس آلية التصعيد الحالية (maybeCreateEscalation +
-// transferEscalation) دون إنشاء أي نظام جديد. الأسماء ومدة الـ SLA تُقرأ من Suppliers Register.
+// تنبيهات بلاغات/مخالفات الموردين دون إنشاء تصعيد رسمي افتراضي. التصعيد الرسمي يُقرأ من سجل التصعيدات الفعلي فقط.
 function runSupplierEscalationAutomation(){
   const cfg=supplierOwnershipConfig();
   if(!cfg.responsibleOwner||!cfg.escalationManager) return; // ينتظر تعبئة الشيت بأسماء المسؤولين
@@ -3683,7 +3704,7 @@ function runSupplierEscalationAutomation(){
     if(normalizeArabic(item.owner)!==normalizeArabic(cfg.responsibleOwner)) return;
     const elapsedHours=elapsedHoursSince(item.createdAtIso||item.createdAt);
     if(elapsedHours>=0&&elapsedHours>=cfg.slaHoursOwner){
-      maybeCreateEscalation('issue',item,'عدم تجاوب المسؤول عن بلاغ مورد خلال مدة الـ SLA','Level 1');
+      addAuditEvent('مركز البلاغات',item.id,'تنبيه SLA بلاغ مورد',`${item.title||item.id} تجاوز مدة استجابة المسؤول دون إنشاء تصعيد افتراضي.`,'#ff8c42',`supplier-issue-sla-${item.id}`);
     }
   });
   // 2) تصعيد بلاغ مورد بانتظار مدير التصعيد (عبدالله) تجاوز مدة الـ SLA الخاصة به => تحويل للمستوى التالي
@@ -3828,7 +3849,7 @@ function escalationSlaState(e){
   const remaining=(Number(e.slaHours)||12)-elapsed;
   return {elapsed,remaining,late:remaining<0?Math.abs(remaining):0};
 }
-function activeEscalations(){return escalationRecords.filter(e=>!['مغلق','مغلق نهائياً'].includes(e.status));}
+function activeEscalations(){return deduplicateEscalationsById(escalationRecords).filter(e=>!['مغلق','مغلق نهائياً','بانتظار التوثيق الرسمي'].includes(e.status));}
 function findEscalationItem(type,id){
   if(type==='task') return rows.find(x=>x.code===id);
   if(type==='procurement') return procurementRequests.find(x=>x.id===id);
@@ -3872,6 +3893,8 @@ async function syncEscalationUpdate(record){
   }catch(e){ console.warn('Escalation update sync failed:',e); }
 }
 function maybeCreateEscalation(type,item,reason,level='Level 1'){
+  // التصعيد الرسمي لا يُنشأ افتراضياً من مهام/مخاطر/اعتمادات/SLA؛ يُقرأ فقط من سجل التصعيدات الفعلي.
+  return null;
   if(!item) return null;
   const itemId=item.id||item.code||item.change_order_id||item.permit_id||item.request_id;
   if(!itemId) return null;
@@ -4949,7 +4972,7 @@ async function loadExternal(initial=true){
       permitsRegister=normalizedPermits.filter(r=>!isTestOrSyntheticRecord_(r));
       changeOrders=normalizedChangeOrders.filter(r=>!isTestOrSyntheticRecord_(r));
       if(normalizedAudit.length) auditLog=normalizedAudit;
-      escalationRecords=normalizedEscalations.filter(r=>!isTestOrSyntheticRecord_(r));
+      escalationRecords=deduplicateEscalationsById(normalizedEscalations);
       // الأدلة وسجل الإصدارات وسجل اعتمادات الوثائق أصبحوا مرتبطين فعلياً بالشيت،
       // لذا يُستبدلوا بالكامل بكل مزامنة (حتى لو رجعوا فارغين) بدل الإبقاء على بيانات قديمة.
       evidenceRecords=normalizedEvidence.filter(r=>!isTestOrSyntheticRecord_(r));
@@ -5956,22 +5979,26 @@ function _buildRisksData(){
 }
 
 function _buildRiskTrendDataFromRegister(risks){
+  const severityWeight={"منخفض":1,"متوسط":2,"مرتفع":3,"حرج":4};
   const datedRisks=(risks||[]).filter(r=>d(r.discovered)||d(r.updated));
-  if(!datedRisks.length) return null;
-  const labels=[],data=[];
+  const uniqueDays=[...new Set(datedRisks.map(r=>isoDate(r.discovered)||isoDate(r.updated)).filter(Boolean))];
+  if(datedRisks.length<1||uniqueDays.length<2) return null;
+  const labels=[],data=[],weighted=[];
   for(let i=29;i>=0;i--){
     const dt=new Date(TODAY-i*86400000);
     const dayEnd=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate(),23,59,59,999);
     labels.push(i===0?'اليوم':i===7?'−7':i===14?'−14':i===21?'−21':i===29?'−30':'');
-    data.push(datedRisks.filter(r=>{
+    const openAtDay=datedRisks.filter(r=>{
       const created=d(r.discovered)||d(r.updated);
       const updated=d(r.updated)||created;
       const isCreated=created&&created<=dayEnd;
       const isClosed=String(r.status||'')==='مغلق'&&updated&&updated<=dayEnd;
       return isCreated&&!isClosed;
-    }).length);
+    });
+    data.push(openAtDay.length);
+    weighted.push(openAtDay.reduce((sum,r)=>sum+(severityWeight[r.sev]||0),0));
   }
-  return {labels,data};
+  return {labels,data,weighted};
 }
 
 function renderRisksMgmt(){
@@ -6080,11 +6107,13 @@ function renderRisksMgmt(){
         rmGrad=g;
       }catch(e){ console.warn('Gradient fallback (risk mgmt trend chart):',e); }
       _rmTrendInst=new Chart(ctx,{type:'line',data:{labels:trendSeries.labels,datasets:[{data:trendSeries.data,borderColor:'#7c5cff',backgroundColor:rmGrad,borderWidth:2.5,pointRadius:0,pointHoverRadius:6,pointHoverBackgroundColor:'#7c5cff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,fill:true,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},plugins:{legend:{display:false},tooltip:{rtl:true,backgroundColor:'rgba(15,18,35,.95)',borderColor:'rgba(124,92,255,.3)',borderWidth:1,padding:10,bodyFont:{size:12,weight:'bold'}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7a9f',font:{size:10},maxRotation:0}},y:{min:0,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7a9f',font:{size:10},precision:0}}}}});
-      const first=trendSeries.data.slice(0,7).reduce((a,b)=>a+b,0)/7, last=trendSeries.data.slice(23).reduce((a,b)=>a+b,0)/7;
-      const trend=last-first;
+      const firstCount=trendSeries.data.slice(0,7).reduce((a,b)=>a+b,0)/7, lastCount=trendSeries.data.slice(23).reduce((a,b)=>a+b,0)/7;
+      const firstSeverity=trendSeries.weighted.slice(0,7).reduce((a,b)=>a+b,0)/7, lastSeverity=trendSeries.weighted.slice(23).reduce((a,b)=>a+b,0)/7;
+      const countTrend=lastCount-firstCount, severityTrend=lastSeverity-firstSeverity;
       if(tiEl){
-        const col=trend>0?'#ff8c42':trend<0?'#10e87a':'#f5b800';
-        tiEl.textContent=trend>0?`تغير المخاطر المسجلة — زيادة بمعدل ${trend.toFixed(1)}`:trend<0?`تغير المخاطر المسجلة — انخفاض ${Math.abs(trend).toFixed(1)}`:'مستوى المخاطر المسجلة مستقر';
+        const trend=countTrend>0||severityTrend>0?'up':countTrend<0||severityTrend<0?'down':'flat';
+        const col=trend==='up'?'#ff8c42':trend==='down'?'#10e87a':'#f5b800';
+        tiEl.textContent=trend==='up'?`اتجاه المخاطر تصاعدي — زاد العدد أو الشدة`:trend==='down'?`اتجاه المخاطر تنازلي — انخفض العدد أو الشدة`:'اتجاه المخاطر مستقر';
         tiEl.style.color=col;tiEl.style.borderColor=col+'33';tiEl.style.background=`rgba(${col==='#10e87a'?'16,232,122':col==='#ff8c42'?'255,140,66':'245,184,0'},.06)`;
       }
     }
@@ -6588,7 +6617,7 @@ async function submitAssignment(){
 
 /* ══ COMMAND ENHANCEMENTS ══ */
 function buildEscalationItems(){
-  const late=tasks.filter(t=>classifyStatus(t)==='متأخرة').slice(0,6).map(t=>({type:'مهمة',title:t.name,owner:t.owner||'-',due:t.end||'-',page:'tasks',level:'حرج'}));
+  const late=[]; // لا تُحوّل المهام المتأخرة إلى عناصر تصعيد/مخاطر رسمية أو مقترحة.
   const risk=(window._rmRisks||[]).filter(r=>r.status!=='مغلق'&&(r.sev==='حرج'||r.sev==='مرتفع')).slice(0,5).map(r=>({type:'خطر',title:r.name,owner:r.owner||'بندر الهضيبة',due:r.updated||'-',page:'risksMgmt',level:r.sev}));
   const dec=(window._decPending||[]).filter(d=>d.priority==='عاجل').slice(0,4).map(d=>({type:'قرار',title:d.title,owner:d.party||'-',due:d.due||'-',page:'decisions',level:'عاجل'}));
   const app=(window._approvalsData||[]).filter(a=>approvalPressure(a)==='overdue'||approvalPressure(a)==='due_soon').slice(0,4).map(a=>({type:'اعتماد',title:a.title,owner:a.approver||'-',due:a.due||'-',page:'approvals',level:approvalPressure(a)==='overdue'?'متأخر':'قريب'}));
@@ -6597,7 +6626,7 @@ function buildEscalationItems(){
   const proc=procurementRequests.filter(p=>p.stageDue&&daysBetween(today,p.stageDue)<0&&!['استلام أو إغلاق الطلب','أرشفة','مغلق'].includes(p.status)).slice(0,4).map(p=>({type:'مشتريات',title:p.title,owner:p.owner||'-',due:p.stageDue||'-',page:'procurementCenter',level:'متأخر'}));
   const permit=permitsRegister.filter(p=>p.status==='نشط'&&p.end&&daysBetween(today,p.end)<=14).slice(0,4).map(p=>({type:'تصريح',title:p.subject||p.party,owner:p.approver||'-',due:p.end||'-',page:'permitsCenter',level:daysBetween(today,p.end)<0?'منتهي':'قريب'}));
   const co=changeOrders.filter(c=>['حرج','مرتفع'].includes(c.risk)&&!['مرفوض','مغلق'].includes(c.status)).slice(0,4).map(c=>({type:'تغيير',title:c.title,owner:changeOrderCurrentResponsible(c),due:c.stageDue||'-',page:'changeOrdersCenter',level:c.risk}));
-  return [...co,...proc,...permit,...risk,...late,...dec,...app,...asg].slice(0,24);
+  return [...co,...proc,...permit,...risk,...dec,...app,...asg].slice(0,24);
 }
 function projectHealthScore(){
   const total=Math.max(tasks.length,1);
@@ -7407,6 +7436,7 @@ function filteredEscalations(){
 function selectEscalation(id){selectedEscalationId=id;renderEscalationsCenter();}
 function renderEscalationsCenter(){
   if(!selectedEscalationId&&escalationRecords[0]) selectedEscalationId=escalationRecords[0].id;
+  escalationRecords=deduplicateEscalationsById(escalationRecords);
   const data=filteredEscalations();
   const active=activeEscalations();
   const late=active.filter(e=>escalationSlaState(e).late>0);
@@ -7435,7 +7465,7 @@ function renderEscalationsCenter(){
         <button class="escalate-btn" onclick="event.stopPropagation();updateEscalationStatus('${escapeHtml(e.id)}','مغلق')">إغلاق</button>
       </td>
     </tr>`;
-  }).join(''):'<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted)">لا توجد تصعيدات مطابقة</td></tr>';
+  }).join(''):'<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted)">لا توجد تصعيدات رسمية مسجلة حاليًا</td></tr>';
   const people=document.getElementById('esc2-people');
   if(people){
     const toCounts=topEntries(countBy(active,'to'),6);
@@ -8014,7 +8044,7 @@ function riskTriggerSuggestions(){
 function renderRiskTriggers(){
   const el=document.getElementById('risk-trigger-list'); if(!el) return;
   const items=riskTriggerSuggestions();
-  el.innerHTML=items.length?items.map(i=>`<div class="urgent-dec"><div class="urgent-dec-num">${escapeHtml(i.count)}</div><div style="flex:1"><b>${escapeHtml(i.type)}: ${escapeHtml(i.title)}</b><div style="font-size:11px;color:var(--muted);margin-top:3px">${escapeHtml(i.action)}</div></div><span class="pill red">Risk Trigger</span></div>`).join(''):'<div style="color:var(--muted);padding:18px;text-align:center">لا توجد تكرارات تستدعي خطر جديد حالياً</div>';
+  el.innerHTML=items.length?items.map(i=>`<div class="urgent-dec"><div class="urgent-dec-num">${escapeHtml(i.count)}</div><div style="flex:1"><b>${escapeHtml(i.type)}: ${escapeHtml(i.title)}</b><div style="font-size:11px;color:var(--muted);margin-top:3px">${escapeHtml(i.action)}</div></div><span class="pill red">Risk Trigger</span></div>`).join(''):'<div style="color:var(--muted);padding:18px;text-align:center">لا توجد مخاطر محتملة مقترحة حاليًا</div>';
 }
 function smartReadinessScore(){
   const m=operationalMetrics();

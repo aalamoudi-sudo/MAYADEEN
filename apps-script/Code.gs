@@ -25,6 +25,7 @@ const KAG_CONFIG = {
   approvalChainSheetName: 'Approval Chain Register',
   approvalHistorySheetName: 'Digital Approval History',
   escalationChainSheetName: 'Escalation Chain Register',
+  escalationRegisterSheetNames: ['Escalations Log', 'Escalation Register', 'Escalations Register'],
   riskGovernanceSheetName: 'Risk Governance Register',
   decisionLogSheetName: 'Decision Log',
   usersSheetName: 'User Access Matrix',
@@ -52,6 +53,7 @@ function buildDashboardData_(session) {
   const approvals = getApprovalRows_();
   const approvalChain = getRegisterRows_(KAG_CONFIG.approvalChainSheetName, getApprovalChainHeaders_());
   const escalationChain = getRegisterRows_(KAG_CONFIG.escalationChainSheetName, getEscalationChainHeaders_());
+  const escalations = deduplicateEscalationsById_(getExistingEscalationRows_());
   const riskGovernance = getRegisterRows_(KAG_CONFIG.riskGovernanceSheetName, getRiskGovernanceHeaders_());
   const assignments = getAssignmentRows_();
   const meetings = getRegisterRows_(KAG_CONFIG.meetingsSheetName, getMeetingHeaders_());
@@ -67,6 +69,7 @@ function buildDashboardData_(session) {
     approvals: approvals,
     approval_chain: approvalChain,
     escalation_chain: escalationChain,
+    escalations: escalations,
     risk_governance: riskGovernance,
     assignments: assignments,
     meetings: meetings,
@@ -444,6 +447,7 @@ function getEscalationChainHeaders_() {
   return ['level', 'title', 'owner', 'trigger', 'sla', 'next_level', 'notification_channel'];
 }
 
+
 function getRiskGovernanceHeaders_() {
   return ['risk_id', 'title', 'category', 'probability', 'impact', 'severity', 'owner', 'treatment_plan', 'escalation_level', 'status', 'due_date', 'updated_at'];
 }
@@ -814,8 +818,17 @@ function ensureSheetColumns_(sheet, requiredHeaders) {
   });
 }
 
-function getRegisterRows_(sheetName, expectedHeaders) {
-  const sheet = ensureRegisterSheet_(sheetName, expectedHeaders);
+function getExistingEscalationRows_() {
+  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  for (var i = 0; i < KAG_CONFIG.escalationRegisterSheetNames.length; i++) {
+    const name = KAG_CONFIG.escalationRegisterSheetNames[i];
+    const sheet = ss.getSheetByName(name);
+    if (sheet) return readRegisterRowsFromSheet_(sheet, name);
+  }
+  return [];
+}
+
+function readRegisterRowsFromSheet_(sheet, sheetName) {
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
   const headers = values[0].map(function(h) { return normalizeHeader_(h); });
@@ -831,6 +844,30 @@ function getRegisterRows_(sheetName, expectedHeaders) {
     item._sheet_name = sheetName;
     return item;
   }).filter(function(item) { return !isTestOrSyntheticRecord_(item); });
+}
+
+function deduplicateEscalationsById_(records) {
+  const byId = {};
+  (records || []).forEach(function(record) {
+    const id = String(record.escalation_id || record.esc_number || record.esc || record.id || '').trim();
+    if (!id) return;
+    const current = byId[id];
+    if (!current || escalationSortValue_(record) >= escalationSortValue_(current)) byId[id] = record;
+  });
+  return Object.keys(byId).map(function(id) { return byId[id]; }).sort(function(a, b) {
+    return escalationSortValue_(b) - escalationSortValue_(a);
+  });
+}
+
+function escalationSortValue_(record) {
+  const updated = new Date(record.updated_at || record.updated || record.last_update || record.created_at || record.created || '');
+  if (!isNaN(updated.getTime())) return updated.getTime();
+  return Number(record.row_number || 0);
+}
+
+function getRegisterRows_(sheetName, expectedHeaders) {
+  const sheet = ensureRegisterSheet_(sheetName, expectedHeaders);
+  return readRegisterRowsFromSheet_(sheet, sheetName);
 }
 
 function appendMeeting_(payload) {
