@@ -4950,6 +4950,10 @@ function riyadhTodayKey(){return riyadhDateKey(new Date());}
 function taskDueDateKey(task){return riyadhDateKey(task?.rawEnd||task?.end);}
 function setTaskDateFilter(value){
   taskDateFilter=['today','tomorrow'].includes(value)?value:'all';
+  if(taskDateFilter==='all'){
+    const stSel=document.getElementById('filterStatus'); if(stSel) stSel.value='';
+    ['quickFilter','overdueOnly','computedStatusFilter','taskQuickFilter'].forEach(k=>{if(k in window) window[k]='';});
+  }
   applyFilters();
 }
 function updateTaskDateFilterUI(counts){
