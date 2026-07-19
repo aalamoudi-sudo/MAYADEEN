@@ -4007,6 +4007,7 @@ function normalizeArabic(s){
 }
 const TASK_STATUS_VALUES=['مكتملة','متأخرة','قيد التنفيذ','لم تبدأ','ملغاة','غير مكتملة البيانات'];
 const TASK_FIELD_ALIASES={
+  status:['status','Status','الحالة'],
   plannedStart:['start_date','planned_start_date','baseline_start_date','start','Start Date','Planned Start Date','Baseline Start Date','تاريخ البداية','البداية'],
   plannedEnd:['end_date','planned_end_date','baseline_end_date','due_date','finish_date','end','End Date','Planned End Date','Baseline End Date','Due Date','Finish Date','تاريخ النهاية','تاريخ الانتهاء','تاريخ الاستحقاق','النهاية'],
   actualStart:['actual_start_date','actual_start','started_at','Actual Start Date','Actual Start','تاريخ البداية الفعلي','بداية فعلية'],
@@ -4015,6 +4016,19 @@ const TASK_FIELD_ALIASES={
   evidence:['evidence_link','completion_evidence','evidence','proof_link','drive_link','deliverable_link','رابط دليل الإنجاز','رابط الإنجاز','مرجع الإنجاز','رابط الملف']
 };
 function taskStatusText_(task){return normalizeArabic(String(task?.sheet_status ?? task?.status ?? '').trim().toLowerCase());}
+function normalizeTaskStatus(status){
+  const raw=String(status||'').trim();
+  const st=normalizeArabic(raw.toLowerCase());
+  const map={
+    [normalizeArabic('مكتملة')]:'مكتملة',[normalizeArabic('مكتمل')]:'مكتملة',[normalizeArabic('completed')]:'مكتملة',[normalizeArabic('done')]:'مكتملة',
+    [normalizeArabic('قيد التنفيذ')]:'قيد التنفيذ',[normalizeArabic('جاري التنفيذ')]:'قيد التنفيذ',[normalizeArabic('in progress')]:'قيد التنفيذ',[normalizeArabic('active')]:'قيد التنفيذ',
+    [normalizeArabic('لم تبدأ')]:'لم تبدأ',[normalizeArabic('لم يبدا')]:'لم تبدأ',[normalizeArabic('not started')]:'لم تبدأ',[normalizeArabic('pending')]:'لم تبدأ',
+    [normalizeArabic('ملغاة')]:'ملغاة',[normalizeArabic('ملغى')]:'ملغاة',[normalizeArabic('ملغي')]:'ملغاة',[normalizeArabic('cancelled')]:'ملغاة',[normalizeArabic('canceled')]:'ملغاة',
+    [normalizeArabic('متأخرة')]:'متأخرة',[normalizeArabic('متاخره')]:'متأخرة',[normalizeArabic('overdue')]:'متأخرة'
+  };
+  return map[st]||raw||'غير مكتملة البيانات';
+}
+function getSheetStatus(task){return task?.sheet_status ?? task?.status ?? getFirstTaskField_(task,'status') ?? '';}
 function getFirstTaskField_(task,field){return valueOf(task,TASK_FIELD_ALIASES[field]||[]);}
 function getTaskPlannedStartDate(task){return riyadhDateKey(task?.rawStart||getFirstTaskField_(task,'plannedStart')||task?.start);}
 function getTaskPlannedEndDate(task){return riyadhDateKey(task?.rawEnd||getFirstTaskField_(task,'plannedEnd')||task?.end);}
@@ -4047,12 +4061,9 @@ function isTaskRecord_(task){
   if(type&&type!==normalizeArabic('task')&&type!==normalizeArabic('مهمة')) return false;
   return true;
 }
-function isTaskCancelled(task){
-  const st=taskStatusText_(task);
-  return ['ملغاة','ملغي','ملغى','ملغاه','cancelled','canceled'].map(normalizeArabic).includes(st);
-}
+function isTaskCancelled(task){return normalizeTaskStatus(getSheetStatus(task))==='ملغاة';}
 function isTaskCancelled_(task){return isTaskCancelled(task);}
-function isTaskCompleted(task){return getTaskProgress(task)===100&&!!getTaskActualEndDate(task)&&!!getTaskEvidence(task);}
+function isTaskCompleted(task){return normalizeTaskStatus(getSheetStatus(task))==='مكتملة';}
 function isTaskCompleted_(task){return isTaskCompleted(task);}
 function dateKeyToUtcDay_(dateKey){
   const m=String(dateKey||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -4073,29 +4084,20 @@ function getTaskDelayDays(task){
 }
 function getTaskStatusReason(task){
   if(!isOfficialWbsRecord_(task)) return isTestOrSyntheticRecord_(task)?'سجل تجريبي أو غير رسمي':'ليس سجل WBS فعلي من Google Sheets';
-  if(isTaskCancelled(task)) return 'الحالة الأصلية ملغاة';
-  const reasons=[];
-  if(getTaskProgress(task)!==100) reasons.push('نسبة الإنجاز أقل من 100%');
-  if(!getTaskActualEndDate(task)) reasons.push('تاريخ النهاية الفعلي مفقود');
-  if(!getTaskEvidence(task)) reasons.push('دليل الإنجاز مفقود');
-  if(isTaskCompleted(task)) return 'مكتملة بالشروط الثلاثة';
-  if(isTaskOverdue(task)) return `تاريخ النهاية المخطط قبل اليوم (${getTaskDelayDays(task)} يوم تأخير)${reasons.length?'؛ '+reasons.join('؛ '):''}`;
-  if(getTaskActualStartDate(task)&&(getTaskProgress(task)>0&&getTaskProgress(task)<100||taskStatusText_(task))) return 'بدأت فعليًا وليست متأخرة';
+  const sheetStatus=normalizeTaskStatus(getSheetStatus(task));
+  if(sheetStatus==='مكتملة') return 'الحالة الأصلية من الشيت مكتملة ولا يعاد تصنيفها بسبب الدليل أو التاريخ الفعلي';
+  if(sheetStatus==='ملغاة') return 'الحالة الأصلية من الشيت ملغاة';
+  if(isTaskOverdue(task)) return `تاريخ النهاية المخطط قبل اليوم بتوقيت الرياض (${getTaskDelayDays(task)} يوم تأخير) والحالة الأصلية ليست مكتملة أو ملغاة`;
   if(!getTaskPlannedEndDate(task)) return 'لا يوجد تاريخ نهاية مخطط صالح';
-  if(!getTaskPlannedStartDate(task)&&!getTaskActualStartDate(task)) return 'بيانات البداية غير مكتملة';
-  return 'لم تبدأ حسب التواريخ والإنجاز';
+  return `الحالة الأصلية من الشيت: ${sheetStatus}`;
 }
 function computeTaskStatus(task){
   if(!isOfficialWbsRecord_(task)) return 'غير مكتملة البيانات';
-  if(isTaskCancelled(task)) return 'ملغاة';
-  if(isTaskCompleted(task)) return 'مكتملة';
+  const sheetStatus=normalizeTaskStatus(getSheetStatus(task));
+  if(sheetStatus==='مكتملة') return 'مكتملة';
+  if(sheetStatus==='ملغاة') return 'ملغاة';
   if(isTaskOverdue(task)) return 'متأخرة';
-  const actualStart=getTaskActualStartDate(task);
-  const plannedStart=getTaskPlannedStartDate(task);
-  const pct=getTaskProgress(task);
-  if(actualStart&&(pct>0&&pct<100||taskStatusText_(task))) return 'قيد التنفيذ';
-  if(!actualStart&&(pct===0||pct===null||pct==='')&&(plannedStart||getTaskPlannedEndDate(task))) return 'لم تبدأ';
-  return 'غير مكتملة البيانات';
+  return sheetStatus;
 }
 function classifyStatus(r){return computeTaskStatus(r);}
 function enrichComputedTaskStatuses(){[rows,tasks,milestones].forEach(list=>(list||[]).forEach(t=>{t.computed_status=computeTaskStatus(t);t.delay_days=getTaskDelayDays(t);t.status_reason=getTaskStatusReason(t);}));}
@@ -4104,10 +4106,9 @@ function logTaskStatusDiagnostics(){
   const overdue=tasks.filter(t=>computeTaskStatus(t)==='متأخرة');
   const candidates=tasks.filter(t=>getTaskPlannedEndDate(t)&&dateKeyToUtcDay_(getTaskPlannedEndDate(t))<dateKeyToUtcDay_(riyadhTodayKey()));
   const rowsDiag=candidates.map(t=>({task_code:t.code||'',task_title:t.name||'',sheet_status:t.sheet_status||'',computed_status:computeTaskStatus(t),planned_end_date:getTaskPlannedEndDate(t),actual_start_date:getTaskActualStartDate(t),actual_end_date:getTaskActualEndDate(t),progress:getTaskProgress(t),evidence:getTaskEvidence(t)||'',delay_days:getTaskDelayDays(t),reason:getTaskStatusReason(t)}));
-  console.groupCollapsed(`تشخيص حالات المهام: المتأخرة المحسوبة ${overdue.length} / المتوقع PMO 17`);
+  console.groupCollapsed(`تشخيص حالات المهام: المتأخرة المحسوبة ${overdue.length}`);
   console.table(rowsDiag);
-  if(overdue.length===17) console.info('تطابق عدد المهام المتأخرة مع مراجعة PMO (17).');
-  else console.warn(`عدد المهام المتأخرة المحسوب ${overdue.length} وليس 17؛ راجع أسباب الاستبعاد في الجدول التشخيصي.`);
+  console.info('الحالات الأصلية تقرأ من الشيت، والمتأخرة فقط حالة محسوبة من تاريخ النهاية المخطط.');
   console.groupEnd();
 }
 function completionPct(taskList){
