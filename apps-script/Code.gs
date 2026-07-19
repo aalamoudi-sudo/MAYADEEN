@@ -317,6 +317,20 @@ function notifyAssignment_(assignment) {
   sendSlack_(text);
 }
 
+function isTestOrSyntheticRecord_(row) {
+  const source = String(row.source || '').trim().toLowerCase();
+  const recordType = String(row.record_type || '').trim().toLowerCase();
+  const isTestFlag = String(row.is_test || '').trim().toUpperCase();
+  if (isTestFlag === 'TRUE') return true;
+  if (['mock', 'sample', 'demo', 'fallback'].indexOf(source) !== -1) return true;
+  if (recordType === 'test') return true;
+  if (row._source && row._source !== 'google_sheets') return true;
+  const title = String(row.title || row.name || row.task || row.approval_title || row.meeting_title || row.commitment || '').toLowerCase();
+  const exact = title.indexOf('test atheer') !== -1 || title.indexOf('تيست اخسر') !== -1;
+  const testToken = /(^|[^a-z0-9])test([^a-z0-9]|$)/i.test(title);
+  return exact || testToken;
+}
+
 function getTaskRows_() {
   const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   const sheet = findTaskSheet_(ss);
@@ -332,8 +346,10 @@ function getTaskRows_() {
       item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
     });
     item.row_number = index + 2;
+    item._source = 'google_sheets';
+    item._sheet_name = sheet.getName();
     return item;
-  });
+  }).filter(function(item) { return !isTestOrSyntheticRecord_(item); });
 }
 
 function findTaskSheet_(ss) {
@@ -799,8 +815,10 @@ function getRegisterRows_(sheetName, expectedHeaders) {
       item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
     });
     item.row_number = index + 2;
+    item._source = 'google_sheets';
+    item._sheet_name = sheetName;
     return item;
-  });
+  }).filter(function(item) { return !isTestOrSyntheticRecord_(item); });
 }
 
 function appendMeeting_(payload) {
@@ -840,8 +858,10 @@ function getAssignmentRows_() {
       item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
     });
     item.row_number = index + 2;
+    item._source = 'google_sheets';
+    item._sheet_name = KAG_CONFIG.assignmentsSheetName;
     return item;
-  });
+  }).filter(function(item) { return !isTestOrSyntheticRecord_(item); });
 }
 
 function appendAssignment_(payload) {
@@ -965,8 +985,10 @@ function getApprovalRows_() {
       item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
     });
     item.row_number = index + 2;
+    item._source = 'google_sheets';
+    item._sheet_name = KAG_CONFIG.approvalsSheetName;
     return item;
-  });
+  }).filter(function(item) { return !isTestOrSyntheticRecord_(item); });
 }
 
 function getApprovalHistoryHeaders_() {

@@ -2730,7 +2730,9 @@ select option{background:#0f1220}
 
 <script>
 const EMBEDDED={"rows":[],"pm":[],"generated":""};
-let rows=EMBEDDED.rows; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
+const NO_KPI_DATA_TEXT='لا توجد بيانات كافية لاحتساب المؤشر';
+let officialDataReady=false;
+let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
 let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords=[]; let issuesIncidents=[]; let vendorViolations=[]; let decisionLogRecords=[]; let suppliersRegister=[];
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
@@ -2882,6 +2884,20 @@ function normalizeHeaderKey_(v){
     .replace(/\s+/g,'_')
     .replace(/[^\u0600-\u06FFa-z0-9_]/g,'');
 }
+function isTestOrSyntheticRecord_(row){
+  const source=String(valueOf(row,['source','مصدر','_source'])||'').trim().toLowerCase();
+  const recordType=String(valueOf(row,['record_type','نوع_السجل'])||'').trim().toLowerCase();
+  const isTest=String(valueOf(row,['is_test','اختبار'])||'').trim().toUpperCase();
+  if(isTest==='TRUE') return true;
+  if(['mock','sample','demo','fallback'].includes(source)) return true;
+  if(recordType==='test') return true;
+  if(row&&row._source&&row._source!=='google_sheets') return true;
+  const title=String(valueOf(row,['title','name','task','approval_title','meeting_title','commitment','العنوان','الاسم','المهمة','اسم المهمة'])||'').toLowerCase();
+  return title.includes('test atheer')||title.includes('تيست اخسر')||/(^|[^a-z0-9])test([^a-z0-9]|$)/i.test(title);
+}
+function isOfficialKpiReady(){return officialDataReady&&Array.isArray(rows)&&rows.length>0;}
+function noKpiCardHtml(label,color='#7c5cff',rgb='124,92,255'){return `<div class="kpi-card" style="--kpi-color:${color};--kpi-rgb:${rgb}"><div class="kpi-value" style="font-size:16px;line-height:1.5">${NO_KPI_DATA_TEXT}</div><div class="kpi-label">${label}</div><div class="kpi-hint">Google Sheets فقط</div></div>`;}
+function noDataBoxHtml(){return `<div style="color:var(--muted);font-size:12.5px;padding:24px 20px;text-align:center;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;line-height:1.6;min-height:80px;display:flex;align-items:center;justify-content:center">${NO_KPI_DATA_TEXT}</div>`;}
 function valueOf(obj,names){
   if(!obj) return '';
   for(const n of names){
@@ -2915,11 +2931,14 @@ function normalizeRow(raw){
   let type = typeRaw || (/^\d+$/.test(code) || /Tasks/i.test(notes) ? 'Milestone' : 'Task');
   if(type==='معلم') type='Milestone'; if(type==='مهمة') type='Task';
   if(!name) return null;
-  return {type,code,name,phase,owner,start,end,rawEnd,notes,status};
+  const source=String(valueOf(raw,['source','_source'])||'google_sheets').trim();
+  const record_type=String(valueOf(raw,['record_type'])||'').trim();
+  const is_test=String(valueOf(raw,['is_test'])||'').trim();
+  return {type,code,name,phase,owner,start,end,rawEnd,notes,status,source,record_type,is_test,_source:raw._source||source};
 }
 function normalizeRows(data){
   const arr = Array.isArray(data) ? data : (data.rows||data.tasks||[]);
-  return arr.map(normalizeRow).filter(Boolean);
+  return arr.filter(r=>!isTestOrSyntheticRecord_(r)).map(normalizeRow).filter(Boolean).filter(r=>!isTestOrSyntheticRecord_(r));
 }
 function normalizeUrgentTaskRows(data){
   const arr=Array.isArray(data)?data:(data?.urgent_tasks||data?.rows||[]);
@@ -3970,7 +3989,7 @@ function completionPct(taskList){
   return Math.round((done/total)*100);
 }
 function monthName(n){return ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][n-1]}
-function initData(){tasks=rows.filter(r=>r.type==='Task'); milestones=rows.filter(r=>r.type==='Milestone'); renderAll();}
+function initData(){const clean=(Array.isArray(rows)?rows:[]).filter(r=>!isTestOrSyntheticRecord_(r)); rows=clean; tasks=clean.filter(r=>r.type==='Task'); milestones=clean.filter(r=>r.type==='Milestone'); renderAll();}
 function countBy(arr,key){return arr.reduce((a,r)=>{const k=typeof key==='function'?key(r):(r[key]||'غير محدد');a[k]=(a[k]||0)+1;return a},{})}
 function topEntries(obj,n=8){return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n)}
 // سلسلة الاعتماد وسلسلة التصعيد (الخطوات/المستويات) تُقرأ من تبويبي Approval Chain Register
@@ -4119,6 +4138,7 @@ function renderAll(){
   renderActions();
 }
 function renderKpis(){
+  if(!isOfficialKpiReady()){const el=document.getElementById('kpis'); if(el) el.innerHTML=['إجمالي المهام','معالم رئيسية','المسؤولون','مدة المشروع','مراحل المشروع'].map(x=>noKpiCardHtml(x)).join(''); return;}
   const byPhase=countBy(tasks,'phase');
   const owners=[...new Set(tasks.map(r=>r.owner).filter(Boolean))];
   const start=tasks.map(r=>d(r.start)).filter(Boolean).sort((a,b)=>a-b)[0];
@@ -4148,6 +4168,7 @@ function renderKpis(){
   if(kpiGrid) kpiGrid.style.gridTemplateColumns='repeat(5,1fr)';
 }
 function renderHealth(){
+  if(!isOfficialKpiReady()){const el=document.getElementById('health'); if(el) el.innerHTML=noDataBoxHtml(); return;}
   const pmbokPhases=['البدء','التخطيط','التنفيذ','الإغلاق'];
   const items = pmbokPhases.map(phase=>{
     const phaseTasks=tasks.filter(t=>t.phase===phase);
@@ -4687,7 +4708,7 @@ function saveApiUrl(){
   const v=document.getElementById('apiUrl').value.trim();
   if(!v){
     localStorage.removeItem('kag_api_url');
-    alert('تم تعطيل المزامنة الخارجية. ستعمل اللوحة بالبيانات المدمجة فقط.');
+    alert('تم تعطيل المزامنة الخارجية. لن تُحتسب المؤشرات حتى تصل بيانات Google Sheets الرسمية.');
     return;
   }
   try{
@@ -4713,37 +4734,16 @@ async function loadExternal(initial=true){
   const baseUrl=getConfiguredApiUrl();
   const input=document.getElementById('apiUrl'); if(input) input.value=baseUrl;
 
-  // تشغيل فوري من آخر بيانات محفوظة محلياً حتى لا تظهر الأرقام صفر عند فتح المنصة
+  // لا تُستخدم localStorage أو EMBEDDED كمصدر نهائي للمؤشرات.
   if(initial){
-    try{
-      const cached=JSON.parse(localStorage.getItem('kag_cached_rows')||'[]');
-      rows=Array.isArray(cached)&&cached.length ? cached : EMBEDDED.rows;
-      approvals=normalizeApprovalRows(JSON.parse(localStorage.getItem('kag_cached_approvals')||'[]'));
-      assignments=normalizeAssignmentRows(JSON.parse(localStorage.getItem('kag_cached_assignments')||'[]'));
-      meetings=normalizeMeetingRows(JSON.parse(localStorage.getItem('kag_cached_meetings')||'[]'));
-      commitments=normalizeCommitmentRows(JSON.parse(localStorage.getItem('kag_cached_commitments')||'[]'));
-      filesRegister=normalizeFileRows(JSON.parse(localStorage.getItem('kag_cached_files')||'[]'));
-      urgentTasksRegister=normalizeUrgentTaskRows(JSON.parse(localStorage.getItem('kag_cached_urgent_tasks')||'[]'));
-      initOperationalDataFromCache();
-    }catch(e){
-      rows=EMBEDDED.rows;
-      approvals=[];
-      assignments=[];
-      meetings=[];
-      commitments=[];
-      filesRegister=[];
-      urgentTasksRegister=[];
-      initOperationalDataFromCache();
-    }
+    rows=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[]; officialDataReady=false;
     initData();
-    // Re-render charts after DOM paint to ensure canvas is ready
-    // Render charts after DOM is fully painted
+    // Re-render charts after DOM paint; this preserves UI readiness without using cache/fallback data for KPIs.
     requestAnimationFrame(function(){
       setTimeout(function(){
         renderDonutChart();
         renderLineChart();
         renderExecutiveAdditions();
-        // Second pass in case canvas was still 0px
         setTimeout(function(){
           renderDonutChart();
           renderLineChart();
@@ -4752,9 +4752,9 @@ async function loadExternal(initial=true){
     });
     const st0=document.getElementById('sheetStatus');
     const st0t=document.getElementById('sheetStatusText');
-    if(st0t) st0t.textContent='بيانات WBS مدمجة';
-    if(st0){st0.classList.remove('loading');st0.classList.add('connected');}
-    setLastUpdate('ملف WBS', EMBEDDED.generated?new Date(EMBEDDED.generated.replace(' ','T')):new Date());
+    if(st0t) st0t.textContent='بانتظار مزامنة Google Sheets';
+    if(st0){st0.classList.remove('loading','connected','error');st0.classList.add('loading');}
+    setLastUpdate('بانتظار Google Sheets', new Date());
   }
 
   if(!baseUrl){
@@ -4798,31 +4798,32 @@ async function loadExternal(initial=true){
     const normalizedDecisionLog=normalizeDecisionRows(data.decision_log||data.decisions_log||[]);
     const normalizedSuppliers=normalizeSupplierRows(data.suppliers_register||data.suppliers||[]);
     if(normalized.length){
-      if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain;
-      if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain;
-      rows=normalized;
-      approvals=normalizedApprovals;
-      assignments=normalizedAssignments;
-      meetings=normalizedMeetings;
-      commitments=normalizedCommitments;
-      filesRegister=normalizedFiles;
-      urgentTasksRegister=normalizedUrgentTasks;
+      if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
+      if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
+      rows=normalized.filter(r=>!isTestOrSyntheticRecord_(r));
+      officialDataReady=rows.length>0;
+      approvals=normalizedApprovals.filter(r=>!isTestOrSyntheticRecord_(r));
+      assignments=normalizedAssignments.filter(r=>!isTestOrSyntheticRecord_(r));
+      meetings=normalizedMeetings.filter(r=>!isTestOrSyntheticRecord_(r));
+      commitments=normalizedCommitments.filter(r=>!isTestOrSyntheticRecord_(r));
+      filesRegister=normalizedFiles.filter(r=>!isTestOrSyntheticRecord_(r));
+      urgentTasksRegister=normalizedUrgentTasks.filter(r=>!isTestOrSyntheticRecord_(r));
       // كل هذه السجلات أصبحت مرتبطة فعلياً بالشيت، لذا تُستبدل بالكامل بكل مزامنة
       // (حتى لو رجعت فارغة) بدل الإبقاء على بيانات قديمة أو تجريبية محلياً.
-      procurementRequests=normalizedProcurements;
-      permitsRegister=normalizedPermits;
-      changeOrders=normalizedChangeOrders;
+      procurementRequests=normalizedProcurements.filter(r=>!isTestOrSyntheticRecord_(r));
+      permitsRegister=normalizedPermits.filter(r=>!isTestOrSyntheticRecord_(r));
+      changeOrders=normalizedChangeOrders.filter(r=>!isTestOrSyntheticRecord_(r));
       if(normalizedAudit.length) auditLog=normalizedAudit;
-      escalationRecords=normalizedEscalations;
+      escalationRecords=normalizedEscalations.filter(r=>!isTestOrSyntheticRecord_(r));
       // الأدلة وسجل الإصدارات وسجل اعتمادات الوثائق أصبحوا مرتبطين فعلياً بالشيت،
       // لذا يُستبدلوا بالكامل بكل مزامنة (حتى لو رجعوا فارغين) بدل الإبقاء على بيانات قديمة.
-      evidenceRecords=normalizedEvidence;
-      approvalHistoryRecords=normalizedApprovalHistory;
-      versionHistoryRecords=normalizedVersionHistory;
-      issuesIncidents=normalizedIssues;
-      suppliersRegister=normalizedSuppliers;
-      vendorViolations=normalizedViolations;
-      decisionLogRecords=normalizedDecisionLog;
+      evidenceRecords=normalizedEvidence.filter(r=>!isTestOrSyntheticRecord_(r));
+      approvalHistoryRecords=normalizedApprovalHistory.filter(r=>!isTestOrSyntheticRecord_(r));
+      versionHistoryRecords=normalizedVersionHistory.filter(r=>!isTestOrSyntheticRecord_(r));
+      issuesIncidents=normalizedIssues.filter(r=>!isTestOrSyntheticRecord_(r));
+      suppliersRegister=normalizedSuppliers.filter(r=>!isTestOrSyntheticRecord_(r));
+      vendorViolations=normalizedViolations.filter(r=>!isTestOrSyntheticRecord_(r));
+      decisionLogRecords=normalizedDecisionLog.filter(r=>!isTestOrSyntheticRecord_(r));
       ensureSupplierOwnershipProfiles();
       applySupplierOwnerDefaults();
       try{ localStorage.setItem('kag_cached_rows', JSON.stringify(rows)); localStorage.setItem('kag_cached_approvals', JSON.stringify(approvals)); localStorage.setItem('kag_cached_assignments', JSON.stringify(assignments)); localStorage.setItem('kag_cached_meetings', JSON.stringify(meetings)); localStorage.setItem('kag_cached_commitments', JSON.stringify(commitments)); localStorage.setItem('kag_cached_files', JSON.stringify(filesRegister)); localStorage.setItem('kag_cached_urgent_tasks', JSON.stringify(urgentTasksRegister)); persistOperationalData(); localStorage.setItem('kag_cached_at', new Date().toISOString()); }catch(e){}
@@ -4838,16 +4839,17 @@ async function loadExternal(initial=true){
       console.log(`⏱️ [Sync] اكتملت المعالجة الكاملة خلال ${_syncTotalMs} ms (طلب+معالجة). آخر تحديث ظاهر بالداشبورد: ${new Date().toLocaleTimeString('ar-SA')}`);
       return true;
     }
+    rows=[]; officialDataReady=false; initData();
     throw new Error('No valid rows found');
   }catch(e){
     console.warn('Google Sheet fetch failed:',e);
-    // فشل الاتصال بالـGoogle Sheet: نعرض حالة خطأ واضحة، ولا نعرض حالة "متصل" بشكل مضلل.
-    // البيانات المعروضة (إن وجدت) هي نسخة WBS مدمجة قديمة فقط للعرض الأولي، وليست بيانات حية.
+    // فشل الاتصال بالـGoogle Sheet: نعرض حالة خطأ واضحة، ولا نستخدم cache أو بيانات مدمجة لحساب المؤشرات.
     const stElE=document.getElementById('sheetStatus');
     const stTxE=document.getElementById('sheetStatusText');
-    if(stTxE) stTxE.textContent='تعذر الاتصال بالـGoogle Sheet — البيانات المعروضة قديمة';
+    if(stTxE) stTxE.textContent='تعذر الاتصال بالـGoogle Sheet — لا توجد بيانات رسمية للمؤشرات';
     if(stElE){stElE.classList.remove('loading');stElE.classList.remove('connected');stElE.classList.add('error');}
-    setLastUpdate('نسخة WBS مدمجة (غير محدثة)', EMBEDDED.generated?new Date(EMBEDDED.generated.replace(' ','T')):new Date());
+    rows=[]; officialDataReady=false; initData();
+    setLastUpdate('Google Sheets غير متاح', new Date());
     return false;
   }
 }
@@ -5436,6 +5438,7 @@ function renderUrgentTasks(){
 function renderTasksKpis(){
   const el=document.getElementById('kpis2');
   if(!el) return;
+  if(!isOfficialKpiReady()){el.innerHTML=['نسبة الإنجاز','متأخرة','لم تبدأ','قيد التنفيذ','مكتملة'].map(x=>noKpiCardHtml(x)).join(''); return;}
   const statusCount=countBy(tasks,classifyStatus);
   const done=statusCount['مكتملة']||0;
   const inprog=statusCount['قيد التنفيذ']||0;
@@ -5462,6 +5465,7 @@ function renderTasksKpis(){
 let _anCompInst=null, _anRiskInst=null;
 
 function renderAnalytics(){
+  if(!isOfficialKpiReady()){['an-smartSummary','an-completionInsight','an-riskInsight'].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML=NO_KPI_DATA_TEXT;}); return;}
   if(!tasks||!tasks.length) return;
   const today=TODAY;
   const todayStr=today.toISOString().slice(0,10);
@@ -5803,6 +5807,7 @@ function renderAnalytics(){
 let _rmTrendInst=null;
 
 function _buildRisksData(){
+  return []; // KPI الرسمي للمخاطر لا يستخدم مخاطر مولدة من WBS أو بيانات اصطناعية.
   // Risks are derived 100% dynamically from actual WBS data — no static/hardcoded risks.
   const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة');
   const today=TODAY.toISOString().slice(0,10);
@@ -6055,6 +6060,7 @@ function renderTreatmentPlan(){
 
 /* ══ DECISIONS PAGE ══ */
 function _buildDecisionsData(){
+  return {pending:[],log:(Array.isArray(decisionLogRecords)?decisionLogRecords:[]).filter(r=>!isTestOrSyntheticRecord_(r))}; // لا قرارات مولدة من المهام المتأخرة للـKPI الرسمي.
   // Decisions are derived 100% from actual WBS data (late tasks needing escalation).
   // The WBS file has no native "decisions/approvals" column, so no fabricated decisions
   // are generated — only decisions that stem directly from real overdue tasks.
@@ -7979,7 +7985,8 @@ function loadScriptOnce(url){
 }
 function reportVersionTag(){ return 'v'+new Date().toISOString().slice(0,10).replace(/-/g,'.'); }
 function buildReportData(type='daily'){
-  const readiness=smartReadinessScore();
+  const noData=!isOfficialKpiReady();
+  const readiness=noData?{score:null,label:NO_KPI_DATA_TEXT,color:'#7c5cff'}:smartReadinessScore();
   const critical=buildCommandCriticalItems();
   const vendors=vendorNames().map(vendorStats).sort((a,b)=>a.score-b.score).slice(0,5);
   const active=activeEscalations();
@@ -7988,7 +7995,7 @@ function buildReportData(type='daily'){
   const doneTasks=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
   const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة').length;
   const inProgressTasks=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ').length;
-  const completionPct=totalTasks?Math.round((doneTasks/totalTasks)*100):0;
+  const completionPct=totalTasks?Math.round((doneTasks/totalTasks)*100):null;
   const openIssues=issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length;
   const openViolations=vendorViolations.filter(v=>!['مغلق','مغلقة'].includes(v.status)).length;
   const openApprovals=(window._approvalsData||approvals||[]).filter(a=>!['معتمد','مرفوض'].includes(a.status)).length;
@@ -8002,12 +8009,12 @@ function buildReportData(type='daily'){
     generatedBy:(currentUser&&(currentUser.display_name||currentUser.username))||'مستخدم غير معروف',
     version:reportVersionTag(),
     kpis:[
-      {label:'نسبة الإنجاز',value:completionPct+'%',color:'#10e87a'},
-      {label:'إجمالي المهام',value:totalTasks,color:'#7c5cff'},
-      {label:'المهام المكتملة',value:doneTasks,color:'#3b82f6'},
-      {label:'المهام المتأخرة',value:lateTasks,color:'#ff4d6a'},
-      {label:'قيد التنفيذ',value:inProgressTasks,color:'#f5b800'},
-      {label:'جاهزية ذكية',value:readiness.score+'%',color:readiness.color},
+      {label:'نسبة الإنجاز',value:completionPct===null?NO_KPI_DATA_TEXT:completionPct+'%',color:'#10e87a'},
+      {label:'إجمالي المهام',value:noData?NO_KPI_DATA_TEXT:totalTasks,color:'#7c5cff'},
+      {label:'المهام المكتملة',value:noData?NO_KPI_DATA_TEXT:doneTasks,color:'#3b82f6'},
+      {label:'المهام المتأخرة',value:noData?NO_KPI_DATA_TEXT:lateTasks,color:'#ff4d6a'},
+      {label:'قيد التنفيذ',value:noData?NO_KPI_DATA_TEXT:inProgressTasks,color:'#f5b800'},
+      {label:'جاهزية ذكية',value:noData?NO_KPI_DATA_TEXT:readiness.score+'%',color:readiness.color},
       {label:'تصعيدات نشطة',value:active.length,color:'#ff4d6a'},
       {label:'بلاغات مفتوحة',value:openIssues,color:'#ff8c42'}
     ],
