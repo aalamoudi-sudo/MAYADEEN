@@ -23,6 +23,7 @@ const KAG_CONFIG = {
   defaultTaskSheetNames: ['Tasks', 'WBS', 'Sheet1', 'المهام', 'متابعة الملفات', 'Index'],
   approvalsSheetName: 'Approvals Register',
   approvalChainSheetName: 'Approval Chain Register',
+  approvalHistorySheetName: 'Digital Approval History',
   escalationChainSheetName: 'Escalation Chain Register',
   riskGovernanceSheetName: 'Risk Governance Register',
   usersSheetName: 'User Access Matrix',
@@ -366,7 +367,22 @@ function ensureApprovalSheet_() {
     'escalation_level',
     'notes',
     'created_at',
-    'updated_at'
+    'updated_at',
+    'reference_number',
+    'owner',
+    'follow_up_owner',
+    'version',
+    'comments_log',
+    'sent_at',
+    'resubmitted_at',
+    'response_sla_hours',
+    'response_due_at',
+    'governance_stage',
+    'client_final_approver',
+    'evidence_link',
+    'official_reference',
+    'closed_at',
+    'is_suggestion'
   ];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
@@ -955,6 +971,64 @@ function getApprovalRows_() {
   });
 }
 
+function getApprovalHistoryHeaders_() {
+  return ['approval_history_id', 'record_type', 'record_id', 'decision', 'approver', 'decision_at', 'notes', 'version'];
+}
+
+function ensureApprovalHistorySheet_() {
+  return ensureRegisterSheet_(KAG_CONFIG.approvalHistorySheetName, getApprovalHistoryHeaders_());
+}
+
+function isSuggestionApproval_(row) {
+  const marker = String([row.approval_id, row.reference_number, row.record_type, row.type, row.status, row.source, row.is_suggestion].join(' ')).trim();
+  return /^SUG/i.test(String(row.approval_id || '')) || /^SUG/i.test(String(row.reference_number || '')) || /(^|\b)SUG/i.test(marker) || String(row.is_suggestion).toUpperCase() === 'TRUE';
+}
+
+function isFinalApprovalStatus_(status) {
+  return /معتمد نهائيًا من العميل|معتمد نهائيا من العميل|final client approved/i.test(String(status || ''));
+}
+
+function hasOfficialApprovalEvidence_(row) {
+  return Boolean(String(row.evidence_link || row.official_reference || row.official_evidence || '').trim());
+}
+
+function allowedApprovalTransition_(fromStatus, toStatus) {
+  if (!toStatus || fromStatus === toStatus) return true;
+  const flow = ['مسودة', 'تم إرسال المخرج', 'تحت المراجعة الأولية', 'تحت الاعتماد الداخلي', 'معتمد داخليًا', 'بانتظار الاعتماد النهائي من العميل', 'معتمد نهائيًا من العميل', 'مغلق وموثق'];
+  if (toStatus === 'مطلوب تعديل' || toStatus === 'مرفوض') return true;
+  if (fromStatus === 'مطلوب تعديل') return toStatus === 'تم إرسال المخرج' || toStatus === 'تحت المراجعة الأولية';
+  const fromIndex = flow.indexOf(fromStatus || 'مسودة');
+  const toIndex = flow.indexOf(toStatus);
+  return fromIndex !== -1 && toIndex === fromIndex + 1;
+}
+
+function addBusinessHours_(start, hours) {
+  const result = new Date(start);
+  var remaining = Number(hours || 24);
+  while (remaining > 0) {
+    result.setHours(result.getHours() + 1);
+    const day = result.getDay();
+    const hour = result.getHours();
+    if (day !== 5 && day !== 6 && hour >= 9 && hour < 18) remaining--;
+  }
+  return result;
+}
+
+function appendApprovalHistory_(payload) {
+  const sheet = ensureApprovalHistorySheet_();
+  const nextNumber = Math.max(1, sheet.getLastRow());
+  sheet.appendRow([
+    'DAH-' + String(nextNumber).padStart(3, '0'),
+    payload.record_type || 'اعتماد رسمي',
+    payload.record_id || '',
+    payload.decision || '',
+    payload.approver || '',
+    new Date(),
+    payload.notes || '',
+    payload.version || ''
+  ]);
+}
+
 function appendApproval_(payload) {
   const sheet = ensureApprovalSheet_();
   const now = new Date();
@@ -966,30 +1040,37 @@ function appendApproval_(payload) {
     requester: payload.requester || payload.requested_by || '',
     approver: payload.approver || '',
     due_date: payload.due_date || '',
-    status: payload.status || 'مطلوب',
-    current_stage: payload.current_stage || payload.stage || 'إرسال المرجع',
-    sla_hours: payload.sla_hours || 24,
+    status: payload.status || 'مسودة',
+    current_stage: payload.current_stage || payload.stage || 'مسودة',
+    sla_hours: payload.sla_hours || payload.response_sla_hours || 24,
     escalation_level: payload.escalation_level || 'L0',
     notes: payload.notes || '',
     created_at: now,
-    updated_at: now
+    updated_at: now,
+    reference_number: payload.reference_number || payload.approval_id || '',
+    owner: payload.owner || payload.approver || '',
+    follow_up_owner: payload.follow_up_owner || payload.requester || payload.requested_by || '',
+    version: payload.version || 'v1.0',
+    comments_log: payload.comments_log || payload.notes || '',
+    sent_at: payload.sent_at || '',
+    resubmitted_at: payload.resubmitted_at || '',
+    response_sla_hours: payload.response_sla_hours || payload.sla_hours || 24,
+    response_due_at: payload.response_due_at || '',
+    governance_stage: payload.governance_stage || payload.current_stage || payload.stage || 'مسودة',
+    client_final_approver: payload.client_final_approver || '',
+    evidence_link: payload.evidence_link || '',
+    official_reference: payload.official_reference || '',
+    closed_at: payload.closed_at || '',
+    is_suggestion: payload.is_suggestion || (/^SUG/i.test(String(payload.approval_id || '')) ? 'TRUE' : 'FALSE')
   };
 
   sheet.appendRow([
-    approval.approval_id,
-    approval.linked_wbs_code,
-    approval.type,
-    approval.title,
-    approval.requester,
-    approval.approver,
-    approval.due_date,
-    approval.status,
-    approval.current_stage,
-    approval.sla_hours,
-    approval.escalation_level,
-    approval.notes,
-    approval.created_at,
-    approval.updated_at
+    approval.approval_id, approval.linked_wbs_code, approval.type, approval.title, approval.requester, approval.approver,
+    approval.due_date, approval.status, approval.current_stage, approval.sla_hours, approval.escalation_level, approval.notes,
+    approval.created_at, approval.updated_at, approval.reference_number, approval.owner, approval.follow_up_owner, approval.version,
+    approval.comments_log, approval.sent_at, approval.resubmitted_at, approval.response_sla_hours, approval.response_due_at,
+    approval.governance_stage, approval.client_final_approver, approval.evidence_link, approval.official_reference,
+    approval.closed_at, approval.is_suggestion
   ]);
 
   appendAuditLog_({
@@ -1000,6 +1081,8 @@ function appendApproval_(payload) {
     title: approval.title,
     raw_approval_id: approval.approval_id
   });
+
+  appendApprovalHistory_({ record_id: approval.approval_id, decision: approval.status, approver: approval.requester, notes: approval.notes, version: approval.version });
 
   return approval;
 }
@@ -1015,6 +1098,15 @@ function updateApproval_(payload) {
   for (var r = 1; r < values.length; r++) {
     if (String(values[r][idCol]).trim() === targetId) {
       const rowNumber = r + 1;
+      const current = {};
+      headers.forEach(function(header, col) { current[header] = normalizeCell_(values[r][col]); });
+      const nextStatus = payload.status || current.status;
+      if (!isSuggestionApproval_(current) && !allowedApprovalTransition_(current.status || 'مسودة', nextStatus)) throw new Error('Invalid approval status transition');
+      const evidenceCandidate = Object.assign({}, current, payload);
+      if (!isSuggestionApproval_(current) && isFinalApprovalStatus_(nextStatus) && !hasOfficialApprovalEvidence_(evidenceCandidate)) throw new Error('Final approval requires official email or meeting minutes evidence');
+      const now = new Date();
+      const isResubmit = nextStatus === 'تم إرسال المخرج' && current.status === 'مطلوب تعديل';
+      const sla = payload.response_sla_hours || payload.sla_hours || current.response_sla_hours || current.sla_hours || 24;
       const updates = {
         status: payload.status,
         approver: payload.approver,
@@ -1022,13 +1114,24 @@ function updateApproval_(payload) {
         sla_hours: payload.sla_hours,
         escalation_level: payload.escalation_level,
         notes: payload.notes,
-        updated_at: new Date()
+        updated_at: now,
+        governance_stage: payload.governance_stage || nextStatus,
+        evidence_link: payload.evidence_link,
+        official_reference: payload.official_reference,
+        response_sla_hours: sla,
+        response_due_at: (payload.sent_at || payload.resubmitted_at || isResubmit || nextStatus === 'بانتظار الاعتماد النهائي من العميل') ? addBusinessHours_(now, sla) : payload.response_due_at,
+        sent_at: payload.sent_at || (nextStatus === 'تم إرسال المخرج' && !current.sent_at ? now : undefined),
+        resubmitted_at: payload.resubmitted_at || (isResubmit ? now : undefined),
+        version: payload.version || (isResubmit ? 'v' + (Number(String(current.version || 'v1.0').replace(/[^0-9.]/g, '')) + 0.1).toFixed(1) : undefined),
+        comments_log: payload.comments_log || payload.notes,
+        closed_at: payload.closed_at || (nextStatus === 'مغلق وموثق' ? now : undefined)
       };
       Object.keys(updates).forEach(function(key) {
         if (updates[key] === undefined || updates[key] === '') return;
         const col = headers.indexOf(key);
         if (col !== -1) sheet.getRange(rowNumber, col + 1).setValue(updates[key]);
       });
+      appendApprovalHistory_({ record_id: targetId, decision: nextStatus, approver: payload.updated_by || payload.approver || current.approver, notes: payload.notes || '', version: updates.version || current.version });
       appendAuditLog_({
         action: 'approval_update',
         task: targetId,
@@ -1071,7 +1174,7 @@ function getCriticalTasks_() {
 
 function buildExecutiveSummary_(rows) {
   const total = rows.length;
-  const approvals = getApprovalRows_();
+  const approvals = getApprovalRows_().filter(function(row) { return !isSuggestionApproval_(row); });
   const openApprovals = approvals.filter(function(row) {
     return !String(getField_(row, ['status', 'الحالة'])).match(/معتمد|مرفوض|approved|rejected/i);
   }).length;

@@ -1844,7 +1844,7 @@ select option{background:#0f1220}
           <p>سجل مستقل للاعتمادات المطلوبة، المتأخرة، والمعتمدة للمشروع</p>
         </div>
 
-        <div class="dec-kpi-grid" id="app-kpis"></div>
+        <div class="card" style="margin-bottom:14px;border-color:rgba(16,232,122,.28)"><div class="sec-title"><h2>الاعتمادات الرسمية</h2><span>Approvals Register بعد استبعاد SUG</span></div><div class="dec-kpi-grid" id="app-kpis"></div></div>
 
         <div class="card" style="margin-bottom:14px">
           <div class="sec-title"><h2>سلسلة الاعتماد الداخلية</h2><span>ميادين فقط - بدون مالك المشروع</span></div>
@@ -1863,7 +1863,7 @@ select option{background:#0f1220}
         </div>
 
         <div class="card" style="margin-bottom:14px">
-          <div class="sec-title"><h2>سجل الاعتمادات</h2><span>مصدره Sheet مستقل باسم Approvals Register</span></div>
+          <div class="sec-title"><h2>سجل الاعتمادات الرسمية</h2><span>لا يعرض SUG ولا المقترحات</span></div>
           <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
             <input id="app-search" placeholder="ابحث في الاعتمادات..." oninput="renderApprovalTable()" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;flex:1;outline:none"/>
             <select id="app-filterStatus" onchange="renderApprovalTable()" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
@@ -1888,6 +1888,12 @@ select option{background:#0f1220}
               <tbody id="app-body"></tbody>
             </table>
           </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px;border-color:rgba(245,184,0,.28)">
+          <div class="sec-title"><h2>اعتمادات مقترحة</h2><span>SUG فقط - غير محتسبة</span></div>
+          <div style="background:rgba(245,184,0,.10);border:1px solid rgba(245,184,0,.28);border-radius:12px;padding:12px;margin:10px 0;color:#ffd166;font-size:12px;line-height:1.7">هذه السجلات مقترحة وغير معتمدة رسميًا ولا تدخل ضمن مؤشرات الاعتمادات، ولا تمثل موافقة داخلية أو موافقة عميل.</div>
+          <div style="overflow:auto;max-height:260px"><table class="data-table"><thead><tr><th>#</th><th>العنوان</th><th>النوع</th><th>المصدر</th><th>ملاحظة</th></tr></thead><tbody id="app-suggestions-body"></tbody></table></div>
         </div>
 
         <div class="card">
@@ -2949,13 +2955,21 @@ function normalizeApprovalRows(data){
     const title=String(valueOf(raw,['title','approval_title','العنوان','اسم الاعتماد'])||'').trim();
     const requester=String(valueOf(raw,['requester','requested_by','الطالب'])||'').trim();
     const approver=String(valueOf(raw,['approver','approver_name','المعتمد','جهة الاعتماد'])||'').trim();
-    const due=isoDate(valueOf(raw,['due_date','due','تاريخ الاستحقاق','الاستحقاق']));
+    const due=isoDate(valueOf(raw,['response_due_at','due_date','due','تاريخ الاستحقاق','الاستحقاق']));
     const status=String(valueOf(raw,['status','الحالة'])||'مطلوب').trim();
-    const stage=String(valueOf(raw,['stage','current_stage','مرحلة الاعتماد'])||'إرسال المرجع').trim();
+    const stage=String(valueOf(raw,['governance_stage','stage','current_stage','مرحلة الاعتماد'])||'مسودة').trim();
     const sla=String(valueOf(raw,['sla_hours','sla','مهلة الاعتماد'])||'24').trim();
-    const notes=String(valueOf(raw,['notes','ملاحظات'])||'').trim();
+    const notes=String(valueOf(raw,['comments_log','notes','ملاحظات'])||'').trim();
+    const source=String(valueOf(raw,['source','record_type'])||'sheet').trim();
+    const referenceNumber=String(valueOf(raw,['reference_number'])||id).trim();
+    const owner=String(valueOf(raw,['owner'])||approver).trim();
+    const followUpOwner=String(valueOf(raw,['follow_up_owner'])||requester).trim();
+    const version=String(valueOf(raw,['version'])||'').trim();
+    const evidenceLink=String(valueOf(raw,['evidence_link'])||'').trim();
+    const officialReference=String(valueOf(raw,['official_reference'])||'').trim();
+    const isSuggestion=/^SUG/i.test(id)||/^SUG/i.test(referenceNumber)||/^SUG/i.test(type)||/^SUG/i.test(status)||/^SUG/i.test(source)||String(valueOf(raw,['is_suggestion'])||'').toUpperCase()==='TRUE';
     if(!title) return null;
-    return {id,linked,type,title,requester,approver,due,status,stage,sla,notes};
+    return {id,linked,type,title,requester,approver,due,status,stage,sla,notes,source,referenceNumber,owner,followUpOwner,version,evidenceLink,officialReference,isSuggestion};
   }).filter(Boolean);
 }
 function normalizeAssignmentRows(data){
@@ -2965,7 +2979,7 @@ function normalizeAssignmentRows(data){
     const title=String(valueOf(raw,['title','task','task_title','المهمة','عنوان المهمة'])||'').trim();
     const owner=String(valueOf(raw,['owner','assignee','assignee_name','المسؤول','المكلف'])||'').trim();
     const email=String(valueOf(raw,['email','assignee_email','البريد','البريد الإلكتروني'])||'').trim();
-    const due=isoDate(valueOf(raw,['due_date','due','تاريخ الاستحقاق','الاستحقاق']));
+    const due=isoDate(valueOf(raw,['response_due_at','due_date','due','تاريخ الاستحقاق','الاستحقاق']));
     const priority=String(valueOf(raw,['priority','الأولوية'])||'متوسط').trim();
     const status=String(valueOf(raw,['status','الحالة'])||'مكلفة').trim();
     const details=String(valueOf(raw,['details','description','تفاصيل','مخرجات'])||'').trim();
@@ -3115,7 +3129,15 @@ function normalizeProcurementRows(data){
     const status=String(valueOf(raw,['status','stage','current_stage','الحالة','المرحلة'])||'طلب شراء جديد').trim();
     const approvalStatus=String(valueOf(raw,['approval_status','حالة الاعتماد'])||'بانتظار المراجعة').trim();
     const attachment=String(valueOf(raw,['attachment','attachments','file','المرفقات'])||'').trim();
-    const notes=String(valueOf(raw,['notes','ملاحظات'])||'').trim();
+    const notes=String(valueOf(raw,['comments_log','notes','ملاحظات'])||'').trim();
+    const source=String(valueOf(raw,['source','record_type'])||'sheet').trim();
+    const referenceNumber=String(valueOf(raw,['reference_number'])||id).trim();
+    const owner=String(valueOf(raw,['owner'])||approver).trim();
+    const followUpOwner=String(valueOf(raw,['follow_up_owner'])||requester).trim();
+    const version=String(valueOf(raw,['version'])||'').trim();
+    const evidenceLink=String(valueOf(raw,['evidence_link'])||'').trim();
+    const officialReference=String(valueOf(raw,['official_reference'])||'').trim();
+    const isSuggestion=/^SUG/i.test(id)||/^SUG/i.test(referenceNumber)||/^SUG/i.test(type)||/^SUG/i.test(status)||/^SUG/i.test(source)||String(valueOf(raw,['is_suggestion'])||'').toUpperCase()==='TRUE';
     const linkedTask=String(valueOf(raw,['linked_task','task','linked_wbs_code','المهمة المرتبطة'])||'').trim();
     const linkedZone=String(valueOf(raw,['zone','area','linked_zone','المنطقة'])||'').trim();
     const stageDue=isoDate(valueOf(raw,['stage_due','due','needed_by','تاريخ المرحلة']));
@@ -3224,7 +3246,15 @@ function normalizeEvidenceRows(data){
     const fileUrl=String(valueOf(raw,['file_url','url','link','رابط الملف'])||'').trim();
     const uploadedBy=String(valueOf(raw,['uploaded_by','uploadedBy','uploader','الشخص الرافع'])||'').trim();
     const uploadedAt=isoDate(valueOf(raw,['uploaded_at','uploadedAt','created_at','التاريخ']))||futureDate(0);
-    const notes=String(valueOf(raw,['notes','ملاحظات'])||'').trim();
+    const notes=String(valueOf(raw,['comments_log','notes','ملاحظات'])||'').trim();
+    const source=String(valueOf(raw,['source','record_type'])||'sheet').trim();
+    const referenceNumber=String(valueOf(raw,['reference_number'])||id).trim();
+    const owner=String(valueOf(raw,['owner'])||approver).trim();
+    const followUpOwner=String(valueOf(raw,['follow_up_owner'])||requester).trim();
+    const version=String(valueOf(raw,['version'])||'').trim();
+    const evidenceLink=String(valueOf(raw,['evidence_link'])||'').trim();
+    const officialReference=String(valueOf(raw,['official_reference'])||'').trim();
+    const isSuggestion=/^SUG/i.test(id)||/^SUG/i.test(referenceNumber)||/^SUG/i.test(type)||/^SUG/i.test(status)||/^SUG/i.test(source)||String(valueOf(raw,['is_suggestion'])||'').toUpperCase()==='TRUE';
     const sensitivity=String(valueOf(raw,['sensitivity','الحساسية'])||'عادي').trim();
     if(!title&&!fileUrl&&!notes) return null;
     return {id,linkedType,linkedId,title,fileType,fileUrl,uploadedBy,uploadedAt,notes,sensitivity};
@@ -3239,7 +3269,15 @@ function normalizeApprovalHistoryRows(data){
     const decision=String(valueOf(raw,['decision','قرار'])||'اعتماد').trim();
     const approver=String(valueOf(raw,['approver','approved_by','المعتمد'])||'').trim();
     const decisionAt=isoDate(valueOf(raw,['decision_at','approved_at','created_at','وقت القرار']))||futureDate(0);
-    const notes=String(valueOf(raw,['notes','ملاحظات'])||'').trim();
+    const notes=String(valueOf(raw,['comments_log','notes','ملاحظات'])||'').trim();
+    const source=String(valueOf(raw,['source','record_type'])||'sheet').trim();
+    const referenceNumber=String(valueOf(raw,['reference_number'])||id).trim();
+    const owner=String(valueOf(raw,['owner'])||approver).trim();
+    const followUpOwner=String(valueOf(raw,['follow_up_owner'])||requester).trim();
+    const version=String(valueOf(raw,['version'])||'').trim();
+    const evidenceLink=String(valueOf(raw,['evidence_link'])||'').trim();
+    const officialReference=String(valueOf(raw,['official_reference'])||'').trim();
+    const isSuggestion=/^SUG/i.test(id)||/^SUG/i.test(referenceNumber)||/^SUG/i.test(type)||/^SUG/i.test(status)||/^SUG/i.test(source)||String(valueOf(raw,['is_suggestion'])||'').toUpperCase()==='TRUE';
     const version=String(valueOf(raw,['version','النسخة'])||'v1.0').trim();
     if(!recordId&&!approver) return null;
     return {id,recordType,recordId,decision,approver,decisionAt,notes,version};
@@ -3312,7 +3350,15 @@ function normalizeSupplierRows(data){
     const escalationManager=String(valueOf(raw,['escalation_manager','مدير التصعيد'])||'').trim();
     const slaHoursOwner=Number(valueOf(raw,['sla_hours_owner','مدة SLA المسؤول']))||0;
     const slaHoursManager=Number(valueOf(raw,['sla_hours_manager','مدة SLA المدير']))||0;
-    const notes=String(valueOf(raw,['notes','ملاحظات'])||'').trim();
+    const notes=String(valueOf(raw,['comments_log','notes','ملاحظات'])||'').trim();
+    const source=String(valueOf(raw,['source','record_type'])||'sheet').trim();
+    const referenceNumber=String(valueOf(raw,['reference_number'])||id).trim();
+    const owner=String(valueOf(raw,['owner'])||approver).trim();
+    const followUpOwner=String(valueOf(raw,['follow_up_owner'])||requester).trim();
+    const version=String(valueOf(raw,['version'])||'').trim();
+    const evidenceLink=String(valueOf(raw,['evidence_link'])||'').trim();
+    const officialReference=String(valueOf(raw,['official_reference'])||'').trim();
+    const isSuggestion=/^SUG/i.test(id)||/^SUG/i.test(referenceNumber)||/^SUG/i.test(type)||/^SUG/i.test(status)||/^SUG/i.test(source)||String(valueOf(raw,['is_suggestion'])||'').toUpperCase()==='TRUE';
     if(!name) return null;
     return {id,name,category,contractStatus,contractStart,contractEnd,contactPerson,contactPhone,contactEmail,performanceScore,responsibleOwner,escalationManager,slaHoursOwner,slaHoursManager,notes};
   }).filter(Boolean);
@@ -6131,7 +6177,7 @@ function _buildApprovalsData(){
     due:a.due||'',
     status:a.status||'مطلوب',
     notes:a.notes||'',
-    source:'sheet'
+    source:a.source||'sheet', isSuggestion:!!a.isSuggestion
   }));
   if(actual.length) return actual;
 
@@ -6146,12 +6192,13 @@ function _buildApprovalsData(){
     due:t.end||'',
     status:classifyStatus(t)==='متأخرة'?'متأخر':'مطلوب',
     notes:'مقترح من WBS - يحتاج تثبيت في Approvals Register',
-    source:'suggested'
+    source:'suggested', isSuggestion:true
   }));
 }
 
 function approvalPressure(a){
-  if(a.status==='معتمد'||a.status==='مرفوض') return 'closed';
+  if(a.isSuggestion) return 'suggestion';
+  if(['معتمد نهائيًا من العميل','مغلق وموثق','معتمد','مرفوض'].includes(a.status)) return 'closed';
   const due=d(a.due);
   if(a.status==='متأخر') return 'overdue';
   if(due&&due<TODAY) return 'overdue';
@@ -6160,18 +6207,23 @@ function approvalPressure(a){
 }
 
 function renderApprovals(){
-  const data=_buildApprovalsData();
+  const allData=_buildApprovalsData();
+  const data=allData.filter(a=>!a.isSuggestion);
+  const suggestions=allData.filter(a=>a.isSuggestion);
   window._approvalsData=data;
+  window._approvalSuggestions=suggestions;
   renderChainCards('app-approvalChain',approvalChainRegister.length?approvalChainRegister:MAYADEEN_APPROVAL_CHAIN);
-  const pending=data.filter(a=>!['معتمد','مرفوض'].includes(a.status));
-  const approved=data.filter(a=>a.status==='معتمد').length;
+  const pending=data.filter(a=>!['معتمد نهائيًا من العميل','مغلق وموثق','معتمد','مرفوض'].includes(a.status));
+  const approved=data.filter(a=>['معتمد نهائيًا من العميل','معتمد'].includes(a.status)).length;
   const overdue=data.filter(a=>approvalPressure(a)==='overdue').length;
   const review=data.filter(a=>a.status==='قيد المراجعة').length;
   const kpis=[
-    {label:'إجمالي الاعتمادات',val:data.length,color:'#3b82f6'},
-    {label:'قيد المتابعة',val:pending.length,color:'#f5b800'},
+    {label:'إجمالي الاعتمادات الرسمية',val:data.length,color:'#3b82f6'},
+    {label:'تحت المراجعة/مفتوحة',val:pending.length,color:'#f5b800'},
     {label:'متأخرة',val:overdue,color:'#ff4d6a'},
-    {label:'معتمدة',val:approved,color:'#10e87a'},
+    {label:'معتمدة نهائيًا من العميل',val:approved,color:'#10e87a'},
+    {label:'مطلوب تعديل',val:data.filter(a=>a.status==='مطلوب تعديل').length,color:'#ff8c42'},
+    {label:'مغلقة وموثقة',val:data.filter(a=>a.status==='مغلق وموثق').length,color:'#a07dff'},
   ];
   const kEl=document.getElementById('app-kpis');
   if(kEl) kEl.innerHTML=kpis.map(k=>`<div class="dec-kpi" style="--dk-color:${k.color}"><div class="dk-val">${k.val}</div><div class="dk-label">${k.label}</div></div>`).join('');
@@ -6201,10 +6253,18 @@ function renderApprovals(){
   if(smEl) smEl.innerHTML=summary.map(s=>`<div class="impact-stat"><b>${escapeHtml(s.val)}</b><small>${escapeHtml(s.label)}</small></div>`).join('');
 
   renderApprovalTable();
+  renderApprovalSuggestions();
+}
+
+function renderApprovalSuggestions(){
+  const body=document.getElementById('app-suggestions-body');
+  if(!body) return;
+  const suggestions=window._approvalSuggestions||[];
+  body.innerHTML=suggestions.length?suggestions.map(a=>`<tr><td style="color:var(--muted)">${escapeHtml(a.id)}</td><td>${escapeHtml(a.title)}</td><td>${escapeHtml(a.type)}</td><td>${escapeHtml(a.source||'SUG')}</td><td>مقترح فقط وغير محتسب</td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;padding:22px;color:var(--muted)">لا توجد اعتمادات مقترحة SUG</td></tr>';
 }
 
 function renderApprovalTable(){
-  const data=window._approvalsData||[];
+  const data=(window._approvalsData||[]).filter(a=>!a.isSuggestion);
   const q=(document.getElementById('app-search')?.value||'').toLowerCase();
   const st=document.getElementById('app-filterStatus')?.value||'';
   const tp=document.getElementById('app-filterType')?.value||'';
