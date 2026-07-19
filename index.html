@@ -1850,14 +1850,23 @@ select option{background:#0f1220}
         <div class="card" id="approvalRequestFormCard" style="display:none;margin-bottom:14px;border-color:rgba(16,232,122,.28)">
           <div class="sec-title"><h2>نموذج الإدخال اليدوي</h2><span>يحفظ مباشرة في Approvals Register</span></div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:12px">
-            <input id="approval-title" placeholder="عنوان طلب الاعتماد *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
-            <input id="approval-linked" placeholder="الكود المرتبط WBS" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-reference" placeholder="الرقم المرجعي - يولد تلقائيًا" disabled style="background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--muted);font-family:inherit;outline:none"/>
+            <input id="approval-title" placeholder="عنوان الاعتماد *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
             <select id="approval-type" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option>اعتماد</option><option>مراجعة</option><option>توقيع</option><option>تعميد</option></select>
-            <input id="approval-approver" placeholder="المعتمد / جهة الاعتماد *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
-            <input id="approval-due" type="date" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
-            <input id="approval-ref" placeholder="مرجع رسمي / رابط دليل" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-linked" placeholder="كود المهمة أو المخرج المرتبط (اختياري)" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-owner" placeholder="المالك *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-follow" placeholder="مسؤول المتابعة *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <select id="approval-approver" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option value="">صاحب القرار *</option><option value="أحمد العمودي">أحمد العمودي</option><option value="أحمد المحيسن">أحمد المحيسن</option></select>
+            <input id="approval-version" value="v1.0" placeholder="الإصدار الحالي *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-sent" type="datetime-local" title="تاريخ إرسال المخرج" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <select id="approval-sla" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option value="24">24 ساعة عمل</option><option value="48">48 ساعة عمل</option></select>
+            <select id="approval-status" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option>مسودة</option><option>تم إرسال المخرج</option><option>تحت المراجعة الأولية</option><option>تحت الاعتماد الداخلي</option><option>معتمد داخليًا</option><option>بانتظار الاعتماد النهائي من العميل</option></select>
+            <input id="approval-ref" placeholder="رابط أو مرجع الإثبات الرسمي (إلزامي للاعتماد النهائي)" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
+            <input id="approval-requester" placeholder="مقدم الطلب - من الجلسة" disabled style="background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--muted);font-family:inherit;outline:none"/>
+            <input id="approval-created" placeholder="تاريخ ووقت الإنشاء - تلقائي" disabled style="background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--muted);font-family:inherit;outline:none"/>
+            <input id="approval-updated" placeholder="تاريخ آخر تحديث - تلقائي" disabled style="background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--muted);font-family:inherit;outline:none"/>
           </div>
-          <textarea id="approval-notes" placeholder="ملاحظات الطلب" style="width:100%;min-height:70px;margin-top:10px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none;resize:vertical"></textarea>
+          <textarea id="approval-notes" placeholder="سجل الملاحظات *" style="width:100%;min-height:70px;margin-top:10px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none;resize:vertical"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
             <button id="approvalSubmitBtn" class="ops-mini-btn" onclick="submitApprovalRequest()">إرسال الطلب إلى Apps Script</button>
             <button class="ops-mini-btn" onclick="toggleApprovalForm(false)" style="background:rgba(255,255,255,.05);color:var(--muted)">إغلاق النموذج</button>
@@ -1905,7 +1914,7 @@ select option{background:#0f1220}
           </div>
           <div style="overflow:auto;max-height:430px">
             <table class="data-table">
-              <thead><tr><th>#</th><th>العنوان</th><th>النوع</th><th>المرحلة</th><th>الطالب</th><th>المعتمد</th><th>الاستحقاق</th><th>الحالة</th></tr></thead>
+              <thead><tr><th>#</th><th>العنوان</th><th>النوع</th><th>المرحلة</th><th>المالك</th><th>مسؤول المتابعة</th><th>صاحب القرار</th><th>الإصدار</th><th>مهلة الرد</th><th>الاستحقاق</th><th>الحالة</th><th>التفاصيل</th></tr></thead>
               <tbody id="app-body"></tbody>
             </table>
           </div>
@@ -2767,7 +2776,7 @@ function applyPermissions(){
   if(roleEl) roleEl.textContent=currentUser.role||'User';
   if(initEl) initEl.textContent=display.trim().charAt(0)||'U';
   const addApprovalBtn=document.getElementById('addApprovalBtn');
-  if(addApprovalBtn) addApprovalBtn.style.display=canAccessPage('approvals')&&boolFlag(currentUser.can_approve)?'':'none';
+  if(addApprovalBtn) addApprovalBtn.style.display=canAccessPage('approvals')?'':'none';
 }
 
 function authPayload(payload){
@@ -5954,7 +5963,7 @@ function renderRiskRegister(){
   if(!tbody) return;
   const probLbls=['','1','2','3','4','5'];
   if(!filtered.length){
-    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">لا توجد نتائج مطابقة لمعايير البحث الحالية</td></tr>';
+    tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">لا توجد نتائج مطابقة لمعايير البحث الحالية</td></tr>';
     return;
   }
   tbody.innerHTML=filtered.map(r=>{
@@ -6191,33 +6200,27 @@ function renderDecisionTables(){
 
 /* ══ APPROVALS PAGE ══ */
 function _buildApprovalsData(){
-  const actual=(approvals||[]).map((a,i)=>({
+  return (approvals||[]).map((a,i)=>({
     id:a.id||`APP-${String(i+1).padStart(3,'0')}`,
+    referenceNumber:a.referenceNumber||a.id||'',
     linked:a.linked||'',
     type:a.type||'اعتماد',
     title:a.title||'',
     requester:a.requester||'-',
     approver:a.approver||'-',
+    owner:a.owner||'-',
+    followUpOwner:a.followUpOwner||'-',
+    version:a.version||'',
     due:a.due||'',
-    status:a.status||'مطلوب',
+    status:a.status||'مسودة',
+    stage:a.stage||a.status||'مسودة',
+    sla:a.sla||'24',
     notes:a.notes||'',
-    source:a.source||'sheet', isSuggestion:!!a.isSuggestion
-  }));
-  if(actual.length) return actual;
-
-  const approvalWords=/اعتماد|تعميد|موافقة|مراجعة|توقيع|عقد|عقود/;
-  return tasks.filter(t=>approvalWords.test(t.name||'')).slice(0,20).map((t,i)=>({
-    id:`SUG-${String(i+1).padStart(3,'0')}`,
-    linked:t.code,
-    type:/توقيع|عقد|عقود/.test(t.name)?'توقيع':/مراجعة/.test(t.name)?'مراجعة':/تعميد/.test(t.name)?'تعميد':'اعتماد',
-    title:t.name,
-    requester:t.owner||'PMO',
-    approver:'يحدد في شيت الاعتمادات',
-    due:t.end||'',
-    status:classifyStatus(t)==='متأخرة'?'متأخر':'مطلوب',
-    notes:'مقترح من WBS - يحتاج تثبيت في Approvals Register',
-    source:'suggested', isSuggestion:true
-  }));
+    source:a.source||'sheet',
+    evidenceLink:a.evidenceLink||'',
+    officialReference:a.officialReference||'',
+    isSuggestion:!!a.isSuggestion
+  })).filter(a=>a.title);
 }
 
 function approvalPressure(a){
@@ -6290,31 +6293,50 @@ function renderApprovalSuggestions(){
 function toggleApprovalForm(show){
   const card=document.getElementById('approvalRequestFormCard');
   if(!card) return;
-  if(show&&!boolFlag(currentUser.can_approve)){alert('ليست لديك صلاحية إضافة طلب اعتماد.');return;}
+  if(show){
+    const now=new Date();
+    const ref=document.getElementById('approval-reference'); if(ref) ref.value='APP-' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + String(now.getTime()).slice(-6);
+    const requester=document.getElementById('approval-requester'); if(requester) requester.value=currentUser.display_name||currentUser.username||'';
+    const created=document.getElementById('approval-created'); if(created) created.value=now.toLocaleString('ar-SA');
+    const updated=document.getElementById('approval-updated'); if(updated) updated.value=now.toLocaleString('ar-SA');
+    const sent=document.getElementById('approval-sent'); if(sent&&!sent.value) sent.value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  }
   card.style.display=show?'block':'none';
 }
 
 async function submitApprovalRequest(){
-  if(!boolFlag(currentUser.can_approve)){alert('ليست لديك صلاحية إضافة طلب اعتماد.');return;}
   const baseUrl=getConfiguredApiUrl();
   const statusEl=document.getElementById('approval-form-status');
   const btn=document.getElementById('approvalSubmitBtn');
   const title=(document.getElementById('approval-title')?.value||'').trim();
   const approver=(document.getElementById('approval-approver')?.value||'').trim();
+  const owner=(document.getElementById('approval-owner')?.value||'').trim();
+  const follow=(document.getElementById('approval-follow')?.value||'').trim();
+  const version=(document.getElementById('approval-version')?.value||'').trim();
+  const sentAt=(document.getElementById('approval-sent')?.value||'').trim();
+  const notes=(document.getElementById('approval-notes')?.value||'').trim();
   if(!baseUrl){alert('رابط Apps Script غير مضبوط.');return;}
-  if(!title||!approver){alert('أدخل عنوان طلب الاعتماد وجهة الاعتماد.');return;}
+  if(!title||!approver||!owner||!follow||!version||!sentAt||!notes){alert('أكمل حقول الاعتماد الإلزامية.');return;}
+  const status=(document.getElementById('approval-status')?.value||'مسودة').trim();
+  const evidence=(document.getElementById('approval-ref')?.value||'').trim();
+  if(status==='معتمد نهائيًا من العميل'&&!evidence){alert('الاعتماد النهائي يتطلب إثباتًا رسميًا.');return;}
   const payload={
     action:'approval_request',
+    reference_number:(document.getElementById('approval-reference')?.value||'').trim(),
     title,
     linked_wbs_code:(document.getElementById('approval-linked')?.value||'').trim(),
     type:(document.getElementById('approval-type')?.value||'اعتماد').trim(),
-    requester:currentUser.display_name||currentUser.username||'PMO',
+    owner,
+    follow_up_owner:follow,
     approver,
-    due_date:(document.getElementById('approval-due')?.value||'').trim(),
-    status:'مطلوب',
-    current_stage:'طلب اعتماد',
-    notes:(document.getElementById('approval-notes')?.value||'').trim(),
-    official_reference:(document.getElementById('approval-ref')?.value||'').trim(),
+    version,
+    sent_at:sentAt,
+    response_sla_hours:Number(document.getElementById('approval-sla')?.value||24),
+    status,
+    governance_stage:status,
+    comments_log:notes,
+    notes,
+    official_reference:evidence,
     is_suggestion:'FALSE'
   };
   if(btn) btn.disabled=true;
@@ -6323,13 +6345,14 @@ async function submitApprovalRequest(){
     const res=await postApi(baseUrl,payload);
     const data=await res.json();
     if(!res.ok||!data.ok) throw new Error(data.error||'approval request failed');
+    if(Array.isArray(data.approvals)){ approvals=normalizeApprovalRows(data.approvals); initData(); }
     if(statusEl) statusEl.textContent='تم حفظ الطلب في Approvals Register.';
-    ['approval-title','approval-linked','approval-approver','approval-due','approval-ref','approval-notes'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+    ['approval-title','approval-linked','approval-owner','approval-follow','approval-version','approval-ref','approval-notes'].forEach(id=>{const el=document.getElementById(id); if(el) el.value=id==='approval-version'?'v1.0':'';});
     toggleApprovalForm(false);
     await loadExternal(false);
   }catch(e){
     console.warn('Approval request failed',e);
-    if(statusEl) statusEl.textContent='تعذر إرسال الطلب. تحقق من الصلاحيات والربط.';
+    if(statusEl) statusEl.textContent=e.message||'تعذر إرسال الطلب. تحقق من الصلاحيات والربط.';
   }finally{
     if(btn) btn.disabled=false;
   }
@@ -6349,7 +6372,7 @@ function renderApprovalTable(){
   if(!body) return;
   const statusClass=s=>s==='معتمد'?'green':s==='قيد المراجعة'?'yellow':s==='مرفوض'?'red':s==='متأخر'?'red':'blue';
   if(!filtered.length){
-    body.innerHTML='<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">لا توجد اعتمادات مطابقة. أضف البيانات في Sheet باسم Approvals Register.</td></tr>';
+    body.innerHTML='<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">لا توجد اعتمادات مطابقة. أضف البيانات في Sheet باسم Approvals Register.</td></tr>';
     return;
   }
   body.innerHTML=filtered.map(a=>`
@@ -6358,10 +6381,14 @@ function renderApprovalTable(){
       <td><div style="font-weight:600;color:#d0d8f0">${escapeHtml(a.title)}</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${escapeHtml(a.linked||a.notes||'-')}</div></td>
       <td style="font-size:12px">${escapeHtml(a.type)}</td>
       <td style="font-size:12px"><span class="risk-badge" style="background:rgba(124,92,255,.15);color:#c4b5fd;border:1px solid rgba(124,92,255,.30)">${escapeHtml(a.stage||'إرسال المرجع')}</span></td>
-      <td style="font-size:12px">${escapeHtml(a.requester||'-')}</td>
+      <td style="font-size:12px">${escapeHtml(a.owner||'-')}</td>
+      <td style="font-size:12px">${escapeHtml(a.followUpOwner||'-')}</td>
       <td style="font-size:12px">${escapeHtml(a.approver||'-')}</td>
+      <td style="font-size:12px">${escapeHtml(a.version||'-')}</td>
+      <td style="font-size:12px">${escapeHtml(a.sla||'-')} ساعة عمل</td>
       <td style="font-size:12px">${escapeHtml(a.due||'-')}</td>
       <td><span class="pill ${statusClass(a.status)}">${escapeHtml(a.status)}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${escapeHtml(a.notes||'بانتظار قرار صاحب الاعتماد')}</td>
     </tr>`).join('');
 }
 
