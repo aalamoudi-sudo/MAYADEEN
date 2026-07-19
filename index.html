@@ -1186,6 +1186,14 @@ select option{background:#0f1220}
   .rpt-list li{margin-bottom:2px;font-size:9.5px}
   .rpt-footer{margin-top:8px;padding-top:5px;border-top:1px solid #e2e2ef;font-size:8px;color:#888;display:flex;justify-content:space-between;break-inside:avoid}
 }
+
+.task-date-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:-4px 0 14px}
+.task-date-chip{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:var(--text);border-radius:999px;padding:8px 13px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:.2s ease}
+.task-date-chip b{min-width:24px;text-align:center;border-radius:999px;padding:2px 7px;background:rgba(255,255,255,.08);color:#dce6ff;font-variant-numeric:tabular-nums}
+.task-date-chip:hover{border-color:rgba(245,184,0,.35);background:rgba(245,184,0,.08)}
+.task-date-chip.active{border-color:rgba(245,184,0,.65);background:rgba(245,184,0,.14);box-shadow:0 0 0 1px rgba(245,184,0,.10) inset;color:#fff}
+.task-date-chip.active b{background:rgba(245,184,0,.22);color:#ffe59a}
+
 </style></head>
 <body>
 
@@ -1466,6 +1474,11 @@ select option{background:#0f1220}
           <select id="filterOwner" onchange="applyFilters()"><option value="">كل المسؤولين</option></select>
           <select id="filterType" onchange="applyFilters()"><option value="">كل الأنواع</option><option value="Task">Task</option><option value="Milestone">Milestone</option></select>
           <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="متأخرة">متأخرة</option><option value="لم تبدأ">لم تبدأ</option></select>
+        </div>
+        <div class="task-date-filter" id="taskDateFilter" aria-label="فلتر تاريخ استحقاق المهام">
+          <button type="button" class="task-date-chip active" data-date-filter="all" onclick="setTaskDateFilter('all')"><span>كل المهام</span><b id="taskDateAllCount">0</b></button>
+          <button type="button" class="task-date-chip" data-date-filter="today" onclick="setTaskDateFilter('today')"><span>مهام اليوم</span><b id="taskDateTodayCount">0</b></button>
+          <button type="button" class="task-date-chip" data-date-filter="tomorrow" onclick="setTaskDateFilter('tomorrow')"><span>مهام الغد</span><b id="taskDateTomorrowCount">0</b></button>
         </div>
         <div class="card" style="overflow:auto;min-height:520px;max-height:70vh">
           <table class="data-table" id="taskTable">
@@ -2685,6 +2698,8 @@ let rows=EMBEDDED.rows; let tasks=[]; let milestones=[]; let approvals=[]; let a
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
 let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords=[]; let issuesIncidents=[]; let vendorViolations=[]; let decisionLogRecords=[]; let suppliersRegister=[];
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
+let taskDateFilter='all';
+const RIYADH_TIME_ZONE='Asia/Riyadh';
 const TODAY=new Date(); TODAY.setHours(0,0,0,0);
 const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzU75D5PcKWp3b19H8E8Gp9jJO_obD_qFHUqAl5g73fVdLccnmAg1HS57ukit_9dOLk/exec';
 const ALLOWED_API_HOSTS=['script.google.com','script.googleusercontent.com'];
@@ -2852,14 +2867,16 @@ function normalizeRow(raw){
   const name=String(valueOf(raw,['name','Milestone / Task','Milestone/Task','Task','المهمة','اسم المهمة'])||'').trim();
   const phase=String(valueOf(raw,['phase','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK','المرحلة'])||'').trim();
   const owner=String(valueOf(raw,['owner','Assigned To','AssignedTo','المسؤول','مسند إلى'])||'').trim();
-  const start=isoDate(valueOf(raw,['start','Start Date','تاريخ البداية','البداية']));
-  const end=isoDate(valueOf(raw,['end','End Date','تاريخ النهاية','النهاية']));
+  const rawStart=valueOf(raw,['start','Start Date','تاريخ البداية','البداية']);
+  const rawEnd=valueOf(raw,['end','End Date','تاريخ النهاية','النهاية']);
+  const start=isoDate(rawStart);
+  const end=isoDate(rawEnd);
   const notes=String(valueOf(raw,['notes','ملاحظات / عدد المهام','Notes','ملاحظات'])||'').trim();
   const status=String(valueOf(raw,['status','Status','الحالة'])||'').trim();
   let type = typeRaw || (/^\d+$/.test(code) || /Tasks/i.test(notes) ? 'Milestone' : 'Task');
   if(type==='معلم') type='Milestone'; if(type==='مهمة') type='Task';
   if(!name) return null;
-  return {type,code,name,phase,owner,start,end,notes,status};
+  return {type,code,name,phase,owner,start,end,rawEnd,notes,status};
 }
 function normalizeRows(data){
   const arr = Array.isArray(data) ? data : (data.rows||data.tasks||[]);
@@ -4773,6 +4790,50 @@ function startClock(){
 }
 
 /* ══ GLOBAL SEARCH ══ */
+
+function riyadhDateKey(value){
+  if(value===null||value===undefined||value==='') return '';
+  if(value instanceof Date){
+    if(isNaN(value)) return '';
+    return new Intl.DateTimeFormat('en-CA',{timeZone:RIYADH_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).format(value);
+  }
+  const raw=String(value).trim();
+  if(!raw) return '';
+  const ymd=raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/);
+  if(ymd){
+    const y=Number(ymd[1]),m=Number(ymd[2]),day=Number(ymd[3]);
+    if(m>=1&&m<=12&&day>=1&&day<=31) return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    return '';
+  }
+  const dmy=raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[T\s].*)?$/);
+  if(dmy){
+    const day=Number(dmy[1]),m=Number(dmy[2]),y=Number(dmy[3]);
+    if(m>=1&&m<=12&&day>=1&&day<=31) return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    return '';
+  }
+  const parsed=new Date(raw);
+  if(isNaN(parsed)) return '';
+  return new Intl.DateTimeFormat('en-CA',{timeZone:RIYADH_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).format(parsed);
+}
+function addDaysToDateKey(dateKey,days){
+  const parts=String(dateKey||'').split('-').map(Number);
+  if(parts.length!==3||parts.some(n=>!Number.isFinite(n))) return '';
+  const dt=new Date(Date.UTC(parts[0],parts[1]-1,parts[2]+days,12));
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
+}
+function riyadhTodayKey(){return riyadhDateKey(new Date());}
+function taskDueDateKey(task){return riyadhDateKey(task?.rawEnd||task?.end);}
+function setTaskDateFilter(value){
+  taskDateFilter=['today','tomorrow'].includes(value)?value:'all';
+  applyFilters();
+}
+function updateTaskDateFilterUI(counts){
+  document.querySelectorAll('.task-date-chip').forEach(btn=>btn.classList.toggle('active',btn.dataset.dateFilter===taskDateFilter));
+  const all=document.getElementById('taskDateAllCount'); if(all) all.textContent=counts.all;
+  const today=document.getElementById('taskDateTodayCount'); if(today) today.textContent=counts.today;
+  const tomorrow=document.getElementById('taskDateTomorrowCount'); if(tomorrow) tomorrow.textContent=counts.tomorrow;
+}
+
 function globalSearchFn(q){
   if(!q||q.length<2) return;
   showPage('tasks');
@@ -4793,7 +4854,9 @@ function applyFilters(){
   if(ty==='Milestone') base = milestones;
   if(ty==='Task') base = tasks;
 
-  let data=base.filter(r=>{
+  const todayKey=riyadhTodayKey();
+  const tomorrowKey=addDaysToDateKey(todayKey,1);
+  const dataBeforeDateFilter=base.filter(r=>{
     const name=String(r.name||'').toLowerCase();
     const code=String(r.code||'').toLowerCase();
     const owner=String(r.owner||'').toLowerCase();
@@ -4803,6 +4866,15 @@ function applyFilters(){
     if(st&&classifyStatus(r)!==st) return false;
     return true;
   });
+  const dateCounts={
+    all:dataBeforeDateFilter.length,
+    today:dataBeforeDateFilter.filter(r=>taskDueDateKey(r)===todayKey).length,
+    tomorrow:dataBeforeDateFilter.filter(r=>taskDueDateKey(r)===tomorrowKey).length
+  };
+  updateTaskDateFilterUI(dateCounts);
+  let data=dataBeforeDateFilter;
+  if(taskDateFilter==='today') data=dataBeforeDateFilter.filter(r=>taskDueDateKey(r)===todayKey);
+  if(taskDateFilter==='tomorrow') data=dataBeforeDateFilter.filter(r=>taskDueDateKey(r)===tomorrowKey);
 
   const badge=document.getElementById('taskTotalBadge');
   if(badge){
@@ -4815,7 +4887,8 @@ function applyFilters(){
   const tbody=document.querySelector('#taskTable tbody');
   if(!tbody) return;
   if(!data.length){
-    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">لا توجد مهام مطابقة لمعايير البحث الحالية</td></tr>';
+    const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا.':'لا توجد مهام مطابقة لمعايير البحث الحالية';
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>{
