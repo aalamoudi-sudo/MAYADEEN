@@ -3489,18 +3489,25 @@ function applySupplierOwnerDefaults(){
   vendorViolations.forEach(v=>{ if(v.vendor&&v.vendor.trim()) v.owner=cfg.responsibleOwner; });
 }
 function normalizeDecisionRows(data){
-  const arr=Array.isArray(data)?data:(data?.decision_log||data?.decisions_log||data?.rows||[]);
+  const arr=Array.isArray(data)?data:(data?.decision_log||data?.rows||[]);
   return arr.map((raw,i)=>{
-    const id=String(valueOf(raw,['id','decision_id','رقم القرار'])||`DL-${String(i+1).padStart(3,'0')}`).trim();
-    const linkedType=String(valueOf(raw,['linked_type','linkedType','نوع العنصر'])||'قرار').trim();
-    const linkedId=String(valueOf(raw,['linked_id','linkedId','record_id','العنصر المرتبط'])||'').trim();
+    const decisionId=String(valueOf(raw,['decision_id','id','رقم القرار'])||'').trim();
+    const title=String(valueOf(raw,['title','decision','summary','عنوان القرار','القرار'])||'').trim();
+    const description=String(valueOf(raw,['description','rationale','reason','وصف القرار','المبرر'])||'').trim();
     const decisionOwner=String(valueOf(raw,['decision_owner','decisionOwner','owner','صاحب القرار'])||'').trim();
-    const decisionAt=isoDate(valueOf(raw,['decision_at','decisionAt','created_at','وقت القرار']))||futureDate(0);
-    const decision=String(valueOf(raw,['decision','القرار'])||'').trim();
-    const rationale=String(valueOf(raw,['rationale','reason','المبرر'])||'').trim();
-    const expectedImpact=String(valueOf(raw,['expected_impact','expectedImpact','الأثر المتوقع'])||'').trim();
-    if(!decision&&!linkedId) return null;
-    return {id,linkedType,linkedId,decisionOwner,decisionAt,decision,rationale,expectedImpact};
+    const decisionDate=isoDate(valueOf(raw,['decision_date','decision_at','decisionAt','تاريخ القرار','وقت القرار']))||'';
+    let status=String(valueOf(raw,['status','exec_status','execStatus','حالة القرار','الحالة'])||'').trim();
+    const affectedTasks=String(valueOf(raw,['affected_tasks','linked_id','linkedId','المهام المتأثرة','العنصر المرتبط'])||'').trim();
+    const affectedPaths=String(valueOf(raw,['affected_paths','linked_type','linkedType','المسارات المتأثرة','نوع العنصر'])||'').trim();
+    let officialReference=String(valueOf(raw,['official_reference','reference','reference_number','مرجع البريد أو المحضر','المرجع'])||'').trim();
+    const executionDate=isoDate(valueOf(raw,['execution_date','created_at','تاريخ التنفيذ']))||'';
+    const followUpOwner=String(valueOf(raw,['follow_up_owner','followUpOwner','مسؤول المتابعة'])||'').trim();
+    const createdAt=isoDate(valueOf(raw,['created_at','createdAt','تاريخ الإنشاء']))||'';
+    const updatedAt=isoDate(valueOf(raw,['updated_at','updatedAt','تاريخ آخر تحديث']))||'';
+    if(!decisionId&&!title&&!description) return null;
+    if(!officialReference&&title.includes('اعتماد السيناريو الأول من سمو الأمين')) status='بانتظار التوثيق الرسمي';
+    if(!status) status=officialReference?'معتمد':'بانتظار التوثيق الرسمي';
+    return {decision_id:decisionId,id:decisionId,title,description,decision_owner:decisionOwner,decision_date:decisionDate,status,affected_tasks:affectedTasks,affected_paths:affectedPaths,official_reference:officialReference,execution_date:executionDate,follow_up_owner:followUpOwner,created_at:createdAt,updated_at:updatedAt};
   }).filter(Boolean);
 }
 function storageArray(key, fallback){
@@ -3523,7 +3530,6 @@ function persistOperationalData(){
     localStorage.setItem('kag_cached_version_history',JSON.stringify(versionHistoryRecords));
     localStorage.setItem('kag_cached_issues',JSON.stringify(issuesIncidents));
     localStorage.setItem('kag_cached_vendor_violations',JSON.stringify(vendorViolations));
-    localStorage.setItem('kag_cached_decision_log',JSON.stringify(decisionLogRecords));
     localStorage.setItem('kag_cached_suppliers_register',JSON.stringify(suppliersRegister));
   }catch(e){}
 }
@@ -3538,7 +3544,7 @@ function initOperationalDataFromCache(){
   versionHistoryRecords=normalizeVersionHistoryRows(storageArray('kag_cached_version_history',DEFAULT_VERSION_HISTORY));
   issuesIncidents=normalizeIssueRows(storageArray('kag_cached_issues',DEFAULT_ISSUES_INCIDENTS));
   vendorViolations=normalizeViolationRows(storageArray('kag_cached_vendor_violations',DEFAULT_VENDOR_VIOLATIONS));
-  decisionLogRecords=normalizeDecisionRows(storageArray('kag_cached_decision_log',DEFAULT_DECISION_LOG));
+  decisionLogRecords=[]; // Decision Log الرسمي يُقرأ فقط من data_sync وليس من localStorage.
   suppliersRegister=normalizeSupplierRows(storageArray('kag_cached_suppliers_register',DEFAULT_SUPPLIERS_REGISTER));
   ensureSupplierOwnershipProfiles();
   applySupplierOwnerDefaults();
@@ -4923,10 +4929,10 @@ async function loadExternal(initial=true){
     const normalizedVersionHistory=normalizeVersionHistoryRows(data.version_history||data.versions||[]);
     const normalizedIssues=normalizeIssueRows(data.issues||data.incidents||data.issues_incidents||[]);
     const normalizedViolations=normalizeViolationRows(data.vendor_violations||data.violations||[]);
-    const normalizedDecisionLog=normalizeDecisionRows(data.decision_log||data.decisions_log||[]);
+    const normalizedDecisionLog=normalizeDecisionRows(data.decision_log||[]);
     const normalizedSuppliers=normalizeSupplierRows(data.suppliers_register||data.suppliers||[]);
     const normalizedRiskGovernance=normalizeRiskGovernanceRows(data.risk_governance_register||data.riskGovernanceRegister||data.risk_governance||data.risks_governance||[]);
-    if(normalized.length||normalizedRiskGovernance.length){
+    if(normalized.length||normalizedRiskGovernance.length||Object.prototype.hasOwnProperty.call(data,'decision_log')){
       if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
       if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
       rows=normalized.filter(r=>!isTestOrSyntheticRecord_(r));
@@ -6208,145 +6214,70 @@ function renderTreatmentPlan(){
 
 /* ══ DECISIONS PAGE ══ */
 function _buildDecisionsData(){
-  return {pending:[],log:(Array.isArray(decisionLogRecords)?decisionLogRecords:[]).filter(r=>!isTestOrSyntheticRecord_(r))}; // لا قرارات مولدة من المهام المتأخرة للـKPI الرسمي.
-  // Decisions are derived 100% from actual WBS data (late tasks needing escalation).
-  // The WBS file has no native "decisions/approvals" column, so no fabricated decisions
-  // are generated — only decisions that stem directly from real overdue tasks.
-  const today=TODAY.toISOString().slice(0,10);
-  const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة');
+  const log=(Array.isArray(decisionLogRecords)?decisionLogRecords:[]).filter(r=>!isTestOrSyntheticRecord_(r));
+  return {pending:[],log};
+}
 
-  const pending=[];
-  lateTasks.forEach((t,i)=>{
-    const overdueDays=Math.abs(daysBetween(today,t.end))||1;
-    pending.push({
-      id:pending.length+1,
-      title:`معالجة تأخر: ${t.name.substring(0,35)}`,
-      reason:`المهمة ${t.code} متأخرة بـ${overdueDays} يوم وتحتاج قراراً`,
-      party:t.owner||'غير محدد',
-      priority:overdueDays>14?'عاجل':overdueDays>7?'مرتفع':'متوسط',
-      due:today,
-      status:'معلق'
-    });
-  });
-
-  // No decision log exists in WBS source — empty by default until real approval data is linked.
-  const log=[];
-
-  return {pending,log};
+function decisionStatusClass(status){
+  if(['منفذ','مغلق','معتمد'].includes(status)) return 'green';
+  if(['بانتظار التوثيق الرسمي','مسودة'].includes(status)) return 'yellow';
+  if(['ملغى'].includes(status)) return 'red';
+  return 'blue';
 }
 
 function renderDecisions(){
   const {pending,log}=_buildDecisionsData();
   window._decPending=pending;
-
-  /* KPIs */
-  const total=pending.length+log.length;
-  const approved=log.length;
-  const pendingCount=pending.filter(d=>d.status==='معلق').length;
-  const executed=log.filter(d=>d.execStatus==='منفذ').length;
-  const kpis=[
-    {label:'القرارات المطلوبة',val:pendingCount,color:'#ff4d6a'},
-    {label:'القرارات المعتمدة',val:approved,color:'#10e87a'},
-    {label:'قيد المراجعة',val:pending.filter(d=>d.status==='قيد المراجعة').length,color:'#f5b800'},
-    {label:'المنفذة',val:executed,color:'#3b82f6'},
-  ];
+  const counts=countBy(log,d=>d.status||'بانتظار التوثيق الرسمي');
+  const overdue=log.filter(d=>d.execution_date&&daysBetween(futureDate(0),d.execution_date)<0&&!['منفذ','مغلق','ملغى'].includes(d.status)).length;
+  const kpis=log.length?[
+    {label:'إجمالي القرارات الرسمية',val:log.length,color:'#7c5cff'},
+    {label:'بانتظار التوثيق',val:counts['بانتظار التوثيق الرسمي']||0,color:'#f5b800'},
+    {label:'معتمدة',val:counts['معتمد']||0,color:'#10e87a'},
+    {label:'قيد التنفيذ',val:counts['قيد التنفيذ']||0,color:'#3b82f6'},
+    {label:'منفذة',val:counts['منفذ']||0,color:'#10e87a'},
+    {label:'متأخرة في التنفيذ',val:overdue,color:'#ff4d6a'},
+    {label:'مغلقة',val:counts['مغلق']||0,color:'#10e87a'},
+  ]:[{label:'مؤشرات القرارات',val:'لا توجد بيانات كافية لاحتساب مؤشرات القرارات',color:'#7c5cff'}];
   const kEl=document.getElementById('dec-kpis');
   if(kEl) kEl.innerHTML=kpis.map(k=>`<div class="dec-kpi" style="--dk-color:${k.color}"><div class="dk-val">${k.val}</div><div class="dk-label">${k.label}</div></div>`).join('');
 
-  /* Urgent */
-  const urgent=pending.filter(d=>d.priority==='عاجل').slice(0,5);
+  const emptyMsg='<div style="color:var(--muted);font-size:12.5px;padding:24px 20px;text-align:center;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;line-height:1.6;min-height:80px;display:flex;align-items:center;justify-content:center">لا توجد بيانات كافية لاحتساب مؤشرات القرارات</div>';
   const ugEl=document.getElementById('dec-urgent');
-  if(ugEl) ugEl.innerHTML=urgent.map(d=>`
-    <div class="urgent-dec">
-      <div class="urgent-dec-num">${d.id}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:#d0d8f0">${d.title}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${d.reason}</div>
-        <div style="font-size:11px;color:#ffd166;margin-top:3px">استحقاق: ${d.due} · ${d.party}</div>
-      </div>
-      <span class="pill red" style="flex-shrink:0">عاجل</span>
-    </div>`).join('') || '<div style="color:var(--muted);font-size:12.5px;padding:24px 20px;text-align:center;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;line-height:1.6;min-height:80px;display:flex;align-items:center;justify-content:center">لا توجد بيانات متاحة حالياً</div>';
-
-  /* Impact */
+  if(ugEl) ugEl.innerHTML=emptyMsg;
   const impEl=document.getElementById('dec-impact');
-  if(impEl){
-    if(!log.length){
-      impEl.innerHTML='<div style="grid-column:1/-1;color:var(--muted);font-size:12.5px;padding:24px 20px;text-align:center;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;line-height:1.6;min-height:80px;display:flex;align-items:center;justify-content:center">لا توجد بيانات متاحة حالياً</div>';
-    } else {
-      const impactStats=[
-        {label:'قرارات معتمدة',val:log.length},
-        {label:'قرارات منفذة',val:executed},
-        {label:'قرارات قيد التنفيذ',val:log.length-executed},
-        {label:'نسبة التنفيذ',val:Math.round((executed/log.length)*100)+'%'},
-      ];
-      impEl.innerHTML=impactStats.map(s=>`<div class="impact-stat"><b>${s.val}</b><small>${s.label}</small></div>`).join('');
-    }
-  }
-
-  /* Risk-Decision Link — built dynamically from actual risks data, not static values */
+  if(impEl) impEl.innerHTML=log.length?[
+    {label:'إجمالي القرارات الرسمية',val:log.length},
+    {label:'بانتظار التوثيق',val:counts['بانتظار التوثيق الرسمي']||0},
+    {label:'قيد التنفيذ',val:counts['قيد التنفيذ']||0},
+    {label:'منفذة',val:counts['منفذ']||0},
+  ].map(s=>`<div class="impact-stat"><b>${s.val}</b><small>${s.label}</small></div>`).join(''):emptyMsg;
   const rlEl=document.getElementById('dec-riskLink');
-  const actualRisks=window._rmRisks||[];
-  const dynamicLinks=actualRisks
-    .map(r=>{
-      const linkedDec=typeof getRiskLinkedDecision==='function'?getRiskLinkedDecision(r.name):null;
-      return linkedDec?{decision:linkedDec,risk:r.name,color:r.status==='مغلق'?'#10e87a':r.severityColor}:null;
-    })
-    .filter(Boolean)
-    .slice(0,6);
-  if(rlEl){
-    if(!dynamicLinks.length){
-      rlEl.innerHTML='<div style="color:var(--muted);font-size:12.5px;padding:24px 20px;text-align:center;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;line-height:1.6;min-height:80px;display:flex;align-items:center;justify-content:center">لا توجد بيانات متاحة حالياً</div>';
-    } else {
-      rlEl.innerHTML=dynamicLinks.map(l=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.025);border-radius:8px;font-size:11.5px">
-      <span style="color:#a07dff;font-weight:600;flex:1">${l.decision}</span>
-      <span style="color:var(--muted)">→</span>
-      <span style="color:${l.color};font-weight:600">${l.risk.substring(0,30)}${l.risk.length>30?'...':''}</span>
-    </div>`).join('');
-    }
-  }
-
+  if(rlEl) rlEl.innerHTML=emptyMsg;
   renderDecisionTables();
 }
 
 function renderDecisionTables(){
-  const pending=window._decPending||[];
   const q=(document.getElementById('dec-search')?.value||'').toLowerCase();
   const pr=document.getElementById('dec-filterPriority')?.value||'';
-  const filtered=pending.filter(d=>(!q||d.title.toLowerCase().includes(q)||d.party.toLowerCase().includes(q))&&(!pr||d.priority===pr));
-
-  const priorColor={عاجل:'#ff4d6a',مرتفع:'#ff8c42',متوسط:'#f5b800',منخفض:'#10e87a'};
   const pbEl=document.getElementById('dec-pendingBody');
-  if(pbEl){
-    if(!filtered.length){
-      pbEl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">لا توجد قرارات مطابقة لمعايير البحث الحالية</td></tr>';
-    } else {
-      pbEl.innerHTML=filtered.map(d=>`
-    <tr>
-      <td style="color:var(--muted)">${d.id}</td>
-      <td><div style="font-weight:600;color:#d0d8f0">${escapeHtml(d.title)}</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${escapeHtml(d.reason)}</div></td>
-      <td style="font-size:12px">${escapeHtml(d.party)}</td>
-      <td><span class="risk-badge" style="background:${priorColor[d.priority]}22;color:${priorColor[d.priority]};border:1px solid ${priorColor[d.priority]}44">${escapeHtml(d.priority)}</span></td>
-      <td style="font-size:12px">${escapeHtml(d.due)}</td>
-      <td><span class="pill ${d.status==='معلق'?'red':d.status==='قيد المراجعة'?'yellow':'green'}">${escapeHtml(d.status)}</span></td>
-    </tr>`).join('');
-    }
-  }
+  if(pbEl) pbEl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">لا توجد قرارات مقترحة ضمن مركز القرارات الرسمي</td></tr>';
 
   const {log}=_buildDecisionsData();
+  const filtered=log.filter(d=>(!q||String(d.title||'').toLowerCase().includes(q)||String(d.decision_owner||'').toLowerCase().includes(q)||String(d.decision_id||'').toLowerCase().includes(q))&&(!pr||d.status===pr));
   const lbEl=document.getElementById('dec-logBody');
   if(lbEl){
-    if(!log.length){
-      lbEl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">سيتم عرض البيانات عند توفرها</td></tr>';
+    if(!filtered.length){
+      lbEl.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);font-size:12.5px">لا توجد بيانات كافية لاحتساب مؤشرات القرارات</td></tr>';
     } else {
-      lbEl.innerHTML=log.map(d=>`
+      lbEl.innerHTML=filtered.map(d=>`
     <tr>
-      <td style="color:var(--muted)">${d.id}</td>
-      <td style="font-weight:600;color:#d0d8f0">${escapeHtml(d.summary)}</td>
-      <td style="font-size:12px;color:var(--muted)">${escapeHtml(d.reason)}</td>
-      <td style="font-size:12px">${escapeHtml(d.owner)}</td>
-      <td style="font-size:12px">${escapeHtml(d.date)}</td>
-      <td><span class="pill ${d.execStatus==='منفذ'?'green':'blue'}">${escapeHtml(d.execStatus)}</span></td>
+      <td style="color:var(--muted)">${escapeHtml(d.decision_id||'-')}</td>
+      <td style="font-weight:600;color:#d0d8f0"><div>${escapeHtml(d.title||'-')}</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${escapeHtml(d.description||'')}</div></td>
+      <td style="font-size:12px;color:var(--muted)">${escapeHtml(d.official_reference||'')}</td>
+      <td style="font-size:12px">${escapeHtml(d.decision_owner||'-')}</td>
+      <td style="font-size:12px">${escapeHtml(d.decision_date||'')}</td>
+      <td><span class="pill ${decisionStatusClass(d.status)}">${escapeHtml(d.status||'بانتظار التوثيق الرسمي')}</span></td>
     </tr>`).join('');
     }
   }
@@ -6977,14 +6908,9 @@ async function submitMeeting(){
 }
 
 /* ══ RISK ↔ DECISION LINKAGE ══ */
-// Links a risk to its corresponding decision dynamically — both are derived from the
-// same underlying late task in WBS, so no static/hardcoded mapping is used here.
+// لا يتم ربط المخاطر بقرارات مولدة من WBS؛ القرارات الرسمية تأتي فقط من Decision Log.
 function getRiskLinkedDecision(riskName){
-  if(!riskName||!riskName.startsWith('تأخر:')) return null;
-  const taskNamePart=riskName.replace('تأخر: ','').trim();
-  const pending=window._decPending||[];
-  const match=pending.find(d=>d.title.includes('معالجة تأخر')&&taskNamePart&&d.title.includes(taskNamePart.substring(0,20)));
-  return match?match.title:null;
+  return null;
 }
 
 // Enhanced openDetail for risks — shows linked decision
