@@ -1,3 +1,3 @@
-approval_id,linked_wbs_code,type,title,requester,approver,due_date,status,current_stage,sla_hours,escalation_level,notes,created_at,updated_at
-APP-001,WBS-001,اعتماد,اعتماد مخطط التشغيل,PMO,أحمد المحيسن,2026-07-10,مطلوب,مراجعة تنفيذية,24,L1,يرتبط بمسار التشغيل,,
-APP-002,WBS-002,مراجعة,مراجعة خطة الموردين,PMO,بندر الهضيبة,2026-07-12,قيد المراجعة,جودة ومخاطر,24,L2,تحتاج ملاحظات نهائية,,
+approval_id,linked_wbs_code,type,title,requester,approver,due_date,status,current_stage,sla_hours,escalation_level,notes,created_at,updated_at,reference_number,owner,follow_up_owner,version,comments_log,sent_at,resubmitted_at,response_sla_hours,response_due_at,governance_stage,client_final_approver,evidence_link,official_reference,closed_at,is_suggestion
+APP-001,WBS-001,اعتماد,اعتماد مخطط التشغيل,PMO,أحمد المحيسن,2026-07-10,مطلوب,مراجعة تنفيذية,24,L1,يرتبط بمسار التشغيل,,,,,,,,,,,,,,,,,FALSE
+APP-002,WBS-002,مراجعة,مراجعة خطة الموردين,PMO,بندر الهضيبة,2026-07-12,قيد المراجعة,جودة ومخاطر,24,L2,تحتاج ملاحظات نهائية,,,,,,,,,,,,,,,,,FALSE
