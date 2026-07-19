@@ -2923,7 +2923,9 @@ function normalizeRow(raw){
   const phase=String(valueOf(raw,['phase','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK','المرحلة'])||'').trim();
   const owner=String(valueOf(raw,['owner','Assigned To','AssignedTo','المسؤول','مسند إلى'])||'').trim();
   const rawStart=valueOf(raw,['start','Start Date','تاريخ البداية','البداية']);
-  const rawEnd=valueOf(raw,['end','End Date','تاريخ النهاية','النهاية']);
+  const rawEnd=valueOf(raw,['end_date','planned_end_date','baseline_end_date','due_date','finish_date','end','End Date','Planned End Date','Baseline End Date','Due Date','Finish Date','تاريخ النهاية','تاريخ الانتهاء','تاريخ الاستحقاق','النهاية']);
+  const rawActualEnd=valueOf(raw,['actual_end_date','actual_finish_date','actual_end','actual_finish','completed_at','completion_date','تاريخ النهاية الفعلي','تاريخ الانتهاء الفعلي','تاريخ الإكمال']);
+  const progress=valueOf(raw,['progress','Progress','percent_complete','completion_percent','% Complete','نسبة الإنجاز','نسبة الانجاز']);
   const start=isoDate(rawStart);
   const end=isoDate(rawEnd);
   const notes=String(valueOf(raw,['notes','ملاحظات / عدد المهام','Notes','ملاحظات'])||'').trim();
@@ -2934,7 +2936,7 @@ function normalizeRow(raw){
   const source=String(valueOf(raw,['source','_source'])||'google_sheets').trim();
   const record_type=String(valueOf(raw,['record_type'])||'').trim();
   const is_test=String(valueOf(raw,['is_test'])||'').trim();
-  return {type,code,name,phase,owner,start,end,rawEnd,notes,status,source,record_type,is_test,_source:raw._source||source};
+  return {type,code,name,phase,owner,start,end,rawEnd,actualEnd:isoDate(rawActualEnd),rawActualEnd,progress,notes,sheet_status:status,status,source,record_type,is_test,_source:raw._source||source};
 }
 function normalizeRows(data){
   const arr = Array.isArray(data) ? data : (data.rows||data.tasks||[]);
@@ -3967,20 +3969,59 @@ function normalizeArabic(s){
     .replace(/\s+/g,' ')
     .trim();
 }
+function taskStatusText_(task){return normalizeArabic(String(task?.sheet_status ?? task?.status ?? '').trim().toLowerCase());}
+function taskProgressNumber_(task){
+  const raw=String(task?.progress??'').replace('%','').trim();
+  if(!raw) return null;
+  const n=Number(raw);
+  return Number.isFinite(n)?n:null;
+}
+function isTaskRecord_(task){
+  if(!task||isTestOrSyntheticRecord_(task)) return false;
+  const type=normalizeArabic(String(task.type||task.record_type||'').toLowerCase());
+  if(type&&type!==normalizeArabic('task')&&type!==normalizeArabic('مهمة')) return false;
+  if(!String(task.code||task.name||'').trim()) return false;
+  return true;
+}
+function isTaskCompleted_(task){
+  const st=taskStatusText_(task);
+  const doneStatuses=['مكتملة','مكتمل','completed','complete','done','تم','مغلقه','مغلق','closed'].map(normalizeArabic);
+  if(doneStatuses.includes(st)) return true;
+  const pct=taskProgressNumber_(task);
+  if(pct!==null&&pct>=100) return true;
+  return !!riyadhDateKey(task?.rawActualEnd||task?.actualEnd);
+}
+function isTaskCancelled_(task){
+  const st=taskStatusText_(task);
+  return ['ملغاة','ملغى','ملغاه','cancelled','canceled'].map(normalizeArabic).includes(st);
+}
+function dateKeyToUtcDay_(dateKey){
+  const m=String(dateKey||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return NaN;
+  return Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]));
+}
+function getTaskPlannedEndDateKey(task){return riyadhDateKey(task?.rawEnd||task?.end);}
+function isTaskOverdue(task){
+  if(!isTaskRecord_(task)) return false;
+  const endKey=getTaskPlannedEndDateKey(task);
+  if(!endKey) return false;
+  if(isTaskCompleted_(task)||isTaskCancelled_(task)) return false;
+  return dateKeyToUtcDay_(endKey)<dateKeyToUtcDay_(riyadhTodayKey());
+}
+function getTaskDelayDays(task){
+  if(!isTaskOverdue(task)) return 0;
+  const days=Math.round((dateKeyToUtcDay_(riyadhTodayKey())-dateKeyToUtcDay_(getTaskPlannedEndDateKey(task)))/86400000);
+  return Math.max(0,days);
+}
 function classifyStatus(r){
-  // مصدر الحقيقة الوحيد لحالة المهمة هو عمود Status في ملف WBS.
-  // لا يوجد أي استنتاج للحالة من Start Date أو End Date إطلاقاً.
-  const rawStatus = normalizeArabic(String(r.status || '').trim().toLowerCase());
-
+  if(isTaskOverdue(r)) return 'متأخرة';
+  const rawStatus=taskStatusText_(r);
   if(rawStatus){
-    if(['مكتملة','completed','complete','done','تم','منتهية'].map(normalizeArabic).includes(rawStatus)) return 'مكتملة';
+    if(isTaskCompleted_(r)) return 'مكتملة';
+    if(isTaskCancelled_(r)) return 'ملغاة';
     if(['قيد التنفيذ','in progress','in-progress','progress','ongoing','started','جاري التنفيذ'].map(normalizeArabic).includes(rawStatus)) return 'قيد التنفيذ';
-    if(['متأخرة','delayed','late','overdue','متاخره'].map(normalizeArabic).includes(rawStatus)) return 'متأخرة';
     if(['لم تبدأ','لم تبدا','not started','not-started','pending','planned','مخططة'].map(normalizeArabic).includes(rawStatus)) return 'لم تبدأ';
   }
-
-  // خلية Status فارغة أو تحتوي قيمة غير معروفة → تُعامل كـ "لم تبدأ" فقط،
-  // ولا يُستنتج شيء من التواريخ.
   return 'لم تبدأ';
 }
 function completionPct(taskList){
@@ -4872,6 +4913,11 @@ function startClock(){
 
 /* ══ GLOBAL SEARCH ══ */
 
+function isValidDateKey_(y,m,day){
+  if(m<1||m>12||day<1||day>31) return false;
+  const dt=new Date(Date.UTC(y,m-1,day,12));
+  return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===day;
+}
 function riyadhDateKey(value){
   if(value===null||value===undefined||value==='') return '';
   if(value instanceof Date){
@@ -4883,14 +4929,12 @@ function riyadhDateKey(value){
   const ymd=raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/);
   if(ymd){
     const y=Number(ymd[1]),m=Number(ymd[2]),day=Number(ymd[3]);
-    if(m>=1&&m<=12&&day>=1&&day<=31) return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    return '';
+    return isValidDateKey_(y,m,day)?`${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`:'';
   }
   const dmy=raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[T\s].*)?$/);
   if(dmy){
     const day=Number(dmy[1]),m=Number(dmy[2]),y=Number(dmy[3]);
-    if(m>=1&&m<=12&&day>=1&&day<=31) return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    return '';
+    return isValidDateKey_(y,m,day)?`${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`:'';
   }
   const parsed=new Date(raw);
   if(isNaN(parsed)) return '';
@@ -4982,7 +5026,7 @@ function applyFilters(){
       <td>${escapeHtml(r.phase||'-')}</td>
       <td>${escapeHtml(r.owner||'-')}</td>
       <td>${fmt(r.start)}</td>
-      <td>${fmt(r.end)}</td>
+      <td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td>
       <td><span class="pill ${sc}">${s||'—'}</span></td>
     </tr>`;
   }).join('');
@@ -5618,7 +5662,7 @@ function renderAnalytics(){
       for(let i=29;i>=0;i--){
         const dt=new Date(today-i*86400000);
         labels2.push('');
-        const lateCount=tasks.filter(t=>{const en=d(t.end);return en&&en<dt&&classifyStatus(t)!=='مكتملة';}).length;
+        const lateCount=dt.toDateString()===TODAY.toDateString()?tasks.filter(isTaskOverdue).length:tasks.filter(t=>{const en=d(t.end);return en&&en<dt&&classifyStatus(t)!=='مكتملة';}).length;
         riskData.push(lateCount);
       }
       let gradFill2='rgba(255,77,106,.10)';
@@ -5916,7 +5960,7 @@ function renderRisksMgmt(){
     for(let i=29;i>=0;i--){
       const dt=new Date(TODAY-i*86400000);
       labels.push(i===0?'اليوم':i===7?'−7':i===14?'−14':i===21?'−21':i===29?'−30':'');
-      data.push(tasks.filter(t=>{const en=d(t.end);return en&&en<dt&&classifyStatus(t)!=='مكتملة';}).length);
+      data.push(dt.toDateString()===TODAY.toDateString()?tasks.filter(isTaskOverdue).length:tasks.filter(t=>{const en=d(t.end);return en&&en<dt&&classifyStatus(t)!=='مكتملة';}).length);
     }
     let rmGrad='rgba(255,77,106,.10)';
     try{
@@ -6948,7 +6992,7 @@ function renderActions(){
 
   /* ── ESCALATION ── */
   const escItems=[];
-  const veryLate=lateTasks.filter(t=>Math.abs(daysBetween(todayStr,t.end))>14);
+  const veryLate=lateTasks.filter(t=>getTaskDelayDays(t)>14);
   if(veryLate.length) escItems.push({badgeColor:'#ff4d6a',cls:'critical',
     title:`${veryLate.length} مهمة تجاوزت 14 يوم تأخير`,sub:'تحتاج تصعيداً فورياً لمدير المشروع',
     tag:'تصعيد عاجل',tagBg:'rgba(255,77,106,.15)',tagColor:'#ff4d6a',onclick:"showPage('tasks')"});
@@ -7012,9 +7056,9 @@ function renderActions(){
   /* ── STALE TASKS ── */
   const staleItems=tasks.filter(t=>{
     const en=d(t.end);
-    return classifyStatus(t)==='قيد التنفيذ'&&en&&en<today&&Math.abs(daysBetween(todayStr,t.end))>3;
+    return isTaskOverdue(t)&&getTaskDelayDays(t)>3;
   }).sort((a,b)=>d(b.end)-d(a.end)).slice(0,5).map(t=>{
-    const staleDays=Math.abs(daysBetween(todayStr,t.end));
+    const staleDays=getTaskDelayDays(t);
     return {badgeColor:'#6b7a9f',cls:'',
       title:t.name,sub:`${t.owner||'—'} · ${relativeDueLabel(t.end)}`,
       tag:`${staleDays} يوم`,tagBg:'rgba(107,122,159,.15)',tagColor:'#6b7a9f',
