@@ -2743,11 +2743,106 @@ const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzU75D5PcKWp3b19H
 const ALLOWED_API_HOSTS=['script.google.com','script.googleusercontent.com'];
 let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
 let sessionToken='';
+let loginRequestInFlight=null;
+let syncRequestInFlight=null;
+let hasCompletedInitialSync=false;
+let dashboardDataVersion=0;
+let chartRenderVersion={donut:-1,line:-1,tlLine:-1};
+const pageRenderState={};
+const PAGE_RENDERERS={
+  overview:['renderOverview'],
+  tasks:['fillFilters','applyFilters','renderTasksKpis'],
+  timeline:['renderTimelinePage'],
+  phases:['renderPhases'],
+  milestonesPage:['renderMilestonesPage'],
+  ownersPage:['renderOwnersPage'],
+  analytics:['renderAnalytics'],
+  risksMgmt:['renderRisksMgmt'],
+  decisions:['renderDecisions'],
+  approvals:['renderApprovals'],
+  procurementCenter:['renderProcurementCenter'],
+  permitsCenter:['renderPermitsCenter'],
+  changeOrdersCenter:['renderChangeOrdersCenter'],
+  automationCenter:['renderAutomationCenter'],
+  escalationsCenter:['renderEscalationsCenter'],
+  commandControlCenter:['renderCommandControlCenter'],
+  vendorControlCenter:['renderVendorControlCenter'],
+  evidenceCenter:['renderEvidenceCenter'],
+  issuesIncidentsCenter:['renderIssuesIncidentsCenter'],
+  assignments:['renderAssignments'],
+  actions:['renderActions'],
+  escalationHub:['renderEscalationHub'],
+  meetingsHub:['renderMeetingsHub'],
+  pmoAssistant:['renderPmoAssistant'],
+  projectHealth:['renderProjectHealth'],
+  executiveBoard:['renderExecutiveBoard'],
+  commitmentsHub:['renderCommitmentsHub'],
+  smartReminders:['renderSmartReminders'],
+  fileControl:['renderFileControl'],
+  reportsGenerator:['renderReportsGenerator'],
+  importExportCenter:['renderImportExportCenter'],
+  mobileFieldMode:['renderMobileFieldMode'],
+  warRoomMode:['renderWarRoomMode'],
+  setup:[],
+  urgentTasksPage:['renderUrgentTasksPage']
+};
+function markPerf(name){try{performance.mark(name);}catch(e){}}
+function measurePerf(name,start,end){try{performance.measure(name,start,end);}catch(e){}}
+function getActivePageId(){return document.querySelector('.page.active')?.id||'overview';}
+function markAllPagesDirty(){Object.keys(PAGE_RENDERERS).forEach(id=>{pageRenderState[id]={rendered:false,dataVersion:dashboardDataVersion};});}
+function renderPageIfNeeded(id,force=false){
+  const renderers=PAGE_RENDERERS[id]||[];
+  const state=pageRenderState[id]||{rendered:false,dataVersion:-1};
+  if(!force&&state.rendered&&state.dataVersion===dashboardDataVersion) return;
+  renderers.forEach(fn=>{if(typeof window[fn]==='function') window[fn]();});
+  pageRenderState[id]={rendered:true,dataVersion:dashboardDataVersion};
+}
+function renderOverview(){
+  markPerf('overview_render_start');
+  renderKpis();
+  renderHealth();
+  renderBars();
+  renderMilestones();
+  renderTimeline();
+  updateExecSummary();
+  renderDonutChart();
+  renderLineChart();
+  renderInsights();
+  renderDataHealth();
+  renderUrgentTasksCard();
+  renderExecutiveAdditions();
+  renderCommandEnhancements();
+  renderActions();
+  markPerf('overview_render_end');
+  measurePerf('overview_render_duration','overview_render_start','overview_render_end');
+}
+function renderCurrentPage(force=false){renderPageIfNeeded(getActivePageId(),force);}
+function isSessionExpiredError(e){return /Session expired|Unauthorized/i.test(String((e&&e.message)||e||''));}
+function returnToLoginForExpiredSession(){
+  sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
+  const appDiv=document.getElementById('app'); if(appDiv){appDiv.classList.remove('visible');appDiv.style.cssText='display:none!important';}
+  const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
+  showLoginError('انتهت الجلسة. سجّل الدخول مرة أخرى.');
+}
+function setSyncLoadingState(){
+  const st0=document.getElementById('sheetStatus');
+  const st0t=document.getElementById('sheetStatusText');
+  if(st0t) st0t.textContent='جاري مزامنة بيانات المشروع...';
+  if(st0){st0.classList.remove('connected','error');st0.classList.add('loading');}
+  setLastUpdate('بانتظار Google Sheets', new Date());
+}
+function showSyncRetryState(){
+  const stTx=document.getElementById('sheetStatusText');
+  if(stTx) stTx.innerHTML='تعذر تحديث بيانات المشروع. حاول مرة أخرى. <button class="ops-mini-btn" onclick="manualRefreshNow()">إعادة المحاولة</button>';
+}
 function ensureChartJS(){
   return new Promise(function(resolve){
-    if(window.Chart) return resolve();
-    var check=setInterval(function(){if(window.Chart){clearInterval(check);resolve();}},50);
-    setTimeout(function(){clearInterval(check);resolve();},4000);
+    const started=Date.now();
+    function check(){
+      if(window.Chart||Date.now()-started>=4000) return resolve();
+      setTimeout(check,50);
+    }
+    check();
   });
 }
 function showLoginError(message){
@@ -2799,6 +2894,9 @@ async function postApi(baseUrl,payload){
   });
 }
 async function login(){
+  if(loginRequestInFlight) return loginRequestInFlight;
+  const loginBtn=document.querySelector('.login-btn');
+  const originalLoginText=loginBtn?loginBtn.textContent:'';
   const baseUrl=getConfiguredApiUrl();
   if(!baseUrl){
     showLoginError('تعذر تحديد رابط Apps Script. تواصل مع الدعم الفني.');
@@ -2810,6 +2908,9 @@ async function login(){
     showLoginError('أدخل اسم المستخدم وكلمة المرور.');
     return;
   }
+  if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='جاري التحقق...';}
+  markPerf('auth_login_start');
+  loginRequestInFlight=(async()=>{
   try{
     const res=await fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_login',username,password})});
     const data=await res.json();
@@ -2818,17 +2919,27 @@ async function login(){
     sessionToken=data.session_token||'';
     if(!sessionToken) throw new Error('missing session token');
     applyPermissions();
+    markPerf('auth_login_end');
+    measurePerf('auth_login_duration','auth_login_start','auth_login_end');
   }catch(e){
     console.warn('Login failed',e);
     showLoginError('تعذر تسجيل الدخول. تحقق من المستخدم أو كلمة المرور أو رابط Apps Script.');
-    return;
+    return false;
+  } finally {
+    loginRequestInFlight=null;
+    if(loginBtn){loginBtn.disabled=false;loginBtn.textContent=originalLoginText||'تسجيل الدخول';}
   }
   document.getElementById('login').style.cssText='display:none!important';
   const appDiv=document.getElementById('app');
   appDiv.style.cssText='display:flex!important;min-height:100vh';
   appDiv.classList.add('visible');
+  markPerf('dashboard_shell_ready');
   startClock();
-  ensureChartJS().then(function(){loadExternal(true);});
+  setSyncLoadingState();
+  loadExternal(true);
+  return true;
+  })();
+  return loginRequestInFlight;
 }
 function loginOnEnter(e){ if(e.key==='Enter') login(); }
 // nav listeners attached on DOM ready
@@ -2840,6 +2951,7 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.sidebar-nav .nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
+  renderPageIfNeeded(id);
 }
 function goToTasksFiltered(status){
   showPage('tasks');
@@ -4146,7 +4258,7 @@ function completionPct(taskList){
   return Math.round((done/total)*100);
 }
 function monthName(n){return ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][n-1]}
-function initData(){const clean=(Array.isArray(rows)?rows:[]).filter(r=>!isTestOrSyntheticRecord_(r)); rows=clean; tasks=clean.filter(r=>r.type==='Task'); milestones=clean.filter(r=>r.type==='Milestone'); enrichComputedTaskStatuses(); renderAll(); logTaskStatusDiagnostics();}
+function initData(){const clean=(Array.isArray(rows)?rows:[]).filter(r=>!isTestOrSyntheticRecord_(r)); rows=clean; tasks=clean.filter(r=>r.type==='Task'); milestones=clean.filter(r=>r.type==='Milestone'); enrichComputedTaskStatuses(); markAllPagesDirty(); renderCurrentPage(true); logTaskStatusDiagnostics();}
 function countBy(arr,key){return arr.reduce((a,r)=>{const k=typeof key==='function'?key(r):(r[key]||'غير محدد');a[k]=(a[k]||0)+1;return a},{})}
 function topEntries(obj,n=8){return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n)}
 // سلسلة الاعتماد وسلسلة التصعيد (الخطوات/المستويات) تُقرأ من تبويبي Approval Chain Register
@@ -4888,30 +5000,15 @@ async function manualRefreshNow(){
   }
 }
 async function loadExternal(initial=true){
+  if(syncRequestInFlight) return syncRequestInFlight;
+  syncRequestInFlight=(async()=>{
   const baseUrl=getConfiguredApiUrl();
   const input=document.getElementById('apiUrl'); if(input) input.value=baseUrl;
 
   // لا تُستخدم localStorage أو EMBEDDED كمصدر نهائي للمؤشرات.
   if(initial){
     rows=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[]; officialDataReady=false;
-    initData();
-    // Re-render charts after DOM paint; this preserves UI readiness without using cache/fallback data for KPIs.
-    requestAnimationFrame(function(){
-      setTimeout(function(){
-        renderDonutChart();
-        renderLineChart();
-        renderExecutiveAdditions();
-        setTimeout(function(){
-          renderDonutChart();
-          renderLineChart();
-        }, 600);
-      }, 100);
-    });
-    const st0=document.getElementById('sheetStatus');
-    const st0t=document.getElementById('sheetStatusText');
-    if(st0t) st0t.textContent='بانتظار مزامنة Google Sheets';
-    if(st0){st0.classList.remove('loading','connected','error');st0.classList.add('loading');}
-    setLastUpdate('بانتظار Google Sheets', new Date());
+    setSyncLoadingState();
   }
 
   if(!baseUrl){
@@ -4923,6 +5020,7 @@ async function loadExternal(initial=true){
   }
 
   try{
+    markPerf('data_sync_start');
     const _syncStart=performance.now();
     const _syncStartedAt=new Date();
     console.log(`⏱️ [Sync] بدء طلب البيانات: ${_syncStartedAt.toLocaleTimeString('ar-SA')}`);
@@ -4986,7 +5084,12 @@ async function loadExternal(initial=true){
       ensureSupplierOwnershipProfiles();
       applySupplierOwnerDefaults();
       try{ localStorage.setItem('kag_cached_rows', JSON.stringify(rows)); localStorage.setItem('kag_cached_approvals', JSON.stringify(approvals)); localStorage.setItem('kag_cached_assignments', JSON.stringify(assignments)); localStorage.setItem('kag_cached_meetings', JSON.stringify(meetings)); localStorage.setItem('kag_cached_commitments', JSON.stringify(commitments)); localStorage.setItem('kag_cached_files', JSON.stringify(filesRegister)); localStorage.setItem('kag_cached_urgent_tasks', JSON.stringify(urgentTasksRegister)); persistOperationalData(); localStorage.setItem('kag_cached_at', new Date().toISOString()); }catch(e){}
+      dashboardDataVersion++;
+      markPerf('normalize_end');
+      measurePerf('normalize_duration','data_sync_start','normalize_end');
       initData();
+      ensureChartJS().then(()=>{if(getActivePageId()==='overview'){renderDonutChart();renderLineChart();}});
+      markPerf('first_kpi_render');
       const st=document.getElementById('sheetStatus');
       const now=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const stEl=document.getElementById('sheetStatus');
@@ -4994,6 +5097,10 @@ async function loadExternal(initial=true){
       if(stTx) stTx.textContent='متصل — '+now;
       if(stEl){stEl.classList.remove('loading');stEl.classList.add('connected');};
       setLastUpdate('قاعدة البيانات / Google Sheet', new Date());
+      hasCompletedInitialSync=true;
+      markPerf('data_sync_end');
+      measurePerf('data_sync_duration','data_sync_start','data_sync_end');
+      markPerf('full_ready');
       const _syncTotalMs=Math.round(performance.now()-_syncStart);
       console.log(`⏱️ [Sync] اكتملت المعالجة الكاملة خلال ${_syncTotalMs} ms (طلب+معالجة). آخر تحديث ظاهر بالداشبورد: ${new Date().toLocaleTimeString('ar-SA')}`);
       return true;
@@ -5007,26 +5114,34 @@ async function loadExternal(initial=true){
     const stTxE=document.getElementById('sheetStatusText');
     if(stTxE) stTxE.textContent='تعذر الاتصال بالـGoogle Sheet — لا توجد بيانات رسمية للمؤشرات';
     if(stElE){stElE.classList.remove('loading');stElE.classList.remove('connected');stElE.classList.add('error');}
-    rows=[]; officialDataReady=false; initData();
+    if(isSessionExpiredError(e)){returnToLoginForExpiredSession(); return false;}
+    showSyncRetryState();
     setLastUpdate('Google Sheets غير متاح', new Date());
     return false;
+  } finally {
+    syncRequestInFlight=null;
   }
+  })();
+  return syncRequestInFlight;
 }
 
 // مزامنة تلقائية كل 30 ثانية بدون الحاجة لتحديث الصفحة
 // loadExternal called after login
-setInterval(()=>{ if(document.getElementById("app").classList.contains("visible")) loadExternal(false); },5000);
+setInterval(()=>{ if(hasCompletedInitialSync&&!document.hidden&&!syncRequestInFlight&&document.getElementById("app").classList.contains("visible")) loadExternal(false); },30000);
 
 /* ══ CLOCK ══ */
+let clockTimer=null;
 function startClock(){
+  if(clockTimer) return;
   function tick(){
     const now=new Date();
     const d=document.getElementById('topDate');
     const t=document.getElementById('topTime');
     if(d) d.textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
     if(t) t.textContent=now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    clockTimer=setTimeout(tick,1000);
   }
-  tick(); setInterval(tick,1000);
+  tick();
 }
 
 /* ══ GLOBAL SEARCH ══ */
@@ -5168,6 +5283,7 @@ function fillFilters(){
 let donutInst=null;
 function renderDonutChart(){
   if(!window.Chart) return;
+  if(chartRenderVersion.donut===dashboardDataVersion) return;
   const ctx=document.getElementById('donutChart');
   if(!ctx) return;
   if(!ctx.offsetParent && ctx.getBoundingClientRect().width===0) {
@@ -5178,6 +5294,7 @@ function renderDonutChart(){
   const counts=phases.map(p=>tasks.filter(t=>t.phase===p).length);
   const total=counts.reduce((a,b)=>a+b,0);
   document.getElementById('donutTotal').textContent=total;
+  chartRenderVersion.donut=dashboardDataVersion;
   if(donutInst) donutInst.destroy();
   donutInst=new Chart(ctx,{
     type:'doughnut',
@@ -5208,6 +5325,7 @@ function renderDonutChart(){
 let lineInst=null;
 function renderLineChart(){
   if(!window.Chart) return;
+  if(chartRenderVersion.line===dashboardDataVersion) return;
   const ctx=document.getElementById('lineChart');
   if(!ctx) return;
   if(!ctx.offsetParent && ctx.getBoundingClientRect().width===0) {
@@ -5220,6 +5338,7 @@ function renderLineChart(){
       const en=d(t.end); return en&&en.getMonth()+1<=m&&en.getFullYear()===2026;
     }).length;
   });
+  chartRenderVersion.line=dashboardDataVersion;
   if(lineInst) lineInst.destroy();
   let lineGrad='rgba(124,92,255,.15)';
   try{
