@@ -105,17 +105,13 @@ function doPost(e) {
     }
 
     if (payload.action === 'approval_request') {
-      requireCanApprove_(session);
       const item = appendApproval_(withActor_(payload, session));
-      notifyApprovalRequest_(item);
-      return json_({ ok: true, message: 'Approval request logged', approval: item });
+      return json_({ ok: true, message: 'Approval request logged', approval: item, approvals: getApprovalRows_() });
     }
 
     if (payload.action === 'approval_update') {
-      requireCanApprove_(session);
       const item = updateApproval_(withActor_(payload, session));
-      notifyApprovalUpdate_(item);
-      return json_({ ok: true, message: 'Approval updated', approval: item });
+      return json_({ ok: true, message: 'Approval updated', approval: item, approvals: getApprovalRows_() });
     }
 
     if (payload.action === 'task_assignment') {
@@ -602,6 +598,9 @@ function withActor_(payload, session) {
   const next = Object.assign({}, payload);
   next.updated_by = actor;
   next.actor_username = session.username || '';
+  next.username = session.username || '';
+  next.email = session.email || '';
+  next.display_name = session.display_name || '';
   if (!next.requester) next.requester = actor;
   if (!next.assigned_by) next.assigned_by = actor;
   if (!next.attendees && payload.action === 'meeting_record') next.attendees = actor;
@@ -863,7 +862,6 @@ function appendAssignment_(payload) {
     created_at: now,
     updated_at: now
   };
-
   sheet.appendRow([
     assignment.assignment_id,
     assignment.title,
@@ -979,6 +977,57 @@ function ensureApprovalHistorySheet_() {
   return ensureRegisterSheet_(KAG_CONFIG.approvalHistorySheetName, getApprovalHistoryHeaders_());
 }
 
+
+function getAllowedApprovalDecisionMakers_() {
+  return [
+    { display_name: 'أحمد العمودي', username: 'ahmad.amoudi' },
+    { display_name: 'أحمد المحيسن', username: 'ahmad.muhaysin' }
+  ].map(function(allowed) {
+    const matrixUser = findActiveUser_(allowed.username) || {};
+    return Object.assign({}, allowed, { email: String(matrixUser.email || '').trim() });
+  });
+}
+
+function normalizeApprovalPrincipal_(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function findAllowedApprovalDecisionMaker_(value) {
+  const principal = normalizeApprovalPrincipal_(value);
+  return getAllowedApprovalDecisionMakers_().find(function(user) {
+    return [user.display_name, user.username, user.email].some(function(candidate) {
+      return candidate && normalizeApprovalPrincipal_(candidate) === principal;
+    });
+  });
+}
+
+function requireValidApprovalDecisionMaker_(approver) {
+  const found = findAllowedApprovalDecisionMaker_(approver);
+  if (!found) throw new Error('Invalid approval decision maker');
+  return found;
+}
+
+function requireAssignedApprovalDecisionMaker_(row, session) {
+  const assigned = requireValidApprovalDecisionMaker_(row.approver);
+  const currentUsername = normalizeApprovalPrincipal_(session.username);
+  const currentEmail = normalizeApprovalPrincipal_(session.email);
+  const assignedUsername = normalizeApprovalPrincipal_(assigned.username);
+  const assignedEmail = normalizeApprovalPrincipal_(assigned.email);
+  const isAssignedUsername = Boolean(assignedUsername) && currentUsername === assignedUsername;
+  const isAssignedEmail = Boolean(assignedEmail) && currentEmail === assignedEmail;
+  if (!isAssignedUsername && !isAssignedEmail) {
+    throw new Error('Forbidden: assigned approver only');
+  }
+  return assigned;
+}
+
+function requireApprovalFields_(approval) {
+  ['title', 'type', 'owner', 'follow_up_owner', 'approver', 'version', 'sent_at', 'response_sla_hours', 'status', 'comments_log'].forEach(function(field) {
+    if (!String(approval[field] || '').trim()) throw new Error('Missing required approval field: ' + field);
+  });
+  if ([24, 48].indexOf(Number(approval.response_sla_hours)) === -1) throw new Error('Invalid response SLA hours');
+}
+
 function isSuggestionApproval_(row) {
   const marker = String([row.approval_id, row.reference_number, row.record_type, row.type, row.status, row.source, row.is_suggestion].join(' ')).trim();
   return /^SUG/i.test(String(row.approval_id || '')) || /^SUG/i.test(String(row.reference_number || '')) || /(^|\b)SUG/i.test(marker) || String(row.is_suggestion).toUpperCase() === 'TRUE';
@@ -1063,6 +1112,15 @@ function appendApproval_(payload) {
     closed_at: payload.closed_at || '',
     is_suggestion: payload.is_suggestion || (/^SUG/i.test(String(payload.approval_id || '')) ? 'TRUE' : 'FALSE')
   };
+  approval.reference_number = approval.reference_number || approval.approval_id;
+  approval.requester = payload.updated_by || payload.requester || payload.requested_by || '';
+  approval.approver = requireValidApprovalDecisionMaker_(approval.approver).display_name;
+  approval.response_sla_hours = Number(approval.response_sla_hours);
+  approval.response_due_at = approval.sent_at ? addBusinessHours_(new Date(approval.sent_at), approval.response_sla_hours) : approval.response_due_at;
+  approval.due_date = approval.due_date || approval.response_due_at;
+  approval.governance_stage = approval.governance_stage || approval.status;
+  if (isFinalApprovalStatus_(approval.status) && !hasOfficialApprovalEvidence_(approval)) throw new Error('Final approval requires official email or meeting minutes evidence');
+  requireApprovalFields_(approval);
 
   sheet.appendRow([
     approval.approval_id, approval.linked_wbs_code, approval.type, approval.title, approval.requester, approval.approver,
@@ -1075,10 +1133,16 @@ function appendApproval_(payload) {
 
   appendAuditLog_({
     action: 'approval_request',
-    task: approval.linked_wbs_code,
+    approval_id: approval.approval_id,
+    reference_number: approval.reference_number,
+    requester: approval.requester,
+    owner: approval.owner,
+    follow_up_owner: approval.follow_up_owner,
+    approver: approval.approver,
     status: approval.status,
-    updated_by: approval.requester,
+    created_at: approval.created_at,
     title: approval.title,
+    updated_by: approval.requester,
     raw_approval_id: approval.approval_id
   });
 
@@ -1101,7 +1165,8 @@ function updateApproval_(payload) {
       const current = {};
       headers.forEach(function(header, col) { current[header] = normalizeCell_(values[r][col]); });
       const nextStatus = payload.status || current.status;
-      if (!isSuggestionApproval_(current) && !allowedApprovalTransition_(current.status || 'مسودة', nextStatus)) throw new Error('Invalid approval status transition');
+      if (!isSuggestionApproval_(current)) requireAssignedApprovalDecisionMaker_(current, payload);
+      if (!isSuggestionApproval_(current) && !allowedApprovalTransition_(current.status || 'مسودة', nextStatus)) throw new Error('Invalid approval governance transition');
       const evidenceCandidate = Object.assign({}, current, payload);
       if (!isSuggestionApproval_(current) && isFinalApprovalStatus_(nextStatus) && !hasOfficialApprovalEvidence_(evidenceCandidate)) throw new Error('Final approval requires official email or meeting minutes evidence');
       const now = new Date();
@@ -1134,9 +1199,19 @@ function updateApproval_(payload) {
       appendApprovalHistory_({ record_id: targetId, decision: nextStatus, approver: payload.updated_by || payload.approver || current.approver, notes: payload.notes || '', version: updates.version || current.version });
       appendAuditLog_({
         action: 'approval_update',
+        approval_id: targetId,
+        previous_status: current.status || '',
+        new_status: nextStatus,
+        previous_stage: current.governance_stage || current.current_stage || '',
+        new_stage: updates.governance_stage || nextStatus,
+        decision_by: payload.updated_by || payload.display_name || payload.username || '',
+        decision_username: payload.username || '',
+        decision_at: now,
+        notes: payload.notes || '',
+        updated_at: now,
         task: targetId,
-        status: payload.status || '',
-        updated_by: payload.updated_by || payload.approver || '',
+        status: nextStatus,
+        updated_by: payload.updated_by || payload.username || '',
         title: payload.notes || ''
       });
       return getApprovalRows_().find(function(item) { return item.approval_id === targetId; }) || { approval_id: targetId };
