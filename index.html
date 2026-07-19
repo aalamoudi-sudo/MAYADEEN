@@ -1436,7 +1436,7 @@ select option{background:#0f1220}
         </div>
 
         <div class="card" style="margin-top:14px">
-          <div class="sec-title"><h2>المهام المستعجلة</h2><span id="urgentTasksOpenCount">0 مهمة مفتوحة</span></div>
+          <div class="sec-title"><h2>المهام المستعجلة</h2><span id="urgentTasksOpenCount">0 مهمة</span></div>
           <div class="kpi-value" id="urgentTasksCount" style="color:var(--red);font-size:30px;margin-bottom:8px">0</div>
           <div id="urgentTasksCardList"></div>
         </div>
@@ -1444,11 +1444,11 @@ select option{background:#0f1220}
 
       <!-- PROJECT PAGE -->
       <section class="page" id="urgentTasksPage">
-        <div class="page-header"><h1>المهام المستعجلة</h1><p>جميع المهام المفتوحة من شيت Urgent Task فقط</p></div>
+        <div class="page-header"><h1>المهام المستعجلة</h1><p>جميع سجلات شيت Urgent Task فقط دون فلترة حسب الحالة</p></div>
         <div class="card" style="overflow:auto;min-height:520px;max-height:70vh">
           <table class="data-table" id="urgentTasksTable">
             <thead><tr>
-              <th>المهمة</th><th>الوصف</th><th>المسؤول</th><th>البريد الإلكتروني</th><th>تاريخ الإسناد</th><th>تاريخ الاستحقاق</th><th>الحالة</th>
+              <th>ID</th><th>المهمة</th><th>الوصف</th><th>المسؤول</th><th>البريد الإلكتروني</th><th>تاريخ الإسناد</th><th>تاريخ الاستحقاق</th><th>الحالة</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -2868,7 +2868,8 @@ function normalizeRows(data){
 function normalizeUrgentTaskRows(data){
   const arr=Array.isArray(data)?data:(data?.urgent_tasks||data?.rows||[]);
   return arr.map((raw,i)=>{
-    const id=String(valueOf(raw,['ID','id'])||`URG-${String(i+1).padStart(3,'0')}`).trim();
+    const idRaw=valueOf(raw,['ID','id']);
+    const id=String(idRaw||`URG-${String(i+1).padStart(3,'0')}`).trim();
     const task=String(valueOf(raw,['المهمة','task','title'])||'').trim();
     const description=String(valueOf(raw,['الوصف','description'])||'').trim();
     const owner=String(valueOf(raw,['المسؤول','owner'])||'').trim();
@@ -2877,12 +2878,14 @@ function normalizeUrgentTaskRows(data){
     const due=isoDate(valueOf(raw,['تاريخ الاستحقاق','due_date','due']));
     const status=String(valueOf(raw,['الحالة','status'])||'').trim();
     const notify=String(valueOf(raw,['إرسال الإشعار','notify'])||'').trim();
-    if(!task) return null;
+    const hasAnyValue=[idRaw,task,description,owner,email,assigned,due,status,notify].some(v=>String(v||'').trim()!=='' );
+    if(!hasAnyValue) return null;
     return {id,task,description,owner,email,assigned,due,status,notify};
   }).filter(Boolean);
 }
 function openUrgentTasks(){showPage('urgentTasksPage');renderUrgentTasksPage();}
-function activeUrgentTasks(){return (urgentTasksRegister||[]).filter(t=>normalizeArabic(t.status)!==normalizeArabic('مكتملة'));}
+function urgentTaskRows(){return Array.isArray(urgentTasksRegister)?urgentTasksRegister:[];}
+function activeUrgentTasks(){return urgentTaskRows();}
 function renderUrgentTasksCard(){
   const countEl=document.getElementById('urgentTasksCount');
   const openEl=document.getElementById('urgentTasksOpenCount');
@@ -2890,33 +2893,34 @@ function renderUrgentTasksCard(){
   if(!countEl||!openEl||!listEl) return;
   const items=activeUrgentTasks();
   countEl.textContent=items.length;
-  openEl.textContent=items.length+' مهمة مفتوحة';
+  openEl.textContent=items.length+' مهمة';
   const shown=items.slice(0,5);
   if(!shown.length){
-    listEl.innerHTML='<div style="text-align:center;color:var(--muted);padding:18px;font-size:13px">لا توجد مهام مستعجلة مفتوحة</div>';
+    listEl.innerHTML='<div style="text-align:center;color:var(--muted);padding:18px;font-size:13px">لا توجد مهام مستعجلة</div>';
     return;
   }
   listEl.innerHTML=shown.map(t=>`<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)">
     <div style="width:3px;height:34px;border-radius:2px;background:var(--red);flex-shrink:0"></div>
     <div style="flex:1;min-width:0">
       <div style="font-size:12.5px;color:#d0d8f0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(t.task)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px">${escapeHtml(t.owner||'—')} · ${fmt(t.due)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">${escapeHtml(t.owner||'—')} · ${fmt(t.due)} · ${escapeHtml(t.status||'—')}</div>
     </div>
   </div>`).join('')+(items.length>shown.length?'<button class="ops-mini-btn" onclick="openUrgentTasks()" style="margin-top:10px">عرض الكل</button>':'');
 }
 function renderUrgentTasksPage(){
   const body=document.querySelector('#urgentTasksTable tbody');
   if(!body) return;
-  const items=activeUrgentTasks();
+  const items=urgentTaskRows();
   body.innerHTML=items.map(t=>`<tr>
-    <td>${escapeHtml(t.task)}</td>
+    <td>${escapeHtml(t.id||'-')}</td>
+    <td>${escapeHtml(t.task||'-')}</td>
     <td>${escapeHtml(t.description||'-')}</td>
     <td>${escapeHtml(t.owner||'-')}</td>
     <td>${escapeHtml(t.email||'-')}</td>
     <td>${fmt(t.assigned)}</td>
     <td>${fmt(t.due)}</td>
     <td><span class="pill ${normalizeArabic(t.status).includes('متأخر')?'red':'yellow'}">${escapeHtml(t.status||'-')}</span></td>
-  </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">لا توجد مهام مستعجلة مفتوحة</td></tr>';
+  </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">لا توجد مهام مستعجلة</td></tr>';
 }
 
 function normalizeApprovalRows(data){
