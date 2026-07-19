@@ -1856,7 +1856,7 @@ select option{background:#0f1220}
             <input id="approval-linked" placeholder="كود المهمة أو المخرج المرتبط (اختياري)" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
             <input id="approval-owner" placeholder="المالك *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
             <input id="approval-follow" placeholder="مسؤول المتابعة *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
-            <select id="approval-approver" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option value="">صاحب القرار *</option><option value="أحمد العمودي">أحمد العمودي</option><option value="أحمد المحيسن">أحمد المحيسن</option></select>
+            <select id="approval-approver" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option value="">صاحب القرار *</option><option value="أحمد العامودي">أحمد العامودي</option><option value="أحمد المحيسن">أحمد المحيسن</option></select>
             <input id="approval-version" value="v1.0" placeholder="الإصدار الحالي *" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
             <input id="approval-sent" type="datetime-local" title="تاريخ إرسال المخرج" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"/>
             <select id="approval-sla" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--text);font-family:inherit;outline:none"><option value="24">24 ساعة عمل</option><option value="48">48 ساعة عمل</option></select>
@@ -3138,11 +3138,11 @@ const ESCALATION_LEVELS=[
   {level:'Level 4',label:'تصعيد حرج Critical Escalation',sla:2,color:'#111827'}
 ];
 const OWNERSHIP_PROFILES=[
-  {name:'منذر الأنصاري',team:'PMO',manager:'أحمد المحيسن',second:'أحمد العمودي',domains:['مشتريات','مهام','تشغيل','متابعة'],capacity:8},
-  {name:'أحمد المحيسن',team:'التشغيل',manager:'أحمد العمودي',second:'عبدالعزيز العبيد',domains:['تشغيل','مورد','تصعيد','جدول'],capacity:10},
-  {name:'سارة الشهري',team:'التصاريح والجهات',manager:'أحمد العمودي',second:'عبدالعزيز العبيد',domains:['تصاريح','بوابات','جهات حكومية'],capacity:7},
-  {name:'بندر الهضيبة',team:'الجودة والمخاطر',manager:'أحمد العمودي',second:'عبدالعزيز العبيد',domains:['مخاطر','جودة','أوامر تغيير'],capacity:7},
-  {name:'أحمد العمودي',team:'PMO القيادة',manager:'عبدالعزيز العبيد',second:'مركز القيادة',domains:['اعتمادات','قرارات','تغيير','إدارة'],capacity:12},
+  {name:'منذر الأنصاري',team:'PMO',manager:'أحمد المحيسن',second:'أحمد العامودي',domains:['مشتريات','مهام','تشغيل','متابعة'],capacity:8},
+  {name:'أحمد المحيسن',team:'التشغيل',manager:'أحمد العامودي',second:'عبدالعزيز العبيد',domains:['تشغيل','مورد','تصعيد','جدول'],capacity:10},
+  {name:'سارة الشهري',team:'التصاريح والجهات',manager:'أحمد العامودي',second:'عبدالعزيز العبيد',domains:['تصاريح','بوابات','جهات حكومية'],capacity:7},
+  {name:'بندر الهضيبة',team:'الجودة والمخاطر',manager:'أحمد العامودي',second:'عبدالعزيز العبيد',domains:['مخاطر','جودة','أوامر تغيير'],capacity:7},
+  {name:'أحمد العامودي',team:'PMO القيادة',manager:'عبدالعزيز العبيد',second:'مركز القيادة',domains:['اعتمادات','قرارات','تغيير','إدارة'],capacity:12},
   {name:'عبدالعزيز العبيد',team:'الإدارة العليا',manager:'مركز القيادة',second:'مركز القيادة',domains:['حرج','افتتاح','تكلفة','نطاق'],capacity:5},
   {name:'مالك المشروع',team:'مالك المشروع',manager:'المشرف العام',second:'مركز القيادة',domains:['أوامر تغيير','تغيير','نطاق','تكلفة','اعتماد نهائي'],capacity:6},
   {name:'المشرف العام',team:'الإشراف العام',manager:'مالك المشروع',second:'مركز القيادة',domains:['أوامر تغيير','تغيير','تحليل أثر','اعتماد'],capacity:8}
@@ -3167,12 +3167,12 @@ function changeOrderEscalationTarget(currentResponsible){
   return current==='مالك المشروع'?'المشرف العام':'مالك المشروع';
 }
 const WORKFLOW_OWNERSHIP_MATRIX=[
-  {workflow:'المشتريات',stages:PROCUREMENT_WORKFLOW,execute:'منذر الأنصاري',review:'أحمد المحيسن',approve:'أحمد العمودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'اكتمال المورد، القيمة، المرفقات، والاعتماد الداخلي'},
-  {workflow:'التصاريح',stages:PERMIT_WORKFLOW,execute:'سارة الشهري',review:'منذر الأنصاري',approve:'أحمد المحيسن',escalate:'أحمد العمودي',sla:'12 ساعة',condition:'اكتمال الهوية/المركبة/المرفقات وتحديد البوابة والمنطقة'},
+  {workflow:'المشتريات',stages:PROCUREMENT_WORKFLOW,execute:'منذر الأنصاري',review:'أحمد المحيسن',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'اكتمال المورد، القيمة، المرفقات، والاعتماد الداخلي'},
+  {workflow:'التصاريح',stages:PERMIT_WORKFLOW,execute:'سارة الشهري',review:'منذر الأنصاري',approve:'أحمد المحيسن',escalate:'أحمد العامودي',sla:'12 ساعة',condition:'اكتمال الهوية/المركبة/المرفقات وتحديد البوابة والمنطقة'},
   {workflow:'أوامر التغيير',stages:CHANGE_ORDER_WORKFLOW,execute:'المشرف العام',review:'المشرف العام',approve:'مالك المشروع',escalate:'مالك المشروع',sla:'24 ساعة',condition:'أوامر التغيير اختصاص مالك المشروع والمشرف العام فقط، مع تحليل أثر الوقت والتكلفة والنطاق والجودة'},
-  {workflow:'الاعتمادات',stages:['إرسال المرجع','فحص الاكتمال','مراجعة تنفيذية','جودة ومخاطر','اعتماد PMO','اعتماد داخلي حرج','بوابة خارجية'],execute:'صاحب المسار',review:'منذر الأنصاري',approve:'أحمد العمودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'اكتمال الطلب ورابط المستند والجهة المعتمدة'},
-  {workflow:'المخاطر',stages:['اكتشاف','تقييم','معالجة','تصعيد','إغلاق'],execute:'قائد المسار',review:'بندر الهضيبة',approve:'أحمد العمودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'تقييم الاحتمالية والتأثير وخطة المعالجة'},
-  {workflow:'القرارات',stages:['طلب قرار','مراجعة','تحليل أثر','اعتماد','تنفيذ','إغلاق'],execute:'PMO',review:'أحمد المحيسن',approve:'أحمد العمودي',escalate:'عبدالعزيز العبيد',sla:'12 ساعة',condition:'وضوح القرار والجهة المطلوبة والأثر'},
+  {workflow:'الاعتمادات',stages:['إرسال المرجع','فحص الاكتمال','مراجعة تنفيذية','جودة ومخاطر','اعتماد PMO','اعتماد داخلي حرج','بوابة خارجية'],execute:'صاحب المسار',review:'منذر الأنصاري',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'اكتمال الطلب ورابط المستند والجهة المعتمدة'},
+  {workflow:'المخاطر',stages:['اكتشاف','تقييم','معالجة','تصعيد','إغلاق'],execute:'قائد المسار',review:'بندر الهضيبة',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'تقييم الاحتمالية والتأثير وخطة المعالجة'},
+  {workflow:'القرارات',stages:['طلب قرار','مراجعة','تحليل أثر','اعتماد','تنفيذ','إغلاق'],execute:'PMO',review:'أحمد المحيسن',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'12 ساعة',condition:'وضوح القرار والجهة المطلوبة والأثر'},
   {workflow:'التصعيدات',stages:['فتح التصعيد','توجيه','رد المسؤول','قرار','إجراء تصحيحي','إغلاق'],execute:'المسؤول الحالي',review:'مدير المسار',approve:'مركز القيادة',escalate:'عبدالعزيز العبيد',sla:'4 ساعات',condition:'وجود سبب تصعيد وSLA واضح وتسجيل Audit Log'}
 ];
 const DEFAULT_ESCALATIONS=[
@@ -4097,14 +4097,14 @@ const MAYADEEN_APPROVAL_CHAIN=[
   {step:'2',title:'فحص الاكتمال',owner:'منذر الأنصاري',role:'يتأكد من الرابط والبيانات ويوثق الطلب',sla:'4 ساعات',color:'#00d4ff'},
   {step:'3',title:'مراجعة تنفيذية',owner:'أحمد المحيسن',role:'يراجع الأثر على التنفيذ والمسارات',sla:'24 ساعة',color:'#f5b800'},
   {step:'4',title:'جودة ومخاطر',owner:'بندر الهضيبة',role:'يفحص المخاطر والجودة قبل الاعتماد',sla:'24 ساعة',color:'#ff8c42'},
-  {step:'5',title:'اعتماد PMO',owner:'أحمد العمودي',role:'يثبت القرار في السجل والتقرير',sla:'24-48 ساعة',color:'#a07dff'},
+  {step:'5',title:'اعتماد PMO',owner:'أحمد العامودي',role:'يثبت القرار في السجل والتقرير',sla:'24-48 ساعة',color:'#a07dff'},
   {step:'6',title:'اعتماد داخلي حرج',owner:'عبدالعزيز العبيد',role:'للقرارات المؤثرة على الجدول أو المرجع',sla:'فوري عند الحاجة',color:'#ff4d6a'},
   {step:'7',title:'بوابة خارجية',owner:'سارة الشهري',role:'للتصاريح والتنسيق الحكومي فقط',sla:'حسب الجهة',color:'#10e87a'}
 ];
 const MAYADEEN_ESCALATION_CHAIN=[
   {level:'L0',title:'معالجة داخل المسار',owner:'قائد المسار',trigger:'ملاحظة عادية أو نقص بيانات',sla:'12 ساعة',color:'#10e87a'},
   {level:'L1',title:'تصعيد تشغيلي',owner:'منذر + أحمد المحيسن',trigger:'تأخر تحديث أو عائق تشغيلي',sla:'24 ساعة',color:'#f5b800'},
-  {level:'L2',title:'تصعيد PMO/جودة',owner:'أحمد العمودي + بندر',trigger:'اعتماد متأخر أو خطر متوسط/مرتفع',sla:'48 ساعة',color:'#ff8c42'},
+  {level:'L2',title:'تصعيد PMO/جودة',owner:'أحمد العامودي + بندر',trigger:'اعتماد متأخر أو خطر متوسط/مرتفع',sla:'48 ساعة',color:'#ff8c42'},
   {level:'L3',title:'تصعيد تنفيذي داخلي',owner:'عبدالعزيز العبيد',trigger:'أثر مباشر على الجدول أو جودة المرجع',sla:'نفس اليوم',color:'#ff4d6a'},
   {level:'L4',title:'بوابة خارجية',owner:'سارة الشهري',trigger:'تصريح أو جهة حكومية أو اعتماد أمانة',sla:'فوري وموثق',color:'#a07dff'}
 ];
@@ -4112,7 +4112,7 @@ const MAYADEEN_RISK_CHAIN=[
   {title:'اكتشاف',owner:'قائد المسار / منذر',action:'تسجيل الخطر وربطه بالمهمة أو الاعتماد',color:'#3b82f6'},
   {title:'تقييم',owner:'بندر',action:'احتمالية × تأثير وتحديد مستوى الخطر',color:'#f5b800'},
   {title:'معالجة',owner:'أحمد المحيسن',action:'خطة معالجة ومالك إجراء وتاريخ إغلاق',color:'#ff8c42'},
-  {title:'تصعيد',owner:'أحمد العمودي',action:'تفعيل سلسلة التصعيد عند تجاوز SLA',color:'#a07dff'},
+  {title:'تصعيد',owner:'أحمد العامودي',action:'تفعيل سلسلة التصعيد عند تجاوز SLA',color:'#a07dff'},
   {title:'إغلاق',owner:'PMO + بندر',action:'توثيق الدليل وتحديث السجل',color:'#10e87a'}
 ];
 // عرض مخصص لبطاقات مستويات التصعيد L0-L4 بمركز التصعيد التنفيذي فقط (لا يمس
@@ -5949,7 +5949,7 @@ function renderRisksMgmt(){
   renderChainCards('rm-riskChain',[
     {level:'منخفض',title:'مراقبة',owner:'قائد المسار',trigger:'لا يؤثر على الافتتاح أو الاعتماد',sla:'تحديث أسبوعي',color:'#10e87a'},
     {level:'متوسط',title:'خطة معالجة',owner:'بندر + قائد المسار',trigger:'يحتاج إجراء واضح وتاريخ إغلاق',sla:'48 ساعة',color:'#f5b800'},
-    {level:'مرتفع',title:'تصعيد PMO',owner:'أحمد العمودي + أحمد المحيسن',trigger:'قد يؤثر على المسار أو الاعتماد',sla:'24 ساعة',color:'#ff8c42'},
+    {level:'مرتفع',title:'تصعيد PMO',owner:'أحمد العامودي + أحمد المحيسن',trigger:'قد يؤثر على المسار أو الاعتماد',sla:'24 ساعة',color:'#ff8c42'},
     {level:'حرج',title:'تدخل تنفيذي',owner:'عبدالعزيز العبيد',trigger:'أثر مباشر على الجدول أو المرجع أو الافتتاح',sla:'فوري',color:'#ff4d6a'}
   ]);
 
