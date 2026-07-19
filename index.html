@@ -1434,9 +1434,27 @@ select option{background:#0f1220}
             <div class="milestone-list" id="milestones"></div>
           </div>
         </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="sec-title"><h2>المهام المستعجلة</h2><span id="urgentTasksOpenCount">0 مهمة مفتوحة</span></div>
+          <div class="kpi-value" id="urgentTasksCount" style="color:var(--red);font-size:30px;margin-bottom:8px">0</div>
+          <div id="urgentTasksCardList"></div>
+        </div>
       </section>
 
       <!-- PROJECT PAGE -->
+      <section class="page" id="urgentTasksPage">
+        <div class="page-header"><h1>المهام المستعجلة</h1><p>جميع المهام المفتوحة من شيت Urgent Task فقط</p></div>
+        <div class="card" style="overflow:auto;min-height:520px;max-height:70vh">
+          <table class="data-table" id="urgentTasksTable">
+            <thead><tr>
+              <th>المهمة</th><th>الوصف</th><th>المسؤول</th><th>البريد الإلكتروني</th><th>تاريخ الإسناد</th><th>تاريخ الاستحقاق</th><th>الحالة</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
       <!-- TASKS PAGE -->
       <section class="page" id="tasks">
         <div class="page-header"><h1>المهام</h1><p>جميع مهام المشروع — <span id="taskTotalBadge">جاري احتساب المهام من ملف WBS</span></p></div>
@@ -2663,7 +2681,7 @@ select option{background:#0f1220}
 
 <script>
 const EMBEDDED={"rows":[],"pm":[],"generated":""};
-let rows=EMBEDDED.rows; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[];
+let rows=EMBEDDED.rows; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
 let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords=[]; let issuesIncidents=[]; let vendorViolations=[]; let decisionLogRecords=[]; let suppliersRegister=[];
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
@@ -2688,6 +2706,7 @@ function normalizePageList(v){
   return String(v||'').split(/[,،]/).map(x=>x.trim()).filter(Boolean);
 }
 function canAccessPage(id){
+  if(id==='urgentTasksPage') return canAccessPage('overview');
   const pages=normalizePageList(currentUser.allowed_pages);
   return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id);
 }
@@ -2846,6 +2865,60 @@ function normalizeRows(data){
   const arr = Array.isArray(data) ? data : (data.rows||data.tasks||[]);
   return arr.map(normalizeRow).filter(Boolean);
 }
+function normalizeUrgentTaskRows(data){
+  const arr=Array.isArray(data)?data:(data?.urgent_tasks||data?.rows||[]);
+  return arr.map((raw,i)=>{
+    const id=String(valueOf(raw,['ID','id'])||`URG-${String(i+1).padStart(3,'0')}`).trim();
+    const task=String(valueOf(raw,['المهمة','task','title'])||'').trim();
+    const description=String(valueOf(raw,['الوصف','description'])||'').trim();
+    const owner=String(valueOf(raw,['المسؤول','owner'])||'').trim();
+    const email=String(valueOf(raw,['البريد الإلكتروني','email'])||'').trim();
+    const assigned=isoDate(valueOf(raw,['تاريخ الإسناد','assigned_date','assignedAt']));
+    const due=isoDate(valueOf(raw,['تاريخ الاستحقاق','due_date','due']));
+    const status=String(valueOf(raw,['الحالة','status'])||'').trim();
+    const notify=String(valueOf(raw,['إرسال الإشعار','notify'])||'').trim();
+    if(!task) return null;
+    return {id,task,description,owner,email,assigned,due,status,notify};
+  }).filter(Boolean);
+}
+function openUrgentTasks(){showPage('urgentTasksPage');renderUrgentTasksPage();}
+function activeUrgentTasks(){return (urgentTasksRegister||[]).filter(t=>normalizeArabic(t.status)!==normalizeArabic('مكتملة'));}
+function renderUrgentTasksCard(){
+  const countEl=document.getElementById('urgentTasksCount');
+  const openEl=document.getElementById('urgentTasksOpenCount');
+  const listEl=document.getElementById('urgentTasksCardList');
+  if(!countEl||!openEl||!listEl) return;
+  const items=activeUrgentTasks();
+  countEl.textContent=items.length;
+  openEl.textContent=items.length+' مهمة مفتوحة';
+  const shown=items.slice(0,5);
+  if(!shown.length){
+    listEl.innerHTML='<div style="text-align:center;color:var(--muted);padding:18px;font-size:13px">لا توجد مهام مستعجلة مفتوحة</div>';
+    return;
+  }
+  listEl.innerHTML=shown.map(t=>`<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+    <div style="width:3px;height:34px;border-radius:2px;background:var(--red);flex-shrink:0"></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:12.5px;color:#d0d8f0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(t.task)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">${escapeHtml(t.owner||'—')} · ${fmt(t.due)}</div>
+    </div>
+  </div>`).join('')+(items.length>shown.length?'<button class="ops-mini-btn" onclick="openUrgentTasks()" style="margin-top:10px">عرض الكل</button>':'');
+}
+function renderUrgentTasksPage(){
+  const body=document.querySelector('#urgentTasksTable tbody');
+  if(!body) return;
+  const items=activeUrgentTasks();
+  body.innerHTML=items.map(t=>`<tr>
+    <td>${escapeHtml(t.task)}</td>
+    <td>${escapeHtml(t.description||'-')}</td>
+    <td>${escapeHtml(t.owner||'-')}</td>
+    <td>${escapeHtml(t.email||'-')}</td>
+    <td>${fmt(t.assigned)}</td>
+    <td>${fmt(t.due)}</td>
+    <td><span class="pill ${normalizeArabic(t.status).includes('متأخر')?'red':'yellow'}">${escapeHtml(t.status||'-')}</span></td>
+  </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">لا توجد مهام مستعجلة مفتوحة</td></tr>';
+}
+
 function normalizeApprovalRows(data){
   const arr=Array.isArray(data)?data:(data?.approvals||data?.rows||[]);
   return arr.map((raw,i)=>{
@@ -3931,6 +4004,8 @@ function renderAll(){
   renderInsights();
   renderDataHealth();
   renderTasksKpis();
+  renderUrgentTasksCard();
+  renderUrgentTasksPage();
   renderExecutiveAdditions();
   renderMilestonesPage();
   renderOwnersPage();
@@ -4548,6 +4623,7 @@ async function loadExternal(initial=true){
       meetings=normalizeMeetingRows(JSON.parse(localStorage.getItem('kag_cached_meetings')||'[]'));
       commitments=normalizeCommitmentRows(JSON.parse(localStorage.getItem('kag_cached_commitments')||'[]'));
       filesRegister=normalizeFileRows(JSON.parse(localStorage.getItem('kag_cached_files')||'[]'));
+      urgentTasksRegister=normalizeUrgentTaskRows(JSON.parse(localStorage.getItem('kag_cached_urgent_tasks')||'[]'));
       initOperationalDataFromCache();
     }catch(e){
       rows=EMBEDDED.rows;
@@ -4556,6 +4632,7 @@ async function loadExternal(initial=true){
       meetings=[];
       commitments=[];
       filesRegister=[];
+      urgentTasksRegister=[];
       initOperationalDataFromCache();
     }
     initData();
@@ -4607,6 +4684,7 @@ async function loadExternal(initial=true){
     const normalizedMeetings=normalizeMeetingRows(data.meetings||[]);
     const normalizedCommitments=normalizeCommitmentRows(data.commitments||[]);
     const normalizedFiles=normalizeFileRows(data.files||data.file_control||[]);
+    const normalizedUrgentTasks=normalizeUrgentTaskRows(data.urgent_tasks||data.urgentTasks||[]);
     const normalizedProcurements=normalizeProcurementRows(data.procurements||data.procurement_requests||[]);
     const normalizedPermits=normalizePermitRows(data.permits||data.permits_register||[]);
     const normalizedChangeOrders=normalizeChangeOrderRows(data.change_orders||data.changeOrders||[]);
@@ -4628,6 +4706,7 @@ async function loadExternal(initial=true){
       meetings=normalizedMeetings;
       commitments=normalizedCommitments;
       filesRegister=normalizedFiles;
+      urgentTasksRegister=normalizedUrgentTasks;
       // كل هذه السجلات أصبحت مرتبطة فعلياً بالشيت، لذا تُستبدل بالكامل بكل مزامنة
       // (حتى لو رجعت فارغة) بدل الإبقاء على بيانات قديمة أو تجريبية محلياً.
       procurementRequests=normalizedProcurements;
@@ -4646,7 +4725,7 @@ async function loadExternal(initial=true){
       decisionLogRecords=normalizedDecisionLog;
       ensureSupplierOwnershipProfiles();
       applySupplierOwnerDefaults();
-      try{ localStorage.setItem('kag_cached_rows', JSON.stringify(rows)); localStorage.setItem('kag_cached_approvals', JSON.stringify(approvals)); localStorage.setItem('kag_cached_assignments', JSON.stringify(assignments)); localStorage.setItem('kag_cached_meetings', JSON.stringify(meetings)); localStorage.setItem('kag_cached_commitments', JSON.stringify(commitments)); localStorage.setItem('kag_cached_files', JSON.stringify(filesRegister)); persistOperationalData(); localStorage.setItem('kag_cached_at', new Date().toISOString()); }catch(e){}
+      try{ localStorage.setItem('kag_cached_rows', JSON.stringify(rows)); localStorage.setItem('kag_cached_approvals', JSON.stringify(approvals)); localStorage.setItem('kag_cached_assignments', JSON.stringify(assignments)); localStorage.setItem('kag_cached_meetings', JSON.stringify(meetings)); localStorage.setItem('kag_cached_commitments', JSON.stringify(commitments)); localStorage.setItem('kag_cached_files', JSON.stringify(filesRegister)); localStorage.setItem('kag_cached_urgent_tasks', JSON.stringify(urgentTasksRegister)); persistOperationalData(); localStorage.setItem('kag_cached_at', new Date().toISOString()); }catch(e){}
       initData();
       const st=document.getElementById('sheetStatus');
       const now=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
