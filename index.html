@@ -3132,7 +3132,7 @@ function normalizeProcurementRows(data){
     const notes=String(valueOf(raw,['comments_log','notes','ملاحظات'])||'').trim();
     const source=String(valueOf(raw,['source','record_type'])||'sheet').trim();
     const referenceNumber=String(valueOf(raw,['reference_number'])||id).trim();
-    const owner=String(valueOf(raw,['owner'])||approver).trim();
+    const approvalOwner=String(valueOf(raw,['approval_owner','approver','approver_name'])||owner).trim();
     const followUpOwner=String(valueOf(raw,['follow_up_owner'])||requester).trim();
     const version=String(valueOf(raw,['version'])||'').trim();
     const evidenceLink=String(valueOf(raw,['evidence_link'])||'').trim();
@@ -3274,7 +3274,7 @@ function normalizeApprovalHistoryRows(data){
     const referenceNumber=String(valueOf(raw,['reference_number'])||id).trim();
     const owner=String(valueOf(raw,['owner'])||approver).trim();
     const followUpOwner=String(valueOf(raw,['follow_up_owner'])||requester).trim();
-    const version=String(valueOf(raw,['version'])||'').trim();
+    const approvalVersion=String(valueOf(raw,['approval_version'])||'').trim();
     const evidenceLink=String(valueOf(raw,['evidence_link'])||'').trim();
     const officialReference=String(valueOf(raw,['official_reference'])||'').trim();
     const isSuggestion=/^SUG/i.test(id)||/^SUG/i.test(referenceNumber)||/^SUG/i.test(type)||/^SUG/i.test(status)||/^SUG/i.test(source)||String(valueOf(raw,['is_suggestion'])||'').toUpperCase()==='TRUE';
