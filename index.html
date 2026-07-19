@@ -2769,7 +2769,7 @@ let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
 let taskDateFilter='all';
 const RIYADH_TIME_ZONE='Asia/Riyadh';
-const TODAY=new Date(); TODAY.setHours(0,0,0,0);
+const TODAY=riyadhTodayDate();
 const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzU75D5PcKWp3b19H8E8Gp9jJO_obD_qFHUqAl5g73fVdLccnmAg1HS57ukit_9dOLk/exec';
 const ALLOWED_API_HOSTS=['script.google.com','script.googleusercontent.com'];
 let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
@@ -3019,22 +3019,44 @@ function goToTasksFiltered(status){
   if(stSel) stSel.value=status||'';
   if(typeof applyFilters==='function') applyFilters();
 }
-function d(s){
-  if(!s)return null;
-  if(s instanceof Date) return s;
-  let v=String(s).trim();
-  if(!v)return null;
-  if(/^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v);
-  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(v+'T00:00:00');
-  if(/^\d{2}-\d{2}-\d{4}$/.test(v)){const [dd,mm,yy]=v.split('-'); return new Date(`${yy}-${mm}-${dd}T00:00:00`)}
-  const parsed=new Date(v); return isNaN(parsed)?null:parsed;
+function normalizedDate(value){
+  if(value===null||value===undefined||value==='') return null;
+  if(value instanceof Date){
+    if(isNaN(value)) return null;
+    return dateKeyToDate_(formatDateKeyInZone_(value,RIYADH_TIME_ZONE));
+  }
+  if(typeof value==='number'||/^\d+(?:\.\d+)?$/.test(String(value).trim())){
+    const n=Number(value);
+    if(Number.isFinite(n)&&n>20000&&n<80000){
+      const serialUtc=Date.UTC(1899,11,30)+Math.floor(n)*86400000;
+      return dateKeyToDate_(formatDateKeyInZone_(new Date(serialUtc),RIYADH_TIME_ZONE));
+    }
+  }
+  const raw=String(value).trim();
+  if(!raw) return null;
+  if(/T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)){
+    const instant=new Date(raw);
+    if(!isNaN(instant)) return dateKeyToDate_(formatDateKeyInZone_(instant,RIYADH_TIME_ZONE));
+  }
+  const ymd=raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/);
+  if(ymd) return buildNormalizedDate_(Number(ymd[1]),Number(ymd[2]),Number(ymd[3]));
+  const dmy=raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[T\s].*)?$/);
+  if(dmy){
+    let a=Number(dmy[1]),b=Number(dmy[2]),y=Number(dmy[3]),day=a,month=b;
+    if(a<=12&&b>12){month=a;day=b;} // MM/dd/yyyy
+    return buildNormalizedDate_(y,month,day);
+  }
+  const parsed=new Date(raw);
+  if(isNaN(parsed)) return null;
+  return dateKeyToDate_(formatDateKeyInZone_(parsed,RIYADH_TIME_ZONE));
 }
-function isoDate(s){const x=d(s); if(!x||isNaN(x)) return ''; return x.toISOString().slice(0,10)}
-function fmt(s){if(!s)return '-'; const x=d(s); return (!x||isNaN(x))?'-':x.toLocaleDateString('ar-SA');}
-function fmtDMY(s){const x=d(s); if(!x||isNaN(x)) return '-'; return `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}`;}
+function d(s){return normalizedDate(s);}
+function isoDate(s){const x=normalizedDate(s); return x?dateToKey_(x):'';}
+function fmt(s){const x=normalizedDate(s); return x?x.toLocaleDateString('ar-SA',{timeZone:'UTC'}):'-';}
+function fmtDMY(s){const x=normalizedDate(s); if(!x) return '-'; return `${String(x.getUTCDate()).padStart(2,'0')}/${String(x.getUTCMonth()+1).padStart(2,'0')}/${x.getUTCFullYear()}`;}
 function relativeDueLabel(dateStr){
   if(!dateStr) return '-';
-  const todayStr=TODAY.toISOString().slice(0,10);
+  const todayStr=riyadhTodayKey();
   const diff=daysBetween(todayStr,dateStr);
   if(diff===null||isNaN(diff)) return '-';
   if(diff===0) return 'اليوم';
@@ -3044,7 +3066,10 @@ function relativeDueLabel(dateStr){
   return `متأخر ${Math.abs(diff)} ${Math.abs(diff)===2?'يومين':'أيام'}`;
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-function daysBetween(a,b){const da=d(a), db=d(b); if(!da||!db||isNaN(da)||isNaN(db)) return 0; return Math.ceil((db-da)/86400000)}
+function daysBetween(a,b){const da=normalizedDate(a), db=normalizedDate(b); if(!da||!db) return 0; return Math.round((db-da)/86400000)}
+function sameNormalizedDay(a,b){const da=normalizedDate(a), db=normalizedDate(b); return !!(da&&db&&dateToKey_(da)===dateToKey_(db));}
+function isOnOrAfterDay(a,b){const da=normalizedDate(a), db=normalizedDate(b); return !!(da&&db&&da>=db);}
+function isBeforeDay(a,b){const da=normalizedDate(a), db=normalizedDate(b); return !!(da&&db&&da<db);}
 // يطابق تنسيق تطبيع رؤوس الأعمدة في Apps Script (normalizeHeader_): يحول النص لحروف صغيرة،
 // يستبدل أي مسافات بشرطة سفلية، ثم يحذف أي رمز ليس حرفاً عربياً/إنجليزياً/رقماً/شرطة سفلية.
 // هذا يضمن أن "Milestone / Task" أو "WBS Code" القادمة من كود الواجهة تطابق المفاتيح الفعلية
@@ -3290,11 +3315,7 @@ function normalizeFileRows(data){
     return {id,name,owner,version,link,approval,updated};
   }).filter(Boolean);
 }
-function futureDate(days){
-  const x=new Date(TODAY);
-  x.setDate(x.getDate()+days);
-  return x.toISOString().slice(0,10);
-}
+function futureDate(days){return addDaysToDateKey(riyadhTodayKey(),days);}
 const PROCUREMENT_WORKFLOW=['طلب شراء جديد','مراجعة الطلب','اعتماد داخلي','إرسال للمورد','متابعة التنفيذ','استلام أو إغلاق الطلب','أرشفة'];
 const PERMIT_WORKFLOW=['طلب تصريح جديد','مراجعة البيانات','التحقق من المستندات','الاعتماد أو الرفض','إصدار التصريح','متابعة الصلاحية','تنبيه قبل الانتهاء','تجديد أو إلغاء أو إغلاق'];
 const CHANGE_ORDER_WORKFLOW=['طلب تغيير','مراجعة أولية','تحليل الأثر','توصية','اعتماد أو رفض','تنفيذ التغيير','تحديث الخطة','إغلاق أمر التغيير'];
@@ -4196,7 +4217,7 @@ function requestEscalationDecision(id){
   syncEscalationUpdate(e);
   renderEscalationsCenter();
 }
-function classify(r){const st=d(r.start), en=d(r.end); if(!st||!en)return 'غير محدد'; if(en<TODAY)return 'انتهت الفترة'; if(st<=TODAY&&en>=TODAY)return 'نشطة الآن'; return 'قادمة';}
+function classify(r){const st=d(r.start), en=d(r.end); if(!st||!en)return 'غير محدد'; if(isBeforeDay(en,TODAY))return 'انتهت الفترة'; if(!isBeforeDay(TODAY,st)&&!isBeforeDay(en,TODAY))return 'نشطة الآن'; return 'قادمة';}
 function normalizeArabic(s){
   return String(s||'')
     .replace(/[\u064B-\u065F\u0670\u200B-\u200F\uFEFF]/g,'') // إزالة التشكيل والمسافات الخفية
@@ -4430,7 +4451,7 @@ function escalationLevelForItem(item){
 }
 function renderAll(){
   const opening='2026-11-01';
-  const daysRemaining=Math.max(0,daysBetween(TODAY.toISOString().slice(0,10),opening));
+  const daysRemaining=Math.max(0,daysBetween(riyadhTodayKey(),opening));
   const daysEl=document.getElementById('daysLeft');
   if(daysEl) daysEl.textContent=daysRemaining;
   const weeksEl=document.getElementById('weeksLeft'); if(weeksEl) weeksEl.textContent=Math.ceil(daysRemaining/7)+' أسبوع';
@@ -4624,7 +4645,7 @@ function renderTimeline(){
   }).join('');
 }
 function renderTimelinePage(){
-  const today=TODAY.toISOString().slice(0,10);
+  const today=riyadhTodayKey();
   const opening='2026-11-01';
   const daysLeft=Math.max(0,daysBetween(today,opening));
 
@@ -4698,7 +4719,7 @@ function renderPhases(){
     const pct=arr.length?Math.round(done/arr.length*100):0;
     const ends=arr.map(t=>d(t.end)).filter(Boolean).sort((a,b)=>b-a);
     const starts=arr.map(t=>d(t.start)).filter(Boolean).sort((a,b)=>a-b);
-    const lastDate=ends[0]?fmt(ends[0].toISOString().slice(0,10)):'-';
+    const lastDate=ends[0]?fmt(dateToKey_(ends[0])):'-';
     const owners=[...new Set(arr.map(t=>t.owner).filter(Boolean))];
     const isNotStarted=!arr.length||(notStarted===arr.length&&done===0&&late===0&&inprog===0);
     let status='لم تبدأ',statusClass='gray';
@@ -4756,7 +4777,7 @@ function renderPhases(){
   /* التاريخ المتوقع للانتقال: يُحسب من أحدث تاريخ نهاية بين المهام غير المكتملة بالمرحلة الحالية (بيانات الشيت نفسها) */
   const activePhaseTasks=tasks.filter(t=>t.phase===active.phase);
   const openEnds=activePhaseTasks.filter(t=>classifyStatus(t)!=='مكتملة').map(t=>d(t.end)).filter(Boolean).sort((a,b)=>b-a);
-  const projectedTransitionDate=openEnds.length?fmt(openEnds[0].toISOString().slice(0,10)):(remaining===0?'جاهزة الآن':'-');
+  const projectedTransitionDate=openEnds.length?fmt(dateToKey_(openEnds[0])):(remaining===0?'جاهزة الآن':'-');
 
   /* شريط الحالة العلوي: ملخص فوري من نفس المتغيرات أعلاه بدون أي حساب جديد */
   const banner=document.getElementById('phaseStatusBanner');
@@ -5191,14 +5212,25 @@ setInterval(()=>{ if(hasCompletedInitialSync&&!document.hidden&&!syncRequestInFl
 
 /* ══ CLOCK ══ */
 let clockTimer=null;
+function updateOpeningCountdown(){
+  const opening='2026-11-01';
+  const daysRemaining=Math.max(0,daysBetween(riyadhTodayKey(),opening));
+  const daysEl=document.getElementById('daysLeft'); if(daysEl) daysEl.textContent=daysRemaining;
+  const weeksEl=document.getElementById('weeksLeft'); if(weeksEl) weeksEl.textContent=Math.ceil(daysRemaining/7)+' أسبوع';
+  const monthsEl=document.getElementById('monthsLeft'); if(monthsEl) monthsEl.textContent=Math.floor(daysRemaining/30)+' شهر';
+  const daysSmall=document.getElementById('daysLeftSmall'); if(daysSmall) daysSmall.textContent=daysRemaining+' يوم';
+  const esbDays=document.getElementById('esbDaysLeft'); if(esbDays) esbDays.textContent=daysRemaining;
+}
 function startClock(){
   if(clockTimer) return;
   function tick(){
     const now=new Date();
     const d=document.getElementById('topDate');
     const t=document.getElementById('topTime');
-    if(d) d.textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-    if(t) t.textContent=now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    refreshRiyadhToday();
+    if(d) d.textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:RIYADH_TIME_ZONE});
+    if(t) t.textContent=now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:RIYADH_TIME_ZONE});
+    updateOpeningCountdown();
     clockTimer=setTimeout(tick,1000);
   }
   tick();
@@ -5208,30 +5240,29 @@ function startClock(){
 
 function isValidDateKey_(y,m,day){
   if(m<1||m>12||day<1||day>31) return false;
-  const dt=new Date(Date.UTC(y,m-1,day,12));
+  const dt=new Date(Date.UTC(y,m-1,day));
   return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===day;
 }
-function riyadhDateKey(value){
-  if(value===null||value===undefined||value==='') return '';
-  if(value instanceof Date){
-    if(isNaN(value)) return '';
-    return new Intl.DateTimeFormat('en-CA',{timeZone:RIYADH_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).format(value);
+function buildNormalizedDate_(y,m,day){return isValidDateKey_(y,m,day)?new Date(Date.UTC(y,m-1,day)):null;}
+function dateToKey_(dt){return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')}`;}
+function dateKeyToDate_(key){
+  const m=String(key||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?buildNormalizedDate_(Number(m[1]),Number(m[2]),Number(m[3])):null;
+}
+function formatDateKeyInZone_(date,timeZone){
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date).reduce((a,p)=>{a[p.type]=p.value;return a;},{});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+function riyadhDateKey(value){return isoDate(value);}
+function riyadhTodayDate(){return dateKeyToDate_(formatDateKeyInZone_(new Date(),RIYADH_TIME_ZONE));}
+function refreshRiyadhToday(){
+  const fresh=riyadhTodayDate();
+  if(fresh&&dateToKey_(fresh)!==dateToKey_(TODAY)){
+    TODAY.setTime(fresh.getTime());
+    markAllPagesDirty();
+    renderCurrentPage(true);
   }
-  const raw=String(value).trim();
-  if(!raw) return '';
-  const ymd=raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/);
-  if(ymd){
-    const y=Number(ymd[1]),m=Number(ymd[2]),day=Number(ymd[3]);
-    return isValidDateKey_(y,m,day)?`${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`:'';
-  }
-  const dmy=raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[T\s].*)?$/);
-  if(dmy){
-    const day=Number(dmy[1]),m=Number(dmy[2]),y=Number(dmy[3]);
-    return isValidDateKey_(y,m,day)?`${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`:'';
-  }
-  const parsed=new Date(raw);
-  if(isNaN(parsed)) return '';
-  return new Intl.DateTimeFormat('en-CA',{timeZone:RIYADH_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).format(parsed);
+  return TODAY;
 }
 function addDaysToDateKey(dateKey,days){
   const parts=String(dateKey||'').split('-').map(Number);
@@ -5239,7 +5270,7 @@ function addDaysToDateKey(dateKey,days){
   const dt=new Date(Date.UTC(parts[0],parts[1]-1,parts[2]+days,12));
   return new Intl.DateTimeFormat('en-CA',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
 }
-function riyadhTodayKey(){return riyadhDateKey(new Date());}
+function riyadhTodayKey(){return dateToKey_(refreshRiyadhToday());}
 function taskDueDateKey(task){return riyadhDateKey(task?.rawEnd||task?.end);}
 function setTaskDateFilter(value){
   taskDateFilter=['today','tomorrow'].includes(value)?value:'all';
@@ -5439,9 +5470,9 @@ function renderInsights(){
   const ownerCounts=countBy(tasks.filter(t=>String(t.owner||'').trim()),'owner');
   const topOwner=topEntries(ownerCounts,1)[0];
   const nextMs=milestones
-    .filter(m=>d(m.end)&&d(m.end)>=TODAY)
+    .filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY))
     .sort((a,b)=>d(a.end)-d(b.end))[0];
-  const nextMsDays=nextMs?daysBetween(TODAY.toISOString().slice(0,10),nextMs.end):null;
+  const nextMsDays=nextMs?daysBetween(riyadhTodayKey(),nextMs.end):null;
 
   const items=[
     {
@@ -5499,7 +5530,7 @@ function renderDataHealth(){
 function formatLastUpdate(dt){
   if(!dt) return '--';
   const now=new Date();
-  const sameDay=dt.toDateString()===now.toDateString();
+  const sameDay=sameNormalizedDay(dt,now);
   const time=dt.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
   return (sameDay?'اليوم':'') + (sameDay?' ':'') + time;
 }
@@ -5582,7 +5613,7 @@ function renderScheduleCard(rowsId, diffId){
    لتجنب تكرار بطاقة الالتزام بالجدول الزمني الموجودة في الصفحة الرئيسية.
    جميع القيم تُحسب تلقائياً من بيانات WBS الحية. */
 function renderSchedulePressure(rowsId, statusId){
-  const todayStr=TODAY.toISOString().slice(0,10);
+  const todayStr=riyadhTodayKey();
 
   const dueSoon=tasks.filter(t=>{
     if(classifyStatus(t)==='مكتملة') return false;
@@ -5641,12 +5672,12 @@ function renderExecutiveAdditions(){
   const actual=total?Math.round(done/total*100):0;
   const planned=plannedProgressPct();
   const diff=actual-planned;
-  const today=TODAY.toISOString().slice(0,10);
+  const today=riyadhTodayKey();
   const opening='2026-11-01';
   const daysLeft=Math.max(0,daysBetween(today,opening));
-  const nextMs=milestones.filter(m=>d(m.end)&&d(m.end)>=TODAY).sort((a,b)=>d(a.end)-d(b.end))[0];
+  const nextMs=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY)).sort((a,b)=>d(a.end)-d(b.end))[0];
   const soonMs=nextMs?daysBetween(today,nextMs.end):null;
-  const criticalMs=milestones.filter(m=>d(m.end)&&d(m.end)>=TODAY&&daysBetween(today,m.end)<=30).length;
+  const criticalMs=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY)&&daysBetween(today,m.end)<=30).length;
 
   /* ── 1. EXECUTIVE STATUS BAR ── */
   const esbBar=document.getElementById('execStatusBar');
@@ -5749,7 +5780,7 @@ function showOwnerTasks(name){
 
 function renderUrgentTasks(){
   const el=document.getElementById('urgentTasks'); if(!el) return;
-  const today=TODAY.toISOString().slice(0,10);
+  const today=riyadhTodayKey();
   const late=tasks.filter(t=>classifyStatus(t)==='متأخرة').slice(0,4);
   const soon=tasks.filter(t=>{
     if(classifyStatus(t)!=='لم تبدأ') return false;
@@ -5813,7 +5844,7 @@ function renderAnalytics(){
   if(!isOfficialKpiReady()){['an-smartSummary','an-completionInsight','an-riskInsight'].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML=NO_KPI_DATA_TEXT;}); return;}
   if(!tasks||!tasks.length) return;
   const today=TODAY;
-  const todayStr=today.toISOString().slice(0,10);
+  const todayStr=dateToKey_(today);
   const risks=window._rmRisks||(typeof _buildRisksData==='function'?_buildRisksData():[])||[];
 
   const noDataBox=(msg)=>`<div style="color:var(--muted);font-size:12.5px;padding:24px 20px;text-align:center;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;line-height:1.6;min-height:80px;display:flex;align-items:center;justify-content:center">${msg}</div>`;
@@ -5963,7 +5994,7 @@ function renderAnalytics(){
       for(let i=29;i>=0;i--){
         const dt=new Date(today-i*86400000);
         labels2.push('');
-        const lateCount=dt.toDateString()===TODAY.toDateString()?tasks.filter(isTaskOverdue).length:tasks.filter(t=>{const en=d(t.end);return en&&en<dt&&classifyStatus(t)!=='مكتملة';}).length;
+        const lateCount=sameNormalizedDay(dt,TODAY)?tasks.filter(isTaskOverdue).length:tasks.filter(t=>{const en=d(t.end);return en&&isBeforeDay(en,dt)&&classifyStatus(t)!=='مكتملة';}).length;
         riskData.push(lateCount);
       }
       let gradFill2='rgba(255,77,106,.10)';
@@ -6182,7 +6213,7 @@ function _buildRiskTrendDataFromRegister(risks){
 
 function renderRisksMgmt(){
   const risks=_buildRisksData();
-  const today=TODAY.toISOString().slice(0,10);
+  const today=riyadhTodayKey();
 
   /* KPIs */
   const total=risks.length;
@@ -6521,8 +6552,8 @@ function approvalPressure(a){
   if(['معتمد نهائيًا من العميل','مغلق وموثق','معتمد','مرفوض'].includes(a.status)) return 'closed';
   const due=d(a.due);
   if(a.status==='متأخر') return 'overdue';
-  if(due&&due<TODAY) return 'overdue';
-  if(due&&daysBetween(TODAY.toISOString().slice(0,10),a.due)<=3) return 'due_soon';
+  if(due&&isBeforeDay(due,TODAY)) return 'overdue';
+  if(due&&daysBetween(riyadhTodayKey(),a.due)<=3) return 'due_soon';
   return 'normal';
 }
 
@@ -6690,8 +6721,8 @@ function assignmentPressure(a){
   if(['مكتملة','ملغاة'].includes(a.status)) return 'closed';
   const due=d(a.due);
   if(a.status==='متأخرة') return 'overdue';
-  if(due&&due<TODAY) return 'overdue';
-  if(due&&daysBetween(TODAY.toISOString().slice(0,10),a.due)<=3) return 'due_soon';
+  if(due&&isBeforeDay(due,TODAY)) return 'overdue';
+  if(due&&daysBetween(riyadhTodayKey(),a.due)<=3) return 'due_soon';
   return 'normal';
 }
 
@@ -7029,12 +7060,12 @@ function renderCommitmentsHub(){
   if(k) k.innerHTML=[
     {label:'الالتزامات',val:commitments.length,color:'#3b82f6'},
     {label:'مفتوحة',val:open.length,color:'#f5b800'},
-    {label:'متأخرة',val:open.filter(c=>d(c.due)&&d(c.due)<TODAY).length,color:'#ff4d6a'},
+    {label:'متأخرة',val:open.filter(c=>isBeforeDay(c.due,TODAY)).length,color:'#ff4d6a'},
     {label:'مكتملة',val:commitments.filter(c=>c.status==='مكتمل').length,color:'#10e87a'},
   ].map(x=>`<div class="dec-kpi" style="--dk-color:${x.color}"><div class="dk-val">${x.val}</div><div class="dk-label">${x.label}</div></div>`).join('');
   const list=document.getElementById('com-list');
   if(list) list.innerHTML=open.slice(0,12).map(c=>{
-    const isOverdue=d(c.due)&&d(c.due)<TODAY;
+    const isOverdue=isBeforeDay(c.due,TODAY);
     return `<div class="commitment-card">
       <div class="commitment-main">
         <b>${escapeHtml(c.commitment)}</b>
@@ -7127,13 +7158,13 @@ const _origOpenDetail=window.openDetail||null;
 /* ══ ACTIONS CENTER ══ */
 function renderActions(){
   const today=TODAY;
-  const todayStr=today.toISOString().slice(0,10);
+  const todayStr=dateToKey_(today);
   const risks=window._rmRisks||_buildRisksData()||[];
 
   /* ── KPIs ── */
   const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة');
-  const dueTodayMs=milestones.filter(m=>d(m.end)&&daysBetween(todayStr,m.end)<=7&&d(m.end)>=today);
-  const criticalTasks=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=14&&d(t.end)>=today);
+  const dueTodayMs=milestones.filter(m=>d(m.end)&&daysBetween(todayStr,m.end)<=7&&isOnOrAfterDay(m.end,today));
+  const criticalTasks=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=14&&isOnOrAfterDay(t.end,today));
   const criticalRisks=risks.filter(r=>r.sev==='حرج'&&r.status!=='مغلق');
 
   const kpis=[
@@ -7169,7 +7200,7 @@ function renderActions(){
 
   /* ── ACHIEVED TODAY ── */
   const achievedItems=[];
-  const completedToday=tasks.filter(t=>classifyStatus(t)==='مكتملة'&&d(t.end)&&d(t.end).toDateString()===today.toDateString());
+  const completedToday=tasks.filter(t=>classifyStatus(t)==='مكتملة'&&d(t.end)&&sameNormalizedDay(t.end,today));
   completedToday.slice(0,4).forEach(t=>{
     achievedItems.push({title:t.name,sub:`${t.owner||'—'} · مهمة مكتملة`,tag:'مهمة',onclick:`openDetail(${JSON.stringify(t.code)})`});
   });
@@ -7177,7 +7208,7 @@ function renderActions(){
   closedRisksToday.slice(0,3).forEach(r=>{
     achievedItems.push({title:r.name,sub:'تم إغلاق الخطر',tag:'خطر',onclick:`openRiskDetail(${r.id})`});
   });
-  const completedMsToday=milestones.filter(m=>classifyStatus(m)==='مكتملة'&&d(m.end)&&d(m.end).toDateString()===today.toDateString());
+  const completedMsToday=milestones.filter(m=>classifyStatus(m)==='مكتملة'&&d(m.end)&&sameNormalizedDay(m.end,today));
   completedMsToday.slice(0,3).forEach(m=>{
     achievedItems.push({title:m.name,sub:'معلم رئيسي مكتمل',tag:'معلم',onclick:`openDetail(${JSON.stringify(m.code)})`});
   });
@@ -7216,7 +7247,7 @@ function renderActions(){
   renderItem('ac-lateTasks',lateItems,'لا توجد مهام متأخرة حالياً');
 
   /* ── MILESTONES DUE SOON (30 days) ── */
-  const msItems=milestones.filter(m=>d(m.end)&&d(m.end)>=today&&daysBetween(todayStr,m.end)<=30)
+  const msItems=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,today)&&daysBetween(todayStr,m.end)<=30)
     .sort((a,b)=>d(a.end)-d(b.end)).slice(0,5).map(m=>{
     const days=daysBetween(todayStr,m.end);
     const cls=days<=7?'critical':days<=14?'urgent':'warn';
@@ -7253,11 +7284,11 @@ function renderActions(){
 
   /* ── TODAY'S ACTIONS ── */
   const todayItems=[];
-  const startingToday=tasks.filter(t=>d(t.start)&&d(t.start).toDateString()===today.toDateString());
+  const startingToday=tasks.filter(t=>d(t.start)&&sameNormalizedDay(t.start,today));
   if(startingToday.length) todayItems.push({badgeColor:'#10e87a',cls:'',
     title:`${startingToday.length} مهمة تبدأ اليوم`,sub:startingToday.slice(0,2).map(t=>t.name.substring(0,30)+'...').join(' | '),
     tag:'تبدأ اليوم',tagBg:'rgba(16,232,122,.15)',tagColor:'#10e87a',onclick:"showPage('tasks')"});
-  const endingToday=tasks.filter(t=>d(t.end)&&d(t.end).toDateString()===today.toDateString()&&classifyStatus(t)!=='مكتملة');
+  const endingToday=tasks.filter(t=>d(t.end)&&sameNormalizedDay(t.end,today)&&classifyStatus(t)!=='مكتملة');
   if(endingToday.length) todayItems.push({badgeColor:'#ff8c42',cls:'urgent',
     title:`${endingToday.length} مهمة موعدها اليوم`,sub:endingToday.slice(0,2).map(t=>t.name.substring(0,30)+'...').join(' | '),
     tag:'تنتهي اليوم',tagBg:'rgba(255,140,66,.15)',tagColor:'#ff8c42',onclick:"showPage('tasks')"});
@@ -7278,7 +7309,7 @@ function renderActions(){
   renderItem('ac-today',todayItems,'لا إجراءات مطلوبة اليوم');
 
   /* ── TASKS NEEDING ATTENTION (sorted by nearest due date, accurate labels) ── */
-  const cpItems=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=21&&d(t.end)>=today)
+  const cpItems=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=21&&isOnOrAfterDay(t.end,today))
     .sort((a,b)=>d(a.end)-d(b.end)).slice(0,5).map(t=>{
     const days=daysBetween(todayStr,t.end);
     let label,col,cls;
