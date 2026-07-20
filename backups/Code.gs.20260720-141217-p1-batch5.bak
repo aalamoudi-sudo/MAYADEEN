@@ -214,22 +214,18 @@ function doPost(e) {
     }
 
     if (payload.action === 'daily_update') {
-      requireCanWriteEntity_(session, 'task');
       const actorPayload = withActor_(payload, session);
-      appendAuditLog_(Object.assign({}, actorPayload, { operation: 'write', record: actorPayload.task || actorPayload.title || actorPayload.wbs_code || '', reference: actorPayload.reference || actorPayload.record_ref || actorPayload.evidence_link || '', result: 'success' }));
+      appendAuditLog_(actorPayload);
       notifyDailyUpdate_(actorPayload);
       return json_({ ok: true, message: 'Update logged and notification sent' });
     }
 
     if (payload.action === 'approval_request') {
-      requireCanWriteEntity_(session, 'approval');
       const item = appendApproval_(withActor_(payload, session));
       return json_({ ok: true, message: 'Approval request logged', approval: item, approvals: getApprovalRows_() });
     }
 
     if (payload.action === 'approval_update') {
-      requireCanApprove_(session);
-      requireCanWriteEntity_(session, 'approval');
       const item = updateApproval_(withActor_(payload, session));
       return json_({ ok: true, message: 'Approval updated', approval: item, approvals: getApprovalRows_() });
     }
@@ -242,7 +238,6 @@ function doPost(e) {
 
     if (payload.action === 'task_assignment_confirm' || payload.action === 'task_assignment') {
       requireCanManageUsers_(session);
-      requireCanWriteEntity_(session, 'assignment');
       if (payload.action === 'task_assignment') throw new Error('Preview and explicit confirmation required before sending assignment');
       const item = appendAssignment_(withActor_(payload, session));
       // Staging acceptance: no email or notification is sent from this action.
@@ -251,7 +246,6 @@ function doPost(e) {
 
     if (payload.action === 'meeting_record') {
       requireCanEscalate_(session);
-      requireCanWriteEntity_(session, 'escalation');
       const item = appendMeeting_(withActor_(payload, session));
       return json_({ ok: true, message: 'Meeting logged', meeting: item });
     }
@@ -781,39 +775,6 @@ function requireSession_(payload) {
 function requireCanApprove_(session) {
   if (hasFullAccess_(session) || session.can_approve) return;
   throw new Error('Forbidden: approval permission required');
-}
-
-function normalizeAllowedPages_(session) {
-  const raw = Array.isArray(session.allowed_pages) ? session.allowed_pages.join(',') : String(session.allowed_pages || '');
-  return raw.split(/[,،]/).map(function(page) { return String(page || '').trim(); }).filter(Boolean);
-}
-
-function requirePageAccess_(session, pageId) {
-  const pages = normalizeAllowedPages_(session);
-  if (hasFullAccess_(session) || pages.indexOf('*') !== -1 || pages.indexOf(pageId) !== -1) return;
-  throw new Error('Forbidden: page permission required for ' + pageId);
-}
-
-function requireCanWriteEntity_(session, entity) {
-  const entityPages = {
-    task: ['tasks', 'actions'],
-    decision: ['decisions'],
-    approval: ['approvals'],
-    risk: ['risksMgmt'],
-    escalation: ['escalationHub', 'escalationsCenter'],
-    evidence: ['evidenceCenter', 'fileControl'],
-    report: ['reportsGenerator', 'analytics', 'executiveBoard'],
-    backup: ['importExportCenter'],
-    assignment: ['assignments', 'tasks'],
-    meeting: ['meetingsHub']
-  };
-  if (hasFullAccess_(session)) return;
-  const pages = normalizeAllowedPages_(session);
-  const allowed = entityPages[entity] || [];
-  if (allowed.some(function(page) { return pages.indexOf(page) !== -1; })) return;
-  if ((entity === 'approval' || entity === 'decision') && session.can_approve) return;
-  if ((entity === 'risk' || entity === 'escalation') && session.can_escalate) return;
-  throw new Error('Forbidden: write permission required for ' + entity);
 }
 
 function requireCanEscalate_(session) {
@@ -1826,36 +1787,25 @@ function valueOf_(obj, names) {
 function appendAuditLog_(payload) {
   const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   const sheet = ss.getSheetByName(KAG_CONFIG.auditSheetName) || ss.insertSheet(KAG_CONFIG.auditSheetName);
-  const headers = ['timestamp', 'date', 'time', 'user', 'operation', 'record', 'previous_value', 'new_value', 'result', 'reference', 'action', 'status', 'raw_json'];
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(headers);
+    sheet.appendRow(['timestamp', 'date', 'time', 'user', 'operation', 'record', 'previous_value', 'new_value', 'result', 'reference', 'action', 'status', 'raw_json']);
   }
   const now = new Date();
-  const safePayload = redactAuditPayload_(payload || {});
   sheet.appendRow([
     now,
     Utilities.formatDate(now, KAG_CONFIG.timezone, 'yyyy-MM-dd'),
     Utilities.formatDate(now, KAG_CONFIG.timezone, 'HH:mm:ss'),
-    safePayload.updated_by || safePayload.user || safePayload.username || safePayload.actor_username || '',
-    safePayload.operation || safePayload.action || '',
-    safePayload.record || safePayload.record_id || safePayload.task || safePayload.approval_id || safePayload.assignment_id || safePayload.title || '',
-    safePayload.previous_value || safePayload.previous_status || '',
-    safePayload.new_value || safePayload.new_status || safePayload.status || safePayload.percent_complete || safePayload.progress || '',
-    safePayload.result || safePayload.status || 'success',
-    safePayload.reference || safePayload.record_ref || safePayload.reference_number || safePayload.official_reference || safePayload.evidence_link || '',
-    safePayload.action || '',
-    safePayload.status || '',
-    JSON.stringify(safePayload)
+    payload.updated_by || payload.user || payload.username || '',
+    payload.operation || payload.action || '',
+    payload.record || payload.task || payload.title || '',
+    payload.previous_value || '',
+    payload.new_value || payload.status || payload.percent_complete || payload.progress || '',
+    payload.result || payload.status || '',
+    payload.reference || payload.record_ref || payload.official_reference || '',
+    payload.action || '',
+    payload.status || '',
+    JSON.stringify(payload)
   ]);
-}
-
-function redactAuditPayload_(payload) {
-  const blocked = /password|secret|token|webhook|key|authorization/i;
-  const clean = {};
-  Object.keys(payload || {}).forEach(function(key) {
-    clean[key] = blocked.test(key) ? '[REDACTED]' : payload[key];
-  });
-  return clean;
 }
 
 function sendSlack_(text) {
