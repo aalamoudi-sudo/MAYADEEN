@@ -19,24 +19,31 @@
 
 
 const WBS_FIELD_ALIASES = {
-  taskId: ['معرف المهمة', 'code', 'WBS Code', 'Code', 'الكود', 'رمز WBS', 'task_id', 'id', 'رقم المهمة'],
-  taskName: ['اسم المهمة', 'name', 'Milestone / Task', 'Milestone/Task', 'Task', 'المهمة', 'العنوان'],
-  mainPath: ['المسار الرئيسي', 'main_path', 'path', 'المسار'],
-  phase: ['المرحلة', 'phase', 'PMBOK', 'مرحلة المهمة حسب PMBOK', 'مرحلة PMBOK'],
-  owner: ['اسم المسؤول', 'owner', 'Assigned To', 'AssignedTo', 'المسؤول', 'مسند إلى', 'responsible', 'المالك'],
-  ownerEmail: ['البريد الإلكتروني للمسؤول', 'owner_email', 'responsible_email', 'email', 'البريد الإلكتروني', 'بريد المسؤول'],
-  status: ['الحالة', 'status', 'Status', 'progress_status'],
-  progress: ['نسبة الإنجاز', 'نسبة الانجاز', 'percent_complete', 'progress', 'completion_percent', 'actual_progress', 'Progress', '% Complete', 'الإنجاز', 'الانجاز'],
-  plannedDurationDays: ['مدة المهمة المخططة بالأيام', 'planned_duration_days', 'duration_days', 'duration', 'مدة المهمة', 'المدة المخططة'],
-  plannedStart: ['تاريخ البدء المخطط', 'planned_start', 'start_date', 'planned_start_date', 'baseline_start', 'baseline_start_date', 'start', 'Start Date', 'Planned Start Date', 'Baseline Start Date', 'تاريخ البدء', 'تاريخ البداية', 'تاريخ بدء المهمة', 'البداية'],
-  plannedEnd: ['تاريخ النهاية المخطط', 'planned_end', 'planned_finish', 'end_date', 'planned_end_date', 'baseline_end', 'baseline_end_date', 'due_date', 'finish_date', 'deadline', 'end', 'End Date', 'Planned End Date', 'Baseline End Date', 'Due Date', 'Finish Date', 'Deadline', 'تاريخ النهاية', 'تاريخ الانتهاء', 'تاريخ الاستحقاق', 'تاريخ التسليم', 'النهاية'],
-  actualStart: ['تاريخ البدء الفعلي', 'actual_start_date', 'actual_start', 'started_at', 'Actual Start Date', 'Actual Start', 'تاريخ البداية الفعلي', 'بداية فعلية'],
-  actualEnd: ['تاريخ النهاية الفعلي', 'actual_end_date', 'actual_finish_date', 'actual_end', 'actual_finish', 'completed_at', 'completion_date', 'Actual End Date', 'Actual Finish Date', 'تاريخ الانتهاء الفعلي', 'تاريخ الإكمال', 'نهاية فعلية'],
-  delayDays: ['عدد أيام التأخير', 'delay_days', 'delayed_days', 'days_late', 'أيام التأخير'],
-  dependencyType: ['نوع الاعتماد', 'dependency_type', 'dependency', 'predecessor', 'اعتمادية'],
-  approvalEntity: ['جهة الاعتماد', 'approval_entity', 'approver', 'approving_party', 'المعتمد'],
-  operationalDeliverable: ['المخرج التشغيلي', 'operational_deliverable', 'deliverable', 'المخرج'],
-  executionOwner: ['جهة التنفيذ أو المالك', 'جهة التنفيذ', 'execution_owner', 'implementing_party', 'owner_entity', 'المالك']
+  taskId:['كود المهمة','معرف المهمة','code','WBS Code','Code','الكود','رمز WBS','task_id','id','رقم المهمة'],
+  taskName:['اسم المهمة','name','Milestone / Task','Milestone/Task','Task','المهمة','العنوان'],
+  mainPath:['المسار الرسمي','المسار الرئيسي','main_path','path','المسار'],
+  phase:['المرحلة','phase','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK'],
+  owner:['الموظف المسؤول','اسم المسؤول','owner','Assigned To','AssignedTo','المسؤول','مسند إلى','responsible','المالك'],
+  ownerEmail:['البريد الإلكتروني للمسؤول','owner_email','responsible_email','email','البريد الإلكتروني','بريد المسؤول'],
+  plannedStart:['تاريخ البداية الأساسي','تاريخ البدء المخطط','planned_start','start_date','planned_start_date','baseline_start','baseline_start_date','start','Start Date','Planned Start Date','Baseline Start Date','تاريخ البدء','تاريخ البداية','تاريخ بدء المهمة','البداية'],
+  plannedEnd:['تاريخ النهاية الأساسي','تاريخ النهاية المخطط','planned_end','planned_finish','end_date','planned_end_date','baseline_end','baseline_end_date','due_date','finish_date','deadline','end','End Date','Planned End Date','Baseline End Date','Due Date','Finish Date','Deadline','تاريخ النهاية','تاريخ الانتهاء','تاريخ الاستحقاق','تاريخ التسليم','النهاية'],
+  actualStart:['تاريخ البداية الفعلي','تاريخ البدء الفعلي','actual_start_date','actual_start','started_at','Actual Start Date','Actual Start','بداية فعلية'],
+  actualEnd:['تاريخ النهاية الفعلي','تاريخ الانتهاء الفعلي','actual_end_date','actual_finish_date','actual_end','actual_finish','completed_at','completion_date','Actual End Date','Actual Finish Date','تاريخ الإكمال','نهاية فعلية'],
+  plannedDurationDays:['المدة بالأيام','مدة المهمة المخططة بالأيام','planned_duration_days','duration_days','duration','مدة المهمة','المدة المخططة'],
+  predecessor:['المهمة السابقة','predecessor_task','predecessor','previous_task','dependency'],
+  dependencyType:['نوع الاعتمادية','نوع الاعتماد','dependency_type','dependency','predecessor','اعتمادية'],
+  operationalDeliverable:['المخرج المطلوب','المخرج التشغيلي','operational_deliverable','deliverable','المخرج'],
+  approvalEntity:['جهة الاعتماد','approval_entity','approver','approving_party','المعتمد'],
+  progress:['نسبة الإنجاز','نسبة الانجاز','percent_complete','progress','completion_percent','actual_progress','Progress','% Complete','الإنجاز','الانجاز'],
+  status:['الحالة','status','Status','progress_status','schedule_status'],
+  delayDays:['عدد أيام التأخير','delay_days','delayed_days','days_late','أيام التأخير'],
+  evidence:['رابط أو مرجع دليل الإنجاز','evidence_link','completion_evidence','evidence','proof_link','drive_link','deliverable_link','رابط دليل الإنجاز','رابط الإنجاز','مرجع الإنجاز','رابط الملف'],
+  version:['رقم الإصدار','version','version_number','الإصدار'],
+  notes:['الملاحظات','notes','ملاحظات / عدد المهام','Notes','ملاحظات'],
+  lastUpdate:['last_update','updated','آخر تحديث','تاريخ التحديث'],
+  priority:['priority','الأولوية'],
+  risk:['risk','المخاطر','blocker','المعوقات'],
+  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك']
 };
 
 const KAG_CONFIG = {
@@ -1343,7 +1350,7 @@ function nextApprovalId_(sheet) {
 function getStaleTasks_() {
   return getTaskRows_().filter(function(row) {
     const status = getField_(row, WBS_FIELD_ALIASES.status);
-    const updated = getField_(row, ['last_update', 'updated', 'آخر تحديث', 'تاريخ التحديث']);
+    const updated = getField_(row, WBS_FIELD_ALIASES.lastUpdate);
     if (String(status).match(/مكتمل|completed|done/i)) return false;
     if (!updated) return true;
     const last = new Date(updated);
@@ -1354,9 +1361,9 @@ function getStaleTasks_() {
 
 function getCriticalTasks_() {
   return getTaskRows_().filter(function(row) {
-    const status = getField_(row, WBS_FIELD_ALIASES.status.concat(['schedule_status']));
-    const priority = getField_(row, ['priority', 'الأولوية']);
-    const risk = getField_(row, ['risk', 'المخاطر', 'blocker', 'المعوقات']);
+    const status = getField_(row, WBS_FIELD_ALIASES.status);
+    const priority = getField_(row, WBS_FIELD_ALIASES.priority);
+    const risk = getField_(row, WBS_FIELD_ALIASES.risk);
     return String(status + ' ' + priority + ' ' + risk).match(/حرج|متأخر|عالي|critical|late|high|blocked/i);
   }).slice(0, KAG_CONFIG.maxSlackItems);
 }
@@ -1376,7 +1383,7 @@ function buildExecutiveSummary_(rows) {
     return String(getField_(row, WBS_FIELD_ALIASES.status)).match(/مكتمل|completed|done/i);
   }).length;
   const late = rows.filter(function(row) {
-    return String(getField_(row, WBS_FIELD_ALIASES.status.concat(['schedule_status']))).match(/متأخر|late|delayed/i);
+    return String(getField_(row, WBS_FIELD_ALIASES.status)).match(/متأخر|late|delayed/i);
   }).length;
   const critical = getCriticalTasks_();
   const stale = getStaleTasks_();
