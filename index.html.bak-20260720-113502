@@ -2,7 +2,7 @@
 <title>Mayadeen Project Command Center</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests">
 <script>
-// Inline chart تعويض عرضي — runs if CDN fails
+// Inline chart fallback — runs if CDN fails
 (function(){
   var MAX_WAIT=3000, start=Date.now();
   function tryInit(){
@@ -1503,7 +1503,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
         <div class="filters">
           <input id="searchTask" placeholder="ابحث في المهام..." oninput="applyFilters()"/>
           <select id="filterPhase" onchange="applyFilters()"><option value="">كل المراحل</option></select>
-          <select id="filterPath" onchange="applyFilters()"><option value="">كل المسارات الرسمية</option></select>
           <select id="filterOwner" onchange="applyFilters()"><option value="">كل المسؤولين</option></select>
           <select id="filterType" onchange="applyFilters()"><option value="">كل الأنواع</option><option value="Task">Task</option><option value="Milestone">Milestone</option></select>
           <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="متأخرة">متأخرة</option><option value="لم تبدأ">لم تبدأ</option></select>
@@ -1516,7 +1515,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
         <div class="card" style="overflow:auto;min-height:520px;max-height:70vh">
           <table class="data-table" id="taskTable">
             <thead><tr>
-              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرسمي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th>الحالة الأصلية</th><th>الحالة المحسوبة</th><th>نسبة الإنجاز</th><th>دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th>
+              <th>الكود</th><th>النوع</th><th>المهمة</th>
+              <th>المرحلة</th><th>المسؤول</th><th>البداية</th><th>النهاية</th><th>الحالة</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -1963,7 +1963,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
           <div style="overflow:auto">
             <table class="data-table">
               <thead><tr><th>approval_id</th><th>linked_wbs_code</th><th>type</th><th>title</th><th>requester</th><th>approver</th><th>due_date</th><th>status</th><th>notes</th></tr></thead>
-              <tbody><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px">تُقرأ مصفوفة الاعتماد الرسمية من Google Sheets فقط.</td></tr></tbody>
+              <tbody><tr><td>APP-001</td><td>WBS-01</td><td>اعتماد</td><td>اعتماد مخطط التشغيل</td><td>PMO</td><td>مدير المشروع</td><td>2026-07-10</td><td>مطلوب</td><td>يرتبط بمسار التشغيل</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2507,17 +2507,16 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
       <section class="page" id="assignments">
         <div class="page-header">
           <h1>مركز توزيع المهام</h1>
-          <p>تكليفات صادرة من PMO؛ لا يتم إرسال البريد إلا بعد المعاينة والتأكيد الصريح</p>
+          <p>تكليفات صادرة من PMO مع إشعارات بريدية وسجل متابعة مستقل</p>
         </div>
 
         <div class="dec-kpi-grid" id="asg-kpis"></div>
 
         <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:14px;margin-bottom:14px">
           <div class="card">
-            <div class="sec-title"><h2>تكليف جديد</h2><span>معاينة أولاً ثم تأكيد صريح</span></div>
+            <div class="sec-title"><h2>تكليف جديد</h2><span>يرسل إيميل لصاحب المهمة</span></div>
             <div style="display:grid;gap:10px;margin-top:12px">
-              <input id="asg-wbs" placeholder="كود WBS" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none"/>
-              <input id="asg-title" placeholder="اسم المهمة" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none"/>
+              <input id="asg-title" placeholder="عنوان المهمة" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none"/>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <input id="asg-owner" placeholder="اسم المسؤول" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none"/>
                 <input id="asg-email" placeholder="البريد الإلكتروني" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none"/>
@@ -2531,12 +2530,9 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
                   <option value="منخفض">منخفض</option>
                 </select>
               </div>
-              <textarea id="asg-details" placeholder="المخرج المطلوب" rows="5" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none;resize:vertical"></textarea>
-              <textarea id="asg-emailBody" placeholder="نص البريد (للمعاينة فقط قبل التأكيد)" rows="4" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none;resize:vertical"></textarea>
-              <input id="asg-link" placeholder="رابط الملف" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none"/>
-              <button onclick="previewAssignment()" style="background:linear-gradient(135deg,var(--brand),var(--brand2));border:0;border-radius:10px;padding:11px 14px;color:white;font-family:inherit;font-weight:800;cursor:pointer">معاينة التكليف</button>
-              <div id="asg-preview" style="display:none;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;font-size:12px;line-height:1.7"></div>
-              <button id="asg-confirmBtn" onclick="submitAssignment(true)" style="display:none;background:rgba(16,232,122,.18);border:1px solid rgba(16,232,122,.35);border-radius:10px;padding:10px 14px;color:#10e87a;font-family:inherit;font-weight:800;cursor:pointer">تأكيد الإرسال والتسجيل</button>
+              <textarea id="asg-details" placeholder="تفاصيل التكليف والمخرجات المطلوبة" rows="5" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none;resize:vertical"></textarea>
+              <input id="asg-link" placeholder="رابط الملف أو المسار في Google Drive" style="background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none"/>
+              <button onclick="submitAssignment()" style="background:linear-gradient(135deg,var(--brand),var(--brand2));border:0;border-radius:10px;padding:11px 14px;color:white;font-family:inherit;font-weight:800;cursor:pointer">إرسال التكليف</button>
               <div id="asg-submitStatus" style="font-size:12px;color:var(--muted);min-height:18px"></div>
             </div>
           </div>
@@ -2767,7 +2763,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
 <script>
 const EMBEDDED={"rows":[],"pm":[],"generated":""};
 const NO_KPI_DATA_TEXT='لا توجد بيانات كافية لاحتساب المؤشر';
-const OFFICIAL_PATHS=['الضيافة','التشغيل','تجربة الضيوف','المحتوى','اللوجستيات والنقل','التنفيذ','التصميم','البروتوكول والحشود'];
 let officialDataReady=false;
 let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
@@ -2782,8 +2777,6 @@ let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed
 let sessionToken='';
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
-let syncBackoffMs=30000;
-let nextSyncAllowedAt=0;
 let hasCompletedInitialSync=false;
 let dashboardDataVersion=0;
 let chartRenderVersion={donut:-1,line:-1,tlLine:-1};
@@ -3149,13 +3142,6 @@ function normalizeRow(raw){
   const approvalEntity=valueOf(raw,WBS_FIELD_ALIASES.approvalEntity);
   const operationalDeliverable=valueOf(raw,WBS_FIELD_ALIASES.operationalDeliverable);
   const executionOwner=valueOf(raw,WBS_FIELD_ALIASES.executionOwner);
-  const followUpOwner=String(valueOf(raw,WBS_FIELD_ALIASES.followUpOwner)||'').trim();
-  const taskType=String(valueOf(raw,WBS_FIELD_ALIASES.taskType)||'').trim();
-  const originalStatus=String(valueOf(raw,WBS_FIELD_ALIASES.originalStatus)||status).trim();
-  const lag=valueOf(raw,WBS_FIELD_ALIASES.lag);
-  const lastUpdate=isoDate(valueOf(raw,WBS_FIELD_ALIASES.lastUpdate));
-  const priority=String(valueOf(raw,WBS_FIELD_ALIASES.priority)||'').trim();
-  const dataSource=String(valueOf(raw,WBS_FIELD_ALIASES.dataSource)||raw._source||'google_sheets').trim();
   const version=valueOf(raw,WBS_FIELD_ALIASES.version);
   let type = typeRaw || (/^\d+$/.test(code) || /Tasks/i.test(notes) ? 'Milestone' : 'Task');
   if(type==='معلم') type='Milestone'; if(type==='مهمة') type='Task';
@@ -3163,7 +3149,7 @@ function normalizeRow(raw){
   const source=String(valueOf(raw,['source','_source'])||'google_sheets').trim();
   const record_type=String(valueOf(raw,['record_type'])||'').trim();
   const is_test=String(valueOf(raw,['is_test'])||'').trim();
-  const normalized={type,code,name,phase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,followUpOwner,taskType,originalStatus,lag,lastUpdate,priority,dataSource,evidence,version,notes,sheet_status:originalStatus||status,status:originalStatus||status,source:dataSource||source,record_type,is_test,_source:raw._source||dataSource||source,raw};
+  const normalized={type,code,name,phase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,evidence,version,notes,sheet_status:status,status,source,record_type,is_test,_source:raw._source||source,raw};
   normalized.computed_status=computeTaskStatus(normalized);
   normalized.delay_days=getTaskDelayDays(normalized);
   return normalized;
@@ -3378,9 +3364,9 @@ function isChangeOrderAuthority(name){
   const n=normalizeArabic(name);
   return CHANGE_ORDER_AUTHORITIES.some(x=>normalizeArabic(x)===n);
 }
-function changeOrderAuthorityName(name, fallbackName='المشرف العام'){
+function changeOrderAuthorityName(name, fallback='المشرف العام'){
   const n=normalizeArabic(name);
-  return CHANGE_ORDER_AUTHORITIES.find(x=>normalizeArabic(x)===n)||fallbackName;
+  return CHANGE_ORDER_AUTHORITIES.find(x=>normalizeArabic(x)===n)||fallback;
 }
 function changeOrderCurrentResponsible(item){
   const requester=changeOrderAuthorityName(item?.requester,'المشرف العام');
@@ -3754,11 +3740,43 @@ function normalizeDecisionRows(data){
     return {decision_id:decisionId,id:decisionId,title,description,decision_owner:decisionOwner,decision_date:decisionDate,status,affected_tasks:affectedTasks,affected_paths:affectedPaths,official_reference:officialReference,execution_date:executionDate,follow_up_owner:followUpOwner,created_at:createdAt,updated_at:updatedAt};
   }).filter(Boolean);
 }
-function storageArray(key, fallbackValue){return [];}
-function persistOperationalData(){/* ممنوع تخزين بيانات تشغيلية أو KPI محلياً. */}
+function storageArray(key, fallback){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(key)||'[]');
+    return Array.isArray(parsed)&&parsed.length?parsed:fallback.slice();
+  }catch(e){
+    return fallback.slice();
+  }
+}
+function persistOperationalData(){
+  try{
+    localStorage.setItem('kag_cached_procurements',JSON.stringify(procurementRequests));
+    localStorage.setItem('kag_cached_permits',JSON.stringify(permitsRegister));
+    localStorage.setItem('kag_cached_change_orders',JSON.stringify(changeOrders));
+    localStorage.setItem('kag_cached_audit_log',JSON.stringify(auditLog));
+    localStorage.setItem('kag_cached_evidence',JSON.stringify(evidenceRecords));
+    localStorage.setItem('kag_cached_approval_history',JSON.stringify(approvalHistoryRecords));
+    localStorage.setItem('kag_cached_version_history',JSON.stringify(versionHistoryRecords));
+    localStorage.setItem('kag_cached_issues',JSON.stringify(issuesIncidents));
+    localStorage.setItem('kag_cached_vendor_violations',JSON.stringify(vendorViolations));
+    localStorage.setItem('kag_cached_suppliers_register',JSON.stringify(suppliersRegister));
+  }catch(e){}
+}
 function initOperationalDataFromCache(){
-  procurementRequests=[]; permitsRegister=[]; changeOrders=[]; auditLog=[]; escalationRecords=[]; evidenceRecords=[];
-  approvalHistoryRecords=[]; versionHistoryRecords=[]; issuesIncidents=[]; vendorViolations=[]; decisionLogRecords=[]; suppliersRegister=[];
+  procurementRequests=normalizeProcurementRows(storageArray('kag_cached_procurements',DEFAULT_PROCUREMENT_REQUESTS));
+  permitsRegister=normalizePermitRows(storageArray('kag_cached_permits',DEFAULT_PERMITS));
+  changeOrders=normalizeChangeOrderRows(storageArray('kag_cached_change_orders',DEFAULT_CHANGE_ORDERS));
+  auditLog=normalizeAuditRows(storageArray('kag_cached_audit_log',DEFAULT_AUDIT_LOG));
+  escalationRecords=[]; // التصعيدات الرسمية لا تُستعاد من cache أو fallback؛ تُقرأ فقط من data_sync.
+  evidenceRecords=normalizeEvidenceRows(storageArray('kag_cached_evidence',DEFAULT_EVIDENCE_RECORDS));
+  approvalHistoryRecords=normalizeApprovalHistoryRows(storageArray('kag_cached_approval_history',DEFAULT_APPROVAL_HISTORY));
+  versionHistoryRecords=normalizeVersionHistoryRows(storageArray('kag_cached_version_history',DEFAULT_VERSION_HISTORY));
+  issuesIncidents=normalizeIssueRows(storageArray('kag_cached_issues',DEFAULT_ISSUES_INCIDENTS));
+  vendorViolations=normalizeViolationRows(storageArray('kag_cached_vendor_violations',DEFAULT_VENDOR_VIOLATIONS));
+  decisionLogRecords=[]; // Decision Log الرسمي يُقرأ فقط من data_sync وليس من localStorage.
+  suppliersRegister=normalizeSupplierRows(storageArray('kag_cached_suppliers_register',DEFAULT_SUPPLIERS_REGISTER));
+  ensureSupplierOwnershipProfiles();
+  applySupplierOwnerDefaults();
 }
 function addAuditEvent(center,recordId,title,detail,color='#7c5cff',key){
   const dedupeKey=key||`${center}-${recordId}-${title}`;
@@ -4237,7 +4255,7 @@ const WBS_FIELD_ALIASES={
   actualEnd:['تاريخ النهاية الفعلي','تاريخ الانتهاء الفعلي','actual_end_date','actual_finish_date','actual_end','actual_finish','completed_at','completion_date','Actual End Date','Actual Finish Date','تاريخ الإكمال','نهاية فعلية'],
   plannedDurationDays:['المدة بالأيام','مدة المهمة المخططة بالأيام','planned_duration_days','duration_days','duration','مدة المهمة','المدة المخططة'],
   predecessor:['المهمة السابقة','predecessor_task','predecessor','previous_task','dependency'],
-  dependencyType:['نوع الاعتمادية','نوع الاعتماد','dependency_type','اعتمادية'],
+  dependencyType:['نوع الاعتمادية','نوع الاعتماد','dependency_type','dependency','predecessor','اعتمادية'],
   operationalDeliverable:['المخرج المطلوب','المخرج التشغيلي','operational_deliverable','deliverable','المخرج'],
   approvalEntity:['جهة الاعتماد','approval_entity','approver','approving_party','المعتمد'],
   progress:['نسبة الإنجاز','نسبة الانجاز','percent_complete','progress','completion_percent','actual_progress','Progress','% Complete','الإنجاز','الانجاز'],
@@ -4249,13 +4267,7 @@ const WBS_FIELD_ALIASES={
   lastUpdate:['last_update','updated','آخر تحديث','تاريخ التحديث'],
   priority:['priority','الأولوية'],
   risk:['risk','المخاطر','blocker','المعوقات'],
-  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
-  followUpOwner:['مسؤول المتابعة','follow_up_owner','متابعة بواسطة'],
-  taskType:['نوع المهمة','task_type','نوع العمل'],
-  originalStatus:['الحالة الأصلية','original_status','sheet_status'],
-  computedStatus:['الحالة المحسوبة','computed_status'],
-  lag:['Lag','lag','فترة التأخير','الفاصل'],
-  dataSource:['مصدر البيانات','source','data_source','_source']
+  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك']
 };
 const TASK_FIELD_ALIASES=WBS_FIELD_ALIASES;
 function taskStatusText_(task){return normalizeArabic(String(task?.sheet_status ?? task?.status ?? '').trim().toLowerCase());}
@@ -4612,12 +4624,9 @@ function unique(arr,key){return [...new Set(arr.map(r=>r[key]).filter(Boolean))]
 function fillFilters(){
   const phases=[...new Set(rows.map(r=>r.phase).filter(Boolean))].sort();
   const owners=[...new Set(rows.map(r=>r.owner).filter(Boolean))].sort();
-  const officialUsed=OFFICIAL_PATHS.filter(path=>rows.some(r=>r.mainPath===path));
   const pSel=document.getElementById('filterPhase');
-  const pathSel=document.getElementById('filterPath');
   const oSel=document.getElementById('filterOwner');
   if(pSel) pSel.innerHTML='<option value="">كل المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
-  if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}" ${officialUsed.includes(path)?'':'disabled'}>${escapeHtml(path)}</option>`).join('');
   if(oSel) oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(o=>`<option>${o}</option>`).join('');
 }
 
@@ -4722,7 +4731,7 @@ function renderTimelinePage(){
       g.addColorStop(0,'rgba(124,92,255,.30)');
       g.addColorStop(1,'rgba(124,92,255,.02)');
       tlGrad=g;
-    }catch(e){ console.warn('Gradient تعويض عرضي (timeline chart):',e); }
+    }catch(e){ console.warn('Gradient fallback (timeline chart):',e); }
     window._tlLineInst=new Chart(ctx,{
       type:'line',
       data:{labels:months,datasets:[{label:'مهام تنتهي',data,borderColor:'#7c5cff',backgroundColor:tlGrad,borderWidth:2.5,pointBackgroundColor:'#a07dff',pointRadius:4,pointHoverRadius:6,pointHoverBackgroundColor:'#7c5cff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,fill:true,tension:.4}]},
@@ -5008,8 +5017,26 @@ function openDetail(code){
     const xDep=String(x.dependency||x.predecessor||x.اعتمادية||'').split(/[,،\s]+/).map(s=>s.trim());
     return xDep.includes(r.code);
   });
-  // الاعتماديات الرسمية فقط: لا يتم استنتاج أي اعتماديات من تسلسل كود المهمة.
-  const isDemoDependency=false;
+  // ⚠️ بيانات توضيحية مؤقتة: عند غياب عمود الاعتماديات الحقيقي في WBS، نستنتج
+  // اعتمادية افتراضية من تتابع الكود (مثال: 1.011 تعتمد على 1.010) لعرض شكل
+  // الميزة فقط. تُستبدل تلقائياً بالبيانات الحقيقية فور توفر عمود dependency.
+  let isDemoDependency=false;
+  if(!predecessors.length&&!successors.length&&r.type==='Task'&&r.code){
+    const parts=r.code.split('.');
+    if(parts.length===2){
+      const major=parts[0], minor=parseInt(parts[1],10);
+      if(!isNaN(minor)){
+        if(minor>1){
+          const prevCode=`${major}.${String(minor-1).padStart(3,'0')}`;
+          const prevTask=rows.find(x=>x.code===prevCode);
+          if(prevTask){predecessors=[prevTask];isDemoDependency=true;}
+        }
+        const nextCode=`${major}.${String(minor+1).padStart(3,'0')}`;
+        const nextTask=rows.find(x=>x.code===nextCode);
+        if(nextTask){successors=[nextTask];isDemoDependency=true;}
+      }
+    }
+  }
   const hasDependencyData=predecessors.length>0||successors.length>0;
 
   let depHtml='';
@@ -5017,6 +5044,7 @@ function openDetail(code){
     depHtml=`<div style="margin-top:14px;padding:12px;background:rgba(124,92,255,.06);border:1px solid rgba(124,92,255,.18);border-radius:12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:11px;color:#a07dff;font-weight:700">الاعتماديات</span>
+        ${isDemoDependency?'<span style="font-size:9.5px;color:#f5b800;background:rgba(245,184,0,.15);border:1px solid rgba(245,184,0,.3);padding:1px 8px;border-radius:999px;font-weight:700">بيانات تجريبية</span>':''}
       </div>
       ${predecessors.length?`<div style="margin-bottom:8px">
         <div style="font-size:10.5px;color:var(--muted);margin-bottom:4px">مهام سابقة يجب اكتمالها أولاً</div>
@@ -5053,8 +5081,9 @@ ${depHtml}`; document.getElementById('modal').classList.add('active');}
 function openPhase(p){const arr=tasks.filter(t=>t.phase===p); document.getElementById('drawerContent').innerHTML=`<h2>مرحلة ${escapeHtml(p)}</h2><p class="heroText">عدد المهام: ${arr.length}</p><table><thead><tr><th>الكود</th><th>المهمة</th><th>المسؤول</th><th>النهاية</th></tr></thead><tbody>${arr.map(r=>`<tr onclick='openDetail(${JSON.stringify(r.code)})'><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.owner||'-')}</td><td>${fmt(r.end)}</td></tr>`).join('')}</tbody></table>`; document.getElementById('drawer').classList.add('active');}
 function closeModal(){document.getElementById('modal').classList.remove('active')} function closeDrawer(){document.getElementById('drawer').classList.remove('active')}
 function getConfiguredApiUrl(){
-  // Staging uses the configured Google Apps Script URL only; no LocalStorage تعويض عرضي is used for dashboard data.
-  const v=(DEFAULT_API_URL||'').trim();
+  // يقرأ رابط Google Apps Script من التخزين المحلي أولاً، ثم من DEFAULT_API_URL إذا تم تثبيته داخل الملف.
+  const saved=(localStorage.getItem('kag_api_url')||'').trim();
+  const v=saved || (DEFAULT_API_URL||'').trim();
   if(!v) return '';
   try{
     const u=new URL(v);
@@ -5067,19 +5096,20 @@ function getConfiguredApiUrl(){
 function saveApiUrl(){
   const v=document.getElementById('apiUrl').value.trim();
   if(!v){
-    alert('لا يمكن تعطيل مصدر Google Sheets الرسمي من نسخة Staging.');
+    localStorage.removeItem('kag_api_url');
+    alert('تم تعطيل المزامنة الخارجية. لن تُحتسب المؤشرات حتى تصل بيانات Google Sheets الرسمية.');
     return;
   }
   try{
     const u=new URL(v);
     if(u.protocol!=='https:'||!ALLOWED_API_HOSTS.includes(u.hostname)) throw new Error('Invalid host');
-    alert('تم التحقق من الرابط. لتغيير رابط Staging عدّل DEFAULT_API_URL في النسخة فقط دون استخدام تخزين محلي.');
+    localStorage.setItem('kag_api_url',u.toString());
+    alert('تم حفظ رابط الربط الآمن. ستبدأ المزامنة عند التحديث التالي.');
   }catch(e){
     alert('الرابط مرفوض. استخدم رابط HTTPS من Google Apps Script فقط.');
   }
 }
 async function manualRefreshNow(){
-  nextSyncAllowedAt=0;
   const btn=document.getElementById('manualRefreshBtn');
   if(btn){ btn.disabled=true; btn.textContent='↻ جارٍ التحديث...'; }
   console.log('⏱️ [Sync] طلب تحديث يدوي فوري (تجاوز الانتظار الدوري)');
@@ -5091,7 +5121,6 @@ async function manualRefreshNow(){
 }
 async function loadExternal(initial=true){
   if(syncRequestInFlight) return syncRequestInFlight;
-  if(!initial&&Date.now()<nextSyncAllowedAt) return false;
   syncRequestInFlight=(async()=>{
   const baseUrl=getConfiguredApiUrl();
   const input=document.getElementById('apiUrl'); if(input) input.value=baseUrl;
@@ -5175,7 +5204,7 @@ async function loadExternal(initial=true){
       riskGovernanceRegister=normalizedRiskGovernance.filter(r=>!isTestOrSyntheticRecord_(r));
       ensureSupplierOwnershipProfiles();
       applySupplierOwnerDefaults();
-      // لا يتم تخزين بيانات KPI أو Dashboard محلياً؛ Google Sheets هو المصدر الرسمي الوحيد.
+      try{ localStorage.setItem('kag_cached_rows', JSON.stringify(rows)); localStorage.setItem('kag_cached_approvals', JSON.stringify(approvals)); localStorage.setItem('kag_cached_assignments', JSON.stringify(assignments)); localStorage.setItem('kag_cached_meetings', JSON.stringify(meetings)); localStorage.setItem('kag_cached_commitments', JSON.stringify(commitments)); localStorage.setItem('kag_cached_files', JSON.stringify(filesRegister)); localStorage.setItem('kag_cached_urgent_tasks', JSON.stringify(urgentTasksRegister)); persistOperationalData(); localStorage.setItem('kag_cached_at', new Date().toISOString()); }catch(e){}
       dashboardDataVersion++;
       markPerf('normalize_end');
       measurePerf('normalize_duration','data_sync_start','normalize_end');
@@ -5186,11 +5215,9 @@ async function loadExternal(initial=true){
       const now=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const stEl=document.getElementById('sheetStatus');
       const stTx=document.getElementById('sheetStatusText');
-      if(stTx) stTx.textContent=`متصل — ${now} · آخر مزامنة · ${rows.length} صف WBS · ${riskGovernanceRegister.length} سجل مخاطر`;
+      if(stTx) stTx.textContent='متصل — '+now;
       if(stEl){stEl.classList.remove('loading');stEl.classList.add('connected');};
       setLastUpdate('قاعدة البيانات / Google Sheet', new Date());
-      syncBackoffMs=30000;
-      nextSyncAllowedAt=Date.now()+30000;
       hasCompletedInitialSync=true;
       markPerf('data_sync_end');
       measurePerf('data_sync_duration','data_sync_start','data_sync_end');
@@ -5206,10 +5233,7 @@ async function loadExternal(initial=true){
     // فشل الاتصال بالـGoogle Sheet: نعرض حالة خطأ واضحة، ولا نستخدم cache أو بيانات مدمجة لحساب المؤشرات.
     const stElE=document.getElementById('sheetStatus');
     const stTxE=document.getElementById('sheetStatusText');
-    const reason=(e&&e.message)?e.message:'خطأ غير معروف';
-    syncBackoffMs=Math.min(syncBackoffMs*2,300000);
-    nextSyncAllowedAt=Date.now()+syncBackoffMs;
-    if(stTxE) stTxE.textContent=`تعذر الاتصال بالـGoogle Sheet — ${reason} — إعادة المحاولة خلال ${Math.round(syncBackoffMs/1000)}ث`;
+    if(stTxE) stTxE.textContent='تعذر الاتصال بالـGoogle Sheet — لا توجد بيانات رسمية للمؤشرات';
     if(stElE){stElE.classList.remove('loading');stElE.classList.remove('connected');stElE.classList.add('error');}
     if(isSessionExpiredError(e)){returnToLoginForExpiredSession(); return false;}
     showSyncRetryState();
@@ -5224,7 +5248,7 @@ async function loadExternal(initial=true){
 
 // مزامنة تلقائية كل 30 ثانية بدون الحاجة لتحديث الصفحة
 // loadExternal called after login
-setInterval(()=>{ if(hasCompletedInitialSync&&!document.hidden&&!syncRequestInFlight&&Date.now()>=nextSyncAllowedAt&&document.getElementById("app").classList.contains("visible")) loadExternal(false); },30000);
+setInterval(()=>{ if(hasCompletedInitialSync&&!document.hidden&&!syncRequestInFlight&&document.getElementById("app").classList.contains("visible")) loadExternal(false); },30000);
 
 /* ══ CLOCK ══ */
 let clockTimer=null;
@@ -5316,7 +5340,6 @@ function applyFilters(){
   const q=(document.getElementById('searchTask')||{value:''}).value.toLowerCase();
   const ph=(document.getElementById('filterPhase')||{value:''}).value;
   const ow=(document.getElementById('filterOwner')||{value:''}).value;
-  const path=(document.getElementById('filterPath')||{value:''}).value;
   const ty=(document.getElementById('filterType')||{value:''}).value;
   const st=(document.getElementById('filterStatus')||{value:''}).value;
 
@@ -5331,10 +5354,8 @@ function applyFilters(){
     const name=String(r.name||'').toLowerCase();
     const code=String(r.code||'').toLowerCase();
     const owner=String(r.owner||'').toLowerCase();
-    const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
-    if(q && !haystack.includes(q)) return false;
+    if(q && !name.includes(q) && !code.includes(q) && !owner.includes(q)) return false;
     if(ph&&r.phase!==ph) return false;
-    if(path&&r.mainPath!==path) return false;
     if(ow&&r.owner!==ow) return false;
     if(st&&classifyStatus(r)!==st) return false;
     return true;
@@ -5361,14 +5382,21 @@ function applyFilters(){
   if(!tbody) return;
   if(!data.length){
     const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا.':'لا توجد مهام مطابقة لمعايير البحث الحالية';
-    tbody.innerHTML=`<tr><td colspan="25" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>{
     const s=classifyStatus(r);
     const sc=s==='مكتملة'?'green':s==='قيد التنفيذ'?'blue':s==='متأخرة'?'red':s==='لم تبدأ'?'gray':'';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td>${escapeHtml(r.progress||'-')}</td><td>${r.evidence?`<a href="${escapeHtml(r.evidence)}" target="_blank" rel="noopener">دليل</a>`:'-'}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td>
+      <td>${escapeHtml(r.code||'-')}</td>
+      <td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${r.type==='Milestone'?'Milestone':'Task'}</span></td>
+      <td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td>
+      <td>${escapeHtml(r.phase||'-')}</td>
+      <td>${escapeHtml(r.owner||'-')}</td>
+      <td>${fmt(r.start)}</td>
+      <td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td>
+      <td><span class="pill ${sc}" title="الحالة الأصلية: ${escapeHtml(r.sheet_status||'-')} | الحالة المحسوبة: ${escapeHtml(s||'-')} | السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td>
     </tr>`;
   }).join('');
 }
@@ -5377,12 +5405,9 @@ function applyFilters(){
 function fillFilters(){
   const phases=[...new Set(rows.map(r=>r.phase).filter(Boolean))].sort();
   const owners=[...new Set(rows.map(r=>r.owner).filter(Boolean))].sort();
-  const officialUsed=OFFICIAL_PATHS.filter(path=>rows.some(r=>r.mainPath===path));
   const pSel=document.getElementById('filterPhase');
-  const pathSel=document.getElementById('filterPath');
   const oSel=document.getElementById('filterOwner');
   if(pSel) pSel.innerHTML='<option value="">كل المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
-  if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}" ${officialUsed.includes(path)?'':'disabled'}>${escapeHtml(path)}</option>`).join('');
   if(oSel) oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(o=>`<option>${o}</option>`).join('');
 }
 
@@ -5453,7 +5478,7 @@ function renderLineChart(){
     g.addColorStop(0,'rgba(124,92,255,.30)');
     g.addColorStop(1,'rgba(124,92,255,.02)');
     lineGrad=g;
-  }catch(e){ console.warn('Gradient تعويض عرضي (overview line chart):',e); }
+  }catch(e){ console.warn('Gradient fallback (overview line chart):',e); }
   lineInst=new Chart(ctx,{
     type:'line',
     data:{
@@ -5909,7 +5934,7 @@ function renderAnalytics(){
         g1.addColorStop(0,'rgba(124,92,255,.32)');
         g1.addColorStop(1,'rgba(124,92,255,.02)');
         gradFill1=g1;
-      }catch(e){ console.warn('Gradient تعويض عرضي (completion chart):',e); }
+      }catch(e){ console.warn('Gradient fallback (completion chart):',e); }
       try{
         _anCompInst=new Chart(ctx1,{
           type:'line',
@@ -6019,7 +6044,7 @@ function renderAnalytics(){
         g2.addColorStop(0,'rgba(255,77,106,.28)');
         g2.addColorStop(1,'rgba(255,77,106,.02)');
         gradFill2=g2;
-      }catch(e){ console.warn('Gradient تعويض عرضي (risk chart):',e); }
+      }catch(e){ console.warn('Gradient fallback (risk chart):',e); }
       try{
         _anRiskInst=new Chart(ctx2,{
           type:'line',
@@ -6200,7 +6225,7 @@ let _rmTrendInst=null;
 
 function _buildRisksData(){
   // المصدر الرسمي الوحيد لصفحة إدارة المخاطر: Risk Governance Register من Google Sheets.
-  // لا نولد مخاطر من WBS، ولا نستخدم المهام المتأخرة أو المعالم أو التخزين المحلي أو تعويض عرضي.
+  // لا نولد مخاطر من WBS، ولا نستخدم المهام المتأخرة أو المعالم أو التخزين المحلي أو fallback.
   return (riskGovernanceRegister||[]).filter(r=>!isTestOrSyntheticRecord_(r));
 }
 
@@ -6331,7 +6356,7 @@ function renderRisksMgmt(){
         g.addColorStop(0,'rgba(124,92,255,.24)');
         g.addColorStop(1,'rgba(124,92,255,.02)');
         rmGrad=g;
-      }catch(e){ console.warn('Gradient تعويض عرضي (risk mgmt trend chart):',e); }
+      }catch(e){ console.warn('Gradient fallback (risk mgmt trend chart):',e); }
       _rmTrendInst=new Chart(ctx,{type:'line',data:{labels:trendSeries.labels,datasets:[{data:trendSeries.data,borderColor:'#7c5cff',backgroundColor:rmGrad,borderWidth:2.5,pointRadius:0,pointHoverRadius:6,pointHoverBackgroundColor:'#7c5cff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,fill:true,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},plugins:{legend:{display:false},tooltip:{rtl:true,backgroundColor:'rgba(15,18,35,.95)',borderColor:'rgba(124,92,255,.3)',borderWidth:1,padding:10,bodyFont:{size:12,weight:'bold'}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7a9f',font:{size:10},maxRotation:0}},y:{min:0,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7a9f',font:{size:10},precision:0}}}}});
       const firstCount=trendSeries.data.slice(0,7).reduce((a,b)=>a+b,0)/7, lastCount=trendSeries.data.slice(23).reduce((a,b)=>a+b,0)/7;
       const firstSeverity=trendSeries.weighted.slice(0,7).reduce((a,b)=>a+b,0)/7, lastSeverity=trendSeries.weighted.slice(23).reduce((a,b)=>a+b,0)/7;
@@ -6802,10 +6827,11 @@ function renderAssignmentTable(){
     </tr>`).join('');
 }
 
-function buildAssignmentPayload(){
-  return {
-    action:'task_assignment_preview',
-    wbs_code:document.getElementById('asg-wbs')?.value.trim(),
+async function submitAssignment(){
+  const statusEl=document.getElementById('asg-submitStatus');
+  const baseUrl=getConfiguredApiUrl();
+  const payload={
+    action:'task_assignment',
     title:document.getElementById('asg-title')?.value.trim(),
     owner:document.getElementById('asg-owner')?.value.trim(),
     email:document.getElementById('asg-email')?.value.trim(),
@@ -6813,27 +6839,9 @@ function buildAssignmentPayload(){
     priority:document.getElementById('asg-priority')?.value,
     details:document.getElementById('asg-details')?.value.trim(),
     drive_link:document.getElementById('asg-link')?.value.trim(),
-    email_body:document.getElementById('asg-emailBody')?.value.trim(),
     assigned_by:'PMO'
   };
-}
-function previewAssignment(){
-  const statusEl=document.getElementById('asg-submitStatus');
-  const payload=buildAssignmentPayload();
-  if(!payload.wbs_code||!payload.title||!payload.owner||!payload.email||!payload.details||!payload.due_date){if(statusEl) statusEl.textContent='أدخل كود WBS، اسم المهمة، المسؤول، البريد، المخرج، وتاريخ الاستحقاق.'; return;}
-  const box=document.getElementById('asg-preview'); const btn=document.getElementById('asg-confirmBtn');
-  const text=`كود WBS: ${payload.wbs_code}\nاسم المهمة: ${payload.title}\nالمسار: ${(tasks.find(t=>t.code===payload.wbs_code)||{}).mainPath||'—'}\nالمسؤول: ${payload.owner} <${payload.email}>\nالأولوية: ${payload.priority}\nتاريخ الاستحقاق: ${payload.due_date}\nرابط الملف: ${payload.drive_link||'—'}\n\nالمخرج المطلوب:\n${payload.details}\n\nنص البريد:\n${payload.email_body||payload.details}`;
-  if(box){box.textContent=text; box.style.display='block';}
-  if(btn) btn.style.display='block';
-  if(statusEl) statusEl.textContent='تمت المعاينة. لن يتم إرسال أي بريد قبل الضغط على تأكيد الإرسال والتسجيل.';
-}
-async function submitAssignment(confirmed=false){
-  if(!confirmed){previewAssignment(); return;}
-  const statusEl=document.getElementById('asg-submitStatus');
-  const baseUrl=getConfiguredApiUrl();
-  const payload=buildAssignmentPayload();
-  payload.action='task_assignment_confirm';
-  if(!payload.wbs_code||!payload.title||!payload.owner||!payload.email||!payload.details||!payload.due_date){
+  if(!payload.title||!payload.owner||!payload.email){
     if(statusEl) statusEl.textContent='أدخل عنوان المهمة، اسم المسؤول، والبريد الإلكتروني.';
     return;
   }
@@ -6848,7 +6856,8 @@ async function submitAssignment(confirmed=false){
     const data=await res.json();
     if(!data.ok) throw new Error(data.error||'لم يتم الإرسال');
     assignments.unshift(normalizeAssignmentRows([data.assignment])[0]);
-    ['asg-wbs','asg-title','asg-owner','asg-email','asg-due','asg-details','asg-link','asg-emailBody'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+    try{localStorage.setItem('kag_cached_assignments',JSON.stringify(assignments));}catch(e){}
+    ['asg-title','asg-owner','asg-email','asg-due','asg-details','asg-link'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
     renderAssignments();
     if(statusEl) statusEl.textContent='تم إرسال التكليف وتسجيله في الشيت.';
   }catch(e){
@@ -7171,6 +7180,7 @@ async function submitMeeting(){
     const data=await res.json();
     if(!data.ok) throw new Error(data.error||'failed');
     meetings.unshift(normalizeMeetingRows([data.meeting])[0]);
+    try{localStorage.setItem('kag_cached_meetings',JSON.stringify(meetings));}catch(e){}
     ['mtg-title','mtg-date','mtg-decisions','mtg-actions'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     renderMeetingsHub();
     if(statusEl) statusEl.textContent='تم حفظ المحضر.';
@@ -8674,7 +8684,7 @@ async function exportAdvancedDataset(type){
     window.XLSX.writeFile(wb,`mayadeen-${type}.xlsx`);
     if(st){ st.style.color='#10e87a'; st.textContent=`تم تنزيل "${labelMap[type]||type}" بنجاح (${rows.length} سجل).`; }
   }catch(e){
-    console.warn('Excel export failed, attempting CSV تعويض عرضي:',e);
+    console.warn('Excel export failed, attempting CSV fallback:',e);
     try{
       const map={vendors:vendorNames().map(vendorStats),evidence:evidenceRecords,issues:issuesIncidents,violations:vendorViolations,decisions:decisionLogRecords,versions:versionHistoryRecords};
       const rows=map[type]||[];
@@ -8682,7 +8692,7 @@ async function exportAdvancedDataset(type){
       downloadTextFile(`mayadeen-${type}.csv`,csvFromObjects(rows),'text/csv;charset=utf-8');
       if(st){ st.style.color='#f5b800'; st.textContent=`تعذر توليد Excel، تم التصدير كـ CSV بدلاً منه (${rows.length} سجل).`; }
     }catch(e2){
-      console.warn('CSV تعويض عرضي also failed:',e2);
+      console.warn('CSV fallback also failed:',e2);
       if(st){ st.style.color='#ff4d6a'; st.textContent='تعذر تنفيذ هذا التصدير حالياً: '+(e.message||e2.message||'خطأ غير معروف')+'. جرّب مرة أخرى أو تواصل مع الدعم الفني.'; }
     }
   }
