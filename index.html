@@ -236,15 +236,22 @@ button,input,select{font-family:inherit}
   box-shadow:0 0 0 3px rgba(124,92,255,.10);
 }
 .login-btn{
-  width:100%;margin-top:6px;padding:14px;border:0;
+  width:100%;margin-top:6px;padding:14px;border:1px solid rgba(196,181,253,.32);
   border-radius:var(--radius-sm);
-  background:#334b7a;
+  background:#7c5cff;
   color:#fff;font-weight:800;font-size:15px;
   cursor:pointer;letter-spacing:.3px;
-  box-shadow:0 4px 10px rgba(31,45,76,.16);
-  transition:all 0.2s ease;
+  box-shadow:0 4px 12px rgba(20,16,42,.28),0 1px 0 rgba(255,255,255,.12) inset;
+  transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease,opacity .18s ease;
 }
-.login-btn:hover{background:#3b568a;box-shadow:0 4px 10px rgba(31,45,76,.18);transform:none}.login-btn:active{background:#2a3f68;transform:scale(0.98)}
+.login-btn:hover{background:#6f52e6;border-color:rgba(220,211,255,.42);box-shadow:0 6px 14px rgba(20,16,42,.32),0 1px 0 rgba(255,255,255,.14) inset;transform:none}
+.login-btn:focus-visible{outline:3px solid rgba(196,181,253,.34);outline-offset:3px}
+.login-btn:active{background:#5f46cf;transform:scale(0.985)}
+.login-btn:disabled,.login-btn.loading{cursor:wait;opacity:.78;transform:none;box-shadow:0 3px 10px rgba(20,16,42,.22)}
+.login-btn-content{display:inline-flex;align-items:center;justify-content:center;gap:9px}
+.login-btn-spinner{display:none;width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;animation:loginBtnSpin .75s linear infinite}
+.login-btn.loading .login-btn-spinner{display:inline-block}
+@keyframes loginBtnSpin{to{transform:rotate(360deg)}}
 .login-error{
   display:none;background:rgba(255,77,106,.10);
   border:1px solid rgba(255,77,106,.25);
@@ -1257,7 +1264,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
 .login-card::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(124,92,255,.24),rgba(0,212,255,.12),transparent);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 @keyframes loginCardIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .login h1{font-size:24px;margin-bottom:8px;letter-spacing:-.2px}.login-sub{font-size:13.5px;line-height:1.8;color:#9eacd0}.login-brand{margin-bottom:28px}.login-brand img{width:142px}.login-brand-text h2{font-size:12px;color:#dcd3ff}.login-brand-text p{font-size:10.5px;letter-spacing:1px}
-.input-group{margin-bottom:14px}.input-group label{font-size:12.5px;color:#aab6d6;margin-bottom:7px}.input-group input{padding:14px 15px;background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.10);box-shadow:0 1px 0 rgba(255,255,255,.04) inset}.input-group input::placeholder{color:#586581}.login-btn{position:relative;overflow:hidden;padding:15px 18px;margin-top:10px;border-radius:14px;background:#334b7a;box-shadow:0 4px 10px rgba(31,45,76,.16),0 1px 0 rgba(255,255,255,.10) inset;transition:all 0.2s ease}.login-btn:hover{background:#3b568a;box-shadow:0 4px 10px rgba(31,45,76,.18),0 1px 0 rgba(255,255,255,.11) inset}.login-btn:active{background:#2a3f68}.login-btn::after{content:none}.login-btn:disabled{cursor:wait;opacity:.92;transform:none}.login.is-authenticating .login-card{transform:scale(.985);box-shadow:0 26px 80px rgba(0,0,0,.68),0 0 60px rgba(124,92,255,.18)}.login.exiting{animation:loginExit .42s ease forwards}@keyframes loginExit{to{opacity:0;transform:scale(1.015)}}
+.input-group{margin-bottom:14px}.input-group label{font-size:12.5px;color:#aab6d6;margin-bottom:7px}.input-group input{padding:14px 15px;background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.10);box-shadow:0 1px 0 rgba(255,255,255,.04) inset}.input-group input::placeholder{color:#586581}.login-btn{position:relative;overflow:hidden;padding:15px 18px;margin-top:10px;border-radius:14px;background:#7c5cff;border-color:rgba(196,181,253,.32);box-shadow:0 4px 12px rgba(20,16,42,.28),0 1px 0 rgba(255,255,255,.12) inset}.login-btn:hover{background:#6f52e6;border-color:rgba(220,211,255,.42);box-shadow:0 6px 14px rgba(20,16,42,.32),0 1px 0 rgba(255,255,255,.14) inset}.login-btn:active{background:#5f46cf}.login-btn::after{content:none}.login-btn:disabled,.login-btn.loading{cursor:wait;opacity:.78;transform:none}.login.is-authenticating .login-card{transform:scale(.985);box-shadow:0 26px 80px rgba(0,0,0,.68),0 0 60px rgba(124,92,255,.18)}.login.exiting{animation:loginExit .42s ease forwards}@keyframes loginExit{to{opacity:0;transform:scale(1.015)}}
 .login-transition{position:fixed;inset:0;z-index:130;display:grid;place-items:center;background:#070a14;opacity:0;pointer-events:none;transition:opacity .28s ease}.login-transition.active{opacity:1;pointer-events:auto}.command-intro{width:min(460px,calc(100vw - 48px));padding:0 10px;text-align:center;animation:commandIntroIn .42s cubic-bezier(.2,.8,.2,1) both}.command-logo{display:block;width:min(168px,42vw);height:auto;max-height:92px;object-fit:contain;margin:0 auto 22px;opacity:0;animation:commandLogoFade .46s ease .04s both}.command-kicker{font-size:11px;font-weight:800;letter-spacing:2.8px;color:#9f8cff;text-transform:uppercase;margin-bottom:13px}.command-title{font-size:22px;line-height:1.75;font-weight:800;color:#f3f6ff;letter-spacing:-.2px}.command-rule{position:relative;width:min(280px,62vw);height:1px;margin:18px auto 16px;background:rgba(255,255,255,.13);overflow:hidden}.command-rule::after{content:"";position:absolute;top:0;height:100%;width:42%;right:0;background:linear-gradient(90deg,transparent,rgba(124,92,255,.85),rgba(0,169,206,.55),transparent);animation:commandRuleScan 1.65s ease-in-out infinite}.command-status{min-height:22px;color:#aebbd8;font-size:13px;font-weight:700;line-height:1.7}.command-progress{width:min(320px,70vw);height:3px;margin:18px auto 0;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden}.command-progress span{display:block;height:100%;width:18%;border-radius:inherit;background:linear-gradient(90deg,#7c5cff,#00a9ce);transition:width .32s ease}.login-transition.ready .command-rule::after,.login-transition.ready .command-kicker{animation:none}.login-transition.ready .command-progress span{width:100%}@keyframes commandIntroIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes commandLogoFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@keyframes commandMarkDrift{to{transform:translateY(-2px)}}@keyframes commandRuleScan{0%{transform:translateX(130%)}100%{transform:translateX(-260%)}}
 .app.visible{animation:appReveal .42s cubic-bezier(.2,.8,.2,1) both}@keyframes appReveal{from{opacity:0;transform:translateY(10px) scale(.995)}to{opacity:1;transform:none}}
 .sidebar{background:linear-gradient(180deg,rgba(13,16,32,.98),rgba(7,9,18,.995));border-left-color:rgba(255,255,255,.08)}.nav-item{border-radius:12px;margin-bottom:3px;min-height:38px}.nav-item.active{background:linear-gradient(135deg,rgba(124,92,255,.26),rgba(0,212,255,.08));box-shadow:0 8px 22px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.06)}.topbar{padding:14px 26px;background:rgba(9,12,25,.82);box-shadow:0 10px 30px rgba(0,0,0,.18)}.page-area{padding:22px 24px}.page-header{margin-bottom:20px;padding:18px 20px;border:1px solid rgba(255,255,255,.07);border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(124,92,255,.035));box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}.page-header h1{font-size:24px}.page-header p{font-size:13px;color:#91a0c1}.card,.health-card,.phase-card{background:linear-gradient(160deg,rgba(18,23,43,.94),rgba(11,15,30,.96));border-color:rgba(255,255,255,.075);box-shadow:0 12px 35px rgba(0,0,0,.18)}.card{padding:18px 20px}.card:hover,.health-card:hover{transform:translateY(-1px)}.kpi-grid,.health-grid,.charts-row{gap:16px;margin-bottom:20px}.kpi-card{border-radius:18px;padding:22px 16px 18px;background:linear-gradient(160deg,rgba(22,28,55,.96),rgba(10,14,29,.98));box-shadow:0 14px 36px rgba(0,0,0,.20)}.kpi-value{font-size:38px}.kpi-label{font-size:13px}.sec-title{margin-bottom:14px}.sec-title h2{font-size:15px}.data-table{border-spacing:0 6px}.data-table th{font-size:11px;color:#a8b4d0;padding:0 16px 11px}.data-table td{padding:13px 16px;background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.07);font-size:13px}.data-table tr:hover td{background:rgba(124,92,255,.09);border-color:rgba(124,92,255,.18)}.milestone-empty,.data-table td[colspan]{background:linear-gradient(135deg,rgba(255,255,255,.035),rgba(124,92,255,.035))!important;border:1px dashed rgba(124,92,255,.18)!important;border-radius:14px!important;color:#9eacd0!important}.chart-wrap,.line-chart-wrap{border-radius:14px;background:rgba(4,7,18,.20)}button,.ops-mini-btn,.escalate-btn{transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease}button:hover,.ops-mini-btn:hover,.escalate-btn:hover{transform:translateY(-1px)}@media(max-width:1100px){.topbar{position:relative;flex-wrap:wrap}.page-area{padding:16px}.sidebar{position:relative}.sidebar-brand{width:100%}.login-card{padding:32px 24px}}@media(max-width:700px){.login-card{width:min(380px,92vw)}.page-header h1{font-size:20px}.kpi-value{font-size:32px}.topbar-search{max-width:none;order:3;width:100%;flex-basis:100%}.data-table{min-width:720px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
@@ -1376,7 +1383,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <label>كلمة المرور</label>
       <input id="p" type="password" placeholder="أدخل كلمة المرور" autocomplete="off" onkeydown="loginOnEnter(event)"/>
     </div>
-    <button class="login-btn" onclick="login()"><span>تسجيل الدخول</span></button>
+    <button class="login-btn" onclick="login()"><span class="login-btn-content"><span class="login-btn-text">تسجيل الدخول</span><span class="login-btn-spinner" aria-hidden="true"></span></span></button>
     <div class="login-error" id="loginErr">ملاحظة: حماية الواجهة فقط ليست بديلاً عن نظام صلاحيات خلفي</div>
     <div class="login-transition" id="loginTransition" aria-live="polite" aria-hidden="true">
       <div class="command-intro" role="status">
@@ -2981,6 +2988,7 @@ let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed
 let sessionToken='';
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
+const loginPerfCounters={authLoginRequests:0,dataSyncRequests:0,mainRenders:0};
 let syncBackoffMs=30000;
 let lastUpdateTime=null;
 let nextSyncAllowedAt=0;
@@ -3031,7 +3039,7 @@ const PAGE_RENDERERS={
   urgentTasksPage:['renderUrgentTasksPage']
 };
 function markPerf(name){try{performance.mark(name);}catch(e){}}
-function measurePerf(name,start,end){try{performance.measure(name,start,end);}catch(e){}}
+function measurePerf(name,start,end){try{performance.measure(name,start,end);const m=performance.getEntriesByName(name).slice(-1)[0];if(m) console.info(`⏱️ [LoginPerf] ${name}: ${Math.round(m.duration)} ms`);}catch(e){}}
 function getActivePageId(){return document.querySelector('.page.active')?.id||'overview';}
 function markAllPagesDirty(){Object.keys(PAGE_RENDERERS).forEach(id=>{pageRenderState[id]={rendered:false,dataVersion:dashboardDataVersion};});}
 function renderPageIfNeeded(id,force=false){
@@ -3042,6 +3050,8 @@ function renderPageIfNeeded(id,force=false){
   pageRenderState[id]={rendered:true,dataVersion:dashboardDataVersion};
 }
 function renderOverview(){
+  loginPerfCounters.mainRenders++;
+  console.info(`⏱️ [LoginPerf] renderOverview count: ${loginPerfCounters.mainRenders}`);
   markPerf('overview_render_start');
   renderKpis();
   renderHealth();
@@ -3105,7 +3115,7 @@ function setLoginTransitionStatus(message,progress){
 function setLoginVisualState(state){
   const loginDiv=document.getElementById('login');
   const overlay=document.getElementById('loginTransition');
-  if(loginDiv){loginDiv.classList.toggle('is-authenticating',state==='loading');loginDiv.classList.toggle('exiting',state==='success');}
+  if(loginDiv){loginDiv.classList.toggle('is-authenticating',state==='loading');loginDiv.classList.toggle('exiting',false);}
   if(overlay){
     overlay.classList.toggle('active',state==='loading'||state==='success');
     overlay.classList.toggle('ready',state==='success');
@@ -3114,6 +3124,27 @@ function setLoginVisualState(state){
   if(state==='idle') setLoginTransitionStatus('جاري التحقق من الصلاحيات',18);
 }
 function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function withTimeout(promise,ms,label){
+  let timer;
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label||'request timeout')),ms);});
+  return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
+}
+function sanitizeUserError(e,fallback){
+  const msg=String((e&&e.message)||e||'');
+  if(/timeout|مهلة/i.test(msg)) return 'انتهت مهلة الطلب. تحقق من الاتصال ثم حاول مرة أخرى.';
+  if(/invalid|login failed|بيانات/i.test(msg)) return 'بيانات الدخول غير صحيحة.';
+  if(/Session expired|Unauthorized/i.test(msg)) return 'الجلسة غير صالحة.';
+  if(/Failed to fetch|NetworkError|HTTP/i.test(msg)) return 'تعذر الاتصال.';
+  return fallback||'حدث خطأ غير متوقع.';
+}
+function updateLoginButtonState(isLoading){
+  const btn=document.querySelector('.login-btn');
+  const txt=btn?.querySelector('.login-btn-text');
+  if(!btn) return;
+  btn.disabled=!!isLoading;
+  btn.classList.toggle('loading',!!isLoading);
+  if(txt) txt.textContent=isLoading?'جارٍ التحقق…':'تسجيل الدخول';
+}
 function normalizePageList(v){
   if(Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
   return String(v||'').split(/[,،]/).map(x=>x.trim()).filter(Boolean);
@@ -3161,8 +3192,6 @@ async function postApi(baseUrl,payload){
 }
 async function login(){
   if(loginRequestInFlight) return loginRequestInFlight;
-  const loginBtn=document.querySelector('.login-btn');
-  const originalLoginText=loginBtn?loginBtn.textContent:'';
   const baseUrl=getConfiguredApiUrl();
   if(!baseUrl){
     showLoginError('تعذر تحديد رابط Apps Script. تواصل مع الدعم الفني.');
@@ -3176,47 +3205,54 @@ async function login(){
   }
   const loginErr=document.getElementById('loginErr');
   if(loginErr) loginErr.style.display='none';
+  markPerf('login_click');
   setLoginVisualState('loading');
-  setLoginTransitionStatus('جاري التحقق من الصلاحيات',28);
-  if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='جاري التحقق...';}
-  markPerf('auth_login_start');
+  setLoginTransitionStatus('جارٍ التحقق من بيانات الدخول.',28);
+  updateLoginButtonState(true);
+  markPerf('auth_request_start');
+  loginPerfCounters.authLoginRequests++;
+  console.info(`⏱️ [LoginPerf] auth_login count: ${loginPerfCounters.authLoginRequests}`);
   loginRequestInFlight=(async()=>{
   try{
-    const res=await fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_login',username,password})});
+  try{
+    const res=await withTimeout(fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_login',username,password})}),15000,'auth_login timeout');
     const data=await res.json();
     if(!res.ok||!data.ok) throw new Error(data.error||'login failed');
     currentUser=data.user||{};
     sessionToken=data.session_token||'';
     if(!sessionToken) throw new Error('missing session token');
+    markPerf('auth_request_end');
+    measurePerf('auth_request_duration','auth_request_start','auth_request_end');
+    markPerf('session_ready');
     applyPermissions();
-    setLoginTransitionStatus('جاري مزامنة بيانات المشروع',58);
-    markPerf('auth_login_end');
-    measurePerf('auth_login_duration','auth_login_start','auth_login_end');
+    setLoginTransitionStatus('تم التحقق من الهوية.',58);
   }catch(e){
     console.warn('Login failed',e);
     setLoginVisualState('idle');
-    showLoginError('تعذر تسجيل الدخول. تحقق من المستخدم أو كلمة المرور أو رابط Apps Script.');
+    showLoginError(sanitizeUserError(e,'تعذر تسجيل الدخول. تحقق من المستخدم أو كلمة المرور أو رابط Apps Script.'));
     return false;
-  } finally {
-    loginRequestInFlight=null;
-    if(loginBtn){loginBtn.disabled=false;loginBtn.textContent=originalLoginText||'تسجيل الدخول';}
   }
-  setLoginTransitionStatus('جاري مزامنة بيانات المشروع',62);
-  markPerf('dashboard_shell_ready');
+  markPerf('transition_screen_shown');
+  setLoginTransitionStatus('جارٍ تجهيز لوحة القيادة.',72);
   startClock();
-  setSyncLoadingState();
-  const synced=await loadExternal(true);
-  setLoginTransitionStatus('تجهيز لوحة القيادة',synced?92:82);
   const appDiv=document.getElementById('app');
   appDiv.style.cssText='display:flex!important;min-height:100vh';
   appDiv.classList.add('visible');
-  setLoginTransitionStatus('تجهيز لوحة القيادة',100);
-  setLoginVisualState('success');
-  document.getElementById('login').style.cssText='display:none!important';
   const preferredPage=safeLocalGet('mayadeen.lastPage')||'overview';
   showPage(canAccessPage(preferredPage)?preferredPage:'overview');
+  markPerf('dashboard_shell_ready');
+  measurePerf('dashboard_shell_duration','session_ready','dashboard_shell_ready');
   setLoginVisualState('idle');
+  document.getElementById('login').style.cssText='display:none!important';
+  updateLoginButtonState(false);
+  setLoginTransitionStatus('جارٍ تحميل بيانات المشروع.',82);
+  setSyncLoadingState();
+  loadExternal(true).catch(e=>console.warn('Initial data sync failed after login',e));
   return true;
+  } finally {
+    loginRequestInFlight=null;
+    updateLoginButtonState(false);
+  }
   })();
   return loginRequestInFlight;
 }
@@ -5373,10 +5409,12 @@ async function loadExternal(initial=true){
 
   try{
     markPerf('data_sync_start');
+    loginPerfCounters.dataSyncRequests++;
+    console.info(`⏱️ [LoginPerf] data_sync count: ${loginPerfCounters.dataSyncRequests}`);
     const _syncStart=performance.now();
     const _syncStartedAt=new Date();
     console.log(`⏱️ [Sync] بدء طلب البيانات: ${_syncStartedAt.toLocaleTimeString('ar-SA')}`);
-    const res=await postApi(baseUrl,{action:'data_sync'});
+    const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
     const _syncFetchMs=Math.round(performance.now()-_syncStart);
     console.log(`⏱️ [Sync] وصل الرد بعد ${_syncFetchMs} ms`);
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -5445,6 +5483,7 @@ async function loadExternal(initial=true){
       initData();
       ensureChartJS().then(()=>{if(getActivePageId()==='overview'){renderDonutChart();renderLineChart();}});
       markPerf('first_kpi_render');
+      measurePerf('first_kpi_duration','login_click','first_kpi_render');
       const st=document.getElementById('sheetStatus');
       const now=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const stEl=document.getElementById('sheetStatus');
@@ -5457,7 +5496,8 @@ async function loadExternal(initial=true){
       hasCompletedInitialSync=true;
       markPerf('data_sync_end');
       measurePerf('data_sync_duration','data_sync_start','data_sync_end');
-      markPerf('full_ready');
+      measurePerf('total_login_to_dashboard','login_click','dashboard_shell_ready');
+      markPerf('full_page_ready');
       const _syncTotalMs=Math.round(performance.now()-_syncStart);
       console.log(`⏱️ [Sync] اكتملت المعالجة الكاملة خلال ${_syncTotalMs} ms (طلب+معالجة). آخر تحديث ظاهر بالداشبورد: ${new Date().toLocaleTimeString('ar-SA')}`);
       return true;
@@ -5472,7 +5512,7 @@ async function loadExternal(initial=true){
     const reason=(e&&e.message)?e.message:'خطأ غير معروف';
     syncBackoffMs=Math.min(syncBackoffMs*2,300000);
     nextSyncAllowedAt=Date.now()+syncBackoffMs;
-    if(stTxE) stTxE.textContent=`تعذر الاتصال بالـGoogle Sheet — ${reason} — إعادة المحاولة خلال ${Math.round(syncBackoffMs/1000)}ث`;
+    if(stTxE) stTxE.textContent=`تعذر مزامنة بيانات المشروع — ${sanitizeUserError(e,reason)} — إعادة المحاولة خلال ${Math.round(syncBackoffMs/1000)}ث`;
     if(stElE){stElE.classList.remove('loading');stElE.classList.remove('connected');stElE.classList.add('error');}
     if(isSessionExpiredError(e)){returnToLoginForExpiredSession(); return false;}
     showSyncRetryState();
