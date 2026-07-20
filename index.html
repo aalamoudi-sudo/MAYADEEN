@@ -1273,23 +1273,86 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
   --radius-control:12px;--field-h:44px;--button-h:42px;--icon-size:20px;--sidebar-collapsed-w:84px;
   --bp-mobile:700px;--bp-tablet:1100px;--bp-desktop:1300px;
 }
-body.theme-light{--bg:#f4f6fb;--bg2:#eef2f8;--panel:#ffffff;--panel2:#f8fafc;--card:#ffffff;--card2:#f4f7fb;--text:#102033;--muted:#536179;--muted2:#69758a;--line:rgba(35,48,78,.14);--shadow:0 18px 42px rgba(15,23,42,.12),0 2px 8px rgba(15,23,42,.08);background:linear-gradient(180deg,#f7f9fd,#eef2f8);}
-body.theme-light .sidebar,body.theme-light .topbar{background:rgba(255,255,255,.94);box-shadow:0 10px 30px rgba(15,23,42,.08)}
-body.theme-light .card,body.theme-light .health-card,body.theme-light .phase-card,body.theme-light .kpi-card{background:linear-gradient(160deg,#fff,#f7f9fd);border-color:rgba(35,48,78,.12)}
-body.war-display .page:not(#warRoomMode){display:none!important} body.war-display #warRoomMode{display:block!important} body.war-display .topbar-search,body.war-display .sidebar-footer{display:none!important} body.war-display{font-size:110%}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.nav-item:focus-visible{outline:3px solid rgba(0,212,255,.75)!important;outline-offset:2px!important}
 .app.sidebar-collapsed{--sidebar-w:var(--sidebar-collapsed-w)}
 .app.sidebar-collapsed .sidebar-brand-text,.app.sidebar-collapsed .nav-text,.app.sidebar-collapsed .sidebar-section-label,.app.sidebar-collapsed .days-label,.app.sidebar-collapsed .countdown-details{display:none}
 .app.sidebar-collapsed .sidebar-brand-inner{justify-content:center}.app.sidebar-collapsed .sidebar-brand img{width:52px}.app.sidebar-collapsed .nav-item{justify-content:center;padding-inline:10px}.app.sidebar-collapsed .nav-icon{display:inline-flex!important;font-size:var(--icon-size)}
 .nav-item{gap:10px;min-height:42px}.nav-item .nav-icon{display:inline-flex!important;width:22px;justify-content:center}.nav-item.active::after{content:'✓';margin-inline-start:auto;color:var(--cyan);font-weight:900}.app.sidebar-collapsed .nav-item.active::after{position:absolute;left:8px}
 .nav-group-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:0;color:var(--text-secondary);font-weight:800;font-size:12px;padding:14px 14px 6px;cursor:pointer}.nav-group-toggle .chev{transition:transform .2s}.nav-group.collapsed .chev{transform:rotate(90deg)}.nav-group.collapsed .nav-group-items{display:none}
-.sidebar-overlay,.mobile-menu-btn,.sidebar-close{display:none}.mode-switcher{display:flex;gap:6px;flex-wrap:wrap}.mode-btn,.sidebar-toggle,.mobile-menu-btn,.sidebar-close{min-height:var(--button-h);border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);border-radius:var(--radius-control);padding:8px 12px;cursor:pointer}.mode-btn.active{border-color:var(--brand);background:rgba(124,92,255,.18);font-weight:800}
+.sidebar-overlay,.mobile-menu-btn,.sidebar-close{display:none}.sidebar-toggle,.mobile-menu-btn,.sidebar-close{min-height:var(--button-h);border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);border-radius:var(--radius-control);padding:8px 12px;cursor:pointer}
 .data-table{min-width:720px}.card:has(.data-table),.table-scroll{overflow:auto;scrollbar-color:rgba(124,92,255,.45) transparent}.card:has(.data-table)::before{content:'مرّر أفقيًا لعرض كل الأعمدة';display:block;color:var(--text-secondary);font-size:12px;margin-bottom:8px}.data-table th{position:sticky;top:0;z-index:2;background:var(--surface-1);line-height:1.6}.data-table td,.data-table th{line-height:1.65;white-space:normal;overflow-wrap:anywhere}.data-table tbody tr:nth-child(even) td{background:rgba(255,255,255,.025)}
 input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}label,.input-group label{font-size:13px;color:var(--text-secondary)}
 .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.kpi-card{min-height:132px}.kpi-label{line-height:1.55}.kpi-value{font-variant-numeric:tabular-nums}.status-badge,.pill{gap:6px}
 @media(max-width:1100px){.app{flex-direction:row}.mobile-menu-btn,.sidebar-close{display:inline-flex;align-items:center}.sidebar{position:fixed;right:0;top:0;bottom:0;height:100vh;width:min(320px,86vw);z-index:80;transform:translateX(105%);transition:transform .22s ease}.app.sidebar-open .sidebar{transform:translateX(0)}.app.sidebar-open .sidebar-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}.sidebar-nav{display:block}.topbar{flex-wrap:wrap}.topbar-search{order:3;flex-basis:100%;max-width:none}.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.filters{grid-template-columns:1fr 1fr}.page-area{padding:16px}}
-@media(max-width:700px){.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid,.filters{grid-template-columns:1fr!important}.page-area{padding:12px}.page-header{padding:14px}.topbar-left,.topbar-right{width:100%;flex-wrap:wrap}.mode-switcher{width:100%}.data-table{min-width:760px}.card{padding:14px}.kpi-value{font-size:32px!important}}
+@media(max-width:700px){.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid,.filters{grid-template-columns:1fr!important}.page-area{padding:12px}.page-header{padding:14px}.topbar-left,.topbar-right{width:100%;flex-wrap:wrap}.data-table{min-width:760px}.card{padding:14px}.kpi-value{font-size:32px!important}}
 @media(prefers-reduced-motion:reduce){.sidebar,.nav-group-toggle .chev{transition:none!important}}
+
+/* ثابت: منصة MAYADEEN تعمل بالوضع الداكن فقط، بدون مفاتيح تبديل للأوضاع. */
+#tasks .task-table-card{
+  overflow:auto;
+  min-height:520px;
+  max-height:72vh;
+  padding:14px;
+  direction:rtl;
+  border:1px solid rgba(255,255,255,.09);
+  background:linear-gradient(160deg,rgba(13,17,34,.97),rgba(8,12,26,.98));
+}
+#tasks .task-table-card::before{content:'مرّر أفقيًا لعرض كل أعمدة جدول المهام';margin:0 2px 10px;color:#9eacd0;font-size:12px;font-weight:700}
+#tasks .task-table{
+  direction:rtl;
+  table-layout:fixed;
+  min-width:2860px;
+  width:2860px;
+  border-collapse:separate;
+  border-spacing:0 8px;
+}
+#tasks .task-table th,#tasks .task-table td{
+  box-sizing:border-box;
+  vertical-align:top;
+  text-align:right;
+  white-space:normal;
+  overflow-wrap:break-word;
+  word-break:normal;
+  line-height:1.75;
+}
+#tasks .task-table th{
+  top:0;
+  z-index:4;
+  padding:12px 12px;
+  background:#10162d;
+  color:#c8d2ee;
+  border-top:1px solid rgba(255,255,255,.08);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-size:11.5px;
+  font-weight:900;
+}
+#tasks .task-table td{
+  min-height:62px;
+  padding:14px 12px;
+  background:rgba(255,255,255,.038);
+  border-top:1px solid rgba(255,255,255,.065);
+  border-bottom:1px solid rgba(255,255,255,.065);
+  color:#e3e9fb;
+  font-size:13px;
+}
+#tasks .task-table th:first-child,#tasks .task-table td:first-child{border-right:1px solid rgba(255,255,255,.075);border-radius:0 12px 12px 0}
+#tasks .task-table th:last-child,#tasks .task-table td:last-child{border-left:1px solid rgba(255,255,255,.075);border-radius:12px 0 0 12px}
+#tasks .task-table tbody tr{cursor:pointer}
+#tasks .task-table tbody tr:hover td{background:rgba(124,92,255,.105)}
+#tasks .task-table th:nth-child(1),#tasks .task-table td:nth-child(1){width:110px;font-weight:900;color:#d8ccff}
+#tasks .task-table th:nth-child(2),#tasks .task-table td:nth-child(2){width:300px}
+#tasks .task-table th:nth-child(3),#tasks .task-table td:nth-child(3){width:210px}
+#tasks .task-table th:nth-child(4),#tasks .task-table td:nth-child(4),#tasks .task-table th:nth-child(7),#tasks .task-table td:nth-child(7),#tasks .task-table th:nth-child(8),#tasks .task-table td:nth-child(8),#tasks .task-table th:nth-child(10),#tasks .task-table td:nth-child(10){width:150px}
+#tasks .task-table th:nth-child(5),#tasks .task-table td:nth-child(5),#tasks .task-table th:nth-child(6),#tasks .task-table td:nth-child(6),#tasks .task-table th:nth-child(12),#tasks .task-table td:nth-child(12),#tasks .task-table th:nth-child(23),#tasks .task-table td:nth-child(23){width:115px}
+#tasks .task-table th:nth-child(9),#tasks .task-table td:nth-child(9){width:260px}
+#tasks .task-table th:nth-child(11),#tasks .task-table td:nth-child(11){width:135px}
+#tasks .task-table th:nth-child(13),#tasks .task-table td:nth-child(13),#tasks .task-table th:nth-child(14),#tasks .task-table td:nth-child(14),#tasks .task-table th:nth-child(21),#tasks .task-table td:nth-child(21){width:95px;text-align:center}
+#tasks .task-table th:nth-child(15),#tasks .task-table td:nth-child(15),#tasks .task-table th:nth-child(16),#tasks .task-table td:nth-child(16),#tasks .task-table th:nth-child(17),#tasks .task-table td:nth-child(17),#tasks .task-table th:nth-child(18),#tasks .task-table td:nth-child(18),#tasks .task-table th:nth-child(24),#tasks .task-table td:nth-child(24){width:130px}
+#tasks .task-table th:nth-child(19),#tasks .task-table td:nth-child(19),#tasks .task-table th:nth-child(20),#tasks .task-table td:nth-child(20){width:145px}
+#tasks .task-table th:nth-child(22),#tasks .task-table td:nth-child(22){width:115px;text-align:center}
+#tasks .task-table th:nth-child(25),#tasks .task-table td:nth-child(25){width:130px}
+@media(max-width:1100px){#tasks .task-table-card{max-height:68vh;padding:12px}#tasks .task-table{min-width:2860px;width:2860px}}
+@media(max-width:700px){#tasks .task-table-card{max-height:66vh;padding:10px;margin-inline:-2px}#tasks .task-table th,#tasks .task-table td{font-size:12.5px;padding:12px 10px}}
 
 </style></head>
 <body>
@@ -1386,7 +1449,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <button class="nav-item" data-page="reportsGenerator" title="مولّد التقارير" aria-label="فتح صفحة مولّد التقارير"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-text">مولّد التقارير</span></button>
       <button class="nav-item" data-page="importExportCenter" title="الاستيراد والتصدير" aria-label="فتح صفحة الاستيراد والتصدير"><span class="nav-icon" aria-hidden="true">✓</span><span class="nav-text">الاستيراد والتصدير</span></button>
       <button class="nav-item" data-page="mobileFieldMode" title="Mobile Field Mode" aria-label="فتح صفحة Mobile Field Mode"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-text">Mobile Field Mode</span></button>
-      <button class="nav-item" data-page="warRoomMode" title="War Room Mode" aria-label="فتح صفحة War Room Mode"><span class="nav-icon" aria-hidden="true">◷</span><span class="nav-text">War Room Mode</span></button>
 
       </div></div><div class="nav-group" data-nav-group="system"><button class="nav-group-toggle" type="button" onclick="toggleNavGroup(this)"><span>النظام</span><span class="chev">⌄</span></button><div class="nav-group-items">
       <button class="nav-item" data-page="setup" title="الإعدادات" aria-label="فتح صفحة الإعدادات"><span class="nav-icon" aria-hidden="true">⚠</span><span class="nav-text">الإعدادات</span></button>
@@ -1425,7 +1487,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <input id="globalSearch" placeholder="ابحث عن مهمة، مسؤول، مرحلة..." oninput="globalSearchFn(this.value)"/>
       </div>
       <div class="topbar-left">
-        <div class="mode-switcher" aria-label="أوضاع العرض"><button class="mode-btn" type="button" data-theme-mode="dark" onclick="setThemeMode('dark')">داكن</button><button class="mode-btn" type="button" data-theme-mode="light" onclick="setThemeMode('light')">فاتح</button><button class="mode-btn" type="button" data-theme-mode="war" onclick="setThemeMode('war')">غرفة الحرب</button></div>
         <button class="ops-mini-btn" id="manualRefreshBtn" onclick="manualRefreshNow()" title="تجاوز الانتظار وقراءة أحدث بيانات من الشيت فوراً">↻ تحديث البيانات الآن</button>
         <div class="status-badge loading" id="sheetStatus">
           <span class="status-dot"></span>
@@ -1496,7 +1557,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <div class="sec-title"><h2>الملخص القيادي اليومي</h2><span>يتولد فورياً من المهام والتصعيدات والمراكز التشغيلية</span></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="ops-primary-btn" onclick="openDailyCommandBrief()">الملخص القيادي اليومي</button>
-            <button class="ops-mini-btn" onclick="showPage('warRoomMode')">War Room Mode</button>
             <button class="ops-mini-btn" onclick="showPage('commandControlCenter')">مركز التحكم والسيطرة</button>
           </div>
         </div>
@@ -1613,8 +1673,8 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <button type="button" class="task-date-chip" data-date-filter="today" onclick="setTaskDateFilter('today')"><span>مهام اليوم</span><b id="taskDateTodayCount">0</b></button>
           <button type="button" class="task-date-chip" data-date-filter="tomorrow" onclick="setTaskDateFilter('tomorrow')"><span>مهام الغد</span><b id="taskDateTomorrowCount">0</b></button>
         </div>
-        <div class="card" style="overflow:auto;min-height:520px;max-height:70vh">
-          <table class="data-table" id="taskTable">
+        <div class="card task-table-card">
+          <table class="data-table task-table" id="taskTable">
             <thead><tr>
               <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرسمي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th>الحالة الأصلية</th><th>الحالة المحسوبة</th><th>نسبة الإنجاز</th><th>دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th>
             </tr></thead>
@@ -3200,13 +3260,13 @@ function openSidebarDrawer(){document.getElementById('app')?.classList.add('side
 function closeSidebarDrawer(){document.getElementById('app')?.classList.remove('sidebar-open');document.body.style.overflow='';}
 function toggleSidebarCollapse(){const app=document.getElementById('app'); if(!app||isMobileShell()) return; const on=!app.classList.contains('sidebar-collapsed'); app.classList.toggle('sidebar-collapsed',on); safeLocalSet('mayadeen.sidebarCollapsed',on?'1':'0');}
 function toggleNavGroup(btn){const group=btn.closest('.nav-group'); if(!group) return; group.classList.toggle('collapsed'); safeLocalSet('mayadeen.navGroup.'+group.dataset.navGroup,group.classList.contains('collapsed')?'1':'0');}
-function setThemeMode(mode){document.body.classList.toggle('theme-light',mode==='light');document.body.classList.toggle('war-display',mode==='war');document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.themeMode===mode));safeLocalSet('mayadeen.themeMode',mode);if(mode==='war'&&sessionToken) showPage('warRoomMode');}
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeSidebarDrawer();});
 document.addEventListener('DOMContentLoaded',function(){
   document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
   document.querySelectorAll('.nav-group').forEach(g=>{if(safeLocalGet('mayadeen.navGroup.'+g.dataset.navGroup)==='1') g.classList.add('collapsed');});
   const app=document.getElementById('app'); if(app&&safeLocalGet('mayadeen.sidebarCollapsed')==='1') app.classList.add('sidebar-collapsed');
-  setThemeMode(safeLocalGet('mayadeen.themeMode')||'dark');
+  document.body.classList.remove('theme-light','war-display');
+  try{localStorage.removeItem('mayadeen.themeMode');}catch(e){}
   bindPerformanceGuards();
 });
 function showPage(id){
