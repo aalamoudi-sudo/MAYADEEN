@@ -70,14 +70,6 @@ const KAG_CONFIG = {
   filesSheetName: 'File Control Register',
   urgentTasksSheetName: 'Urgent Task',
   auditSheetName: 'Audit Log',
-  projectMasterSheetName: 'Project Master',
-  projectSettingsSheetName: 'Project Settings',
-  codeSequencesSheetName: 'Code Sequences',
-  codeRegistrySheetName: 'Code Registry',
-  codeMigrationReportSheetName: 'Code Migration Report',
-  defaultProjectStatus: 'بانتظار اعتماد PMO',
-  approvedPrefixStatus: 'معتمد',
-  codeEntityTypes: ['path', 'task', 'deliverable', 'file', 'version', 'approval', 'decision', 'risk', 'assignment', 'escalation', 'meeting_minutes', 'change_order'],
   maxSlackItems: 8,
   sessionTtlSeconds: 6 * 60 * 60
 };
@@ -106,8 +98,6 @@ function buildDashboardData_(session) {
   const files = getExistingRegisterRows_(ss, KAG_CONFIG.filesSheetName);
   const urgentTasks = getUrgentTaskRows_(ss);
   const decisions = getDecisionRows_(ss);
-  const projectMaster = getProjectMasterRows_(ss);
-  const projectSettings = getProjectSettingsRows_(ss);
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -125,8 +115,6 @@ function buildDashboardData_(session) {
     files: files,
     urgent_tasks: urgentTasks,
     decision_log: decisions,
-    project_master: projectMaster,
-    project_settings: projectSettings,
     sync_meta: {
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
@@ -150,37 +138,6 @@ function doPost(e) {
 
     if (payload.action === 'data_sync') {
       return json_(buildDashboardData_(session));
-    }
-
-
-    if (payload.action === 'project_master_ensure') {
-      requireCanManageProjectConfig_(session);
-      const result = ensureProjectGovernanceSheets_(withActor_(payload, session));
-      return json_({ ok: true, message: 'Project governance sheets ensured', result: result, project_master: getProjectMasterRows_() });
-    }
-
-    if (payload.action === 'project_master_create') {
-      requireCanManageProjectConfig_(session);
-      const project = upsertProjectMaster_(withActor_(payload, session));
-      return json_({ ok: true, message: 'Project Master saved; prefix remains pending until PMO approval', project: project });
-    }
-
-    if (payload.action === 'project_prefix_approve') {
-      requireCanManageProjectConfig_(session);
-      const project = approveProjectPrefix_(withActor_(payload, session));
-      return json_({ ok: true, message: 'Project prefix approved; code generation enabled for this project only', project: project });
-    }
-
-    if (payload.action === 'generate_project_code') {
-      requireCanManageProjectConfig_(session);
-      const code = generateProjectCode_(withActor_(payload, session));
-      return json_({ ok: true, message: 'Code generated from approved Project Master prefix', code: code });
-    }
-
-    if (payload.action === 'code_migration_report') {
-      requireCanManageProjectConfig_(session);
-      const report = buildCodeMigrationReport_(withActor_(payload, session));
-      return json_({ ok: true, message: 'Code migration compatibility report created; no existing codes changed', report: report });
     }
 
     if (payload.action === 'slack_test') {
@@ -1409,173 +1366,6 @@ function updateApproval_(payload) {
 function nextApprovalId_(sheet) {
   const nextNumber = Math.max(1, sheet.getLastRow());
   return 'APP-' + String(nextNumber).padStart(3, '0');
-}
-
-
-function getProjectMasterHeaders_() {
-  return ['project_id', 'project_name', 'project_prefix', 'prefix_status', 'project_owner', 'opening_date', 'timezone', 'status', 'created_at', 'updated_at', 'approved_by', 'approved_at'];
-}
-
-function getProjectSettingsHeaders_() {
-  return ['setting_key', 'setting_value', 'status', 'project_id', 'description', 'created_at', 'updated_at', 'approved_by', 'approved_at'];
-}
-
-function getCodeSequenceHeaders_() {
-  return ['project_id', 'entity_type', 'sequence_key', 'last_sequence', 'updated_at', 'updated_by'];
-}
-
-function getCodeRegistryHeaders_() {
-  return ['generated_code', 'project_id', 'entity_type', 'wbs_code', 'path_code', 'version', 'code_date', 'sequence', 'created_at', 'created_by', 'source_action', 'notes'];
-}
-
-function getCodeMigrationReportHeaders_() {
-  return ['detected_at', 'record_type', 'row_number', 'existing_code', 'project_id', 'entity_type', 'compatibility_status', 'issue', 'recommended_action'];
-}
-
-function ensureProjectGovernanceSheets_(payload) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  ensureRegisterSheet_(KAG_CONFIG.projectMasterSheetName, getProjectMasterHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.projectSettingsSheetName, getProjectSettingsHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.codeSequencesSheetName, getCodeSequenceHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.codeRegistrySheetName, getCodeRegistryHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.codeMigrationReportSheetName, getCodeMigrationReportHeaders_());
-  appendAuditLog_({ action: 'project_governance_ensure', operation: 'sheet_setup', status: 'success', updated_by: payload.updated_by || payload.username || '', result: 'no_email_no_notification' });
-  return { sheets: [KAG_CONFIG.projectMasterSheetName, KAG_CONFIG.projectSettingsSheetName, KAG_CONFIG.codeSequencesSheetName, KAG_CONFIG.codeRegistrySheetName, KAG_CONFIG.codeMigrationReportSheetName] };
-}
-
-function getProjectMasterRows_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  return getExistingRegisterRows_(ss, KAG_CONFIG.projectMasterSheetName);
-}
-
-function getProjectSettingsRows_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  return getExistingRegisterRows_(ss, KAG_CONFIG.projectSettingsSheetName);
-}
-
-function requireCanManageProjectConfig_(session) {
-  requireCanManageUsers_(session);
-  return true;
-}
-
-function upsertProjectMaster_(payload) {
-  if (!payload.project_id || !payload.project_name) throw new Error('project_id and project_name are required');
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  ensureProjectGovernanceSheets_(payload);
-  const sheet = ss.getSheetByName(KAG_CONFIG.projectMasterSheetName);
-  const headers = getProjectMasterHeaders_();
-  const values = sheet.getDataRange().getValues();
-  const id = String(payload.project_id).trim();
-  const now = new Date();
-  const row = [id, payload.project_name, payload.project_prefix || '', payload.project_prefix ? 'بانتظار اعتماد PMO' : 'غير متاح', payload.project_owner || '', payload.opening_date || '', payload.timezone || KAG_CONFIG.timezone, payload.status || KAG_CONFIG.defaultProjectStatus, now, now, '', ''];
-  for (var r = 1; r < values.length; r++) {
-    if (String(values[r][0]).trim() === id) {
-      const previous = JSON.stringify(values[r]);
-      headers.forEach(function(header, col) {
-        if (col === 8 || col === 10 || col === 11) return;
-        sheet.getRange(r + 1, col + 1).setValue(row[col]);
-      });
-      appendAuditLog_({ action: 'project_master_update', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: id, previous_value: previous, new_value: JSON.stringify(row), result: 'no_email_no_notification' });
-      return readProjectById_(ss, id);
-    }
-  }
-  sheet.appendRow(row);
-  appendAuditLog_({ action: 'project_master_create', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: id, new_value: JSON.stringify(row), result: 'no_email_no_notification' });
-  return readProjectById_(ss, id);
-}
-
-function approveProjectPrefix_(payload) {
-  if (!payload.project_id || !payload.project_prefix) throw new Error('project_id and approved project_prefix are required; prefix is never inferred');
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  ensureProjectGovernanceSheets_(payload);
-  const sheet = ss.getSheetByName(KAG_CONFIG.projectMasterSheetName);
-  const values = sheet.getDataRange().getValues();
-  const id = String(payload.project_id).trim();
-  for (var r = 1; r < values.length; r++) {
-    if (String(values[r][0]).trim() === id) {
-      const previous = JSON.stringify(values[r]);
-      sheet.getRange(r + 1, 3).setValue(String(payload.project_prefix).trim());
-      sheet.getRange(r + 1, 4).setValue(KAG_CONFIG.approvedPrefixStatus);
-      sheet.getRange(r + 1, 8).setValue(payload.status || 'نشط');
-      sheet.getRange(r + 1, 10).setValue(new Date());
-      sheet.getRange(r + 1, 11).setValue(payload.updated_by || payload.username || 'PMO');
-      sheet.getRange(r + 1, 12).setValue(new Date());
-      appendAuditLog_({ action: 'project_prefix_approve', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: id, previous_value: previous, new_value: payload.project_prefix, result: 'no_email_no_notification' });
-      return readProjectById_(ss, id);
-    }
-  }
-  throw new Error('Project not found: ' + id);
-}
-
-function readProjectById_(ss, projectId) {
-  const rows = getProjectMasterRows_(ss);
-  return rows.find(function(row) { return String(row.project_id || '').trim() === String(projectId || '').trim(); }) || null;
-}
-
-function generateProjectCode_(payload) {
-  const entityType = String(payload.entity_type || '').trim();
-  if (!entityType) throw new Error('entity_type is required');
-  if (KAG_CONFIG.codeEntityTypes.indexOf(entityType) === -1) throw new Error('Unsupported entity_type for central code service');
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-    ensureProjectGovernanceSheets_(payload);
-    const project = readProjectById_(ss, payload.project_id);
-    if (!project) throw new Error('Project Master record is required before code generation');
-    if (project.prefix_status !== KAG_CONFIG.approvedPrefixStatus || !project.project_prefix) throw new Error('Project prefix is not approved; code generation is blocked');
-    const datePart = payload.code_date ? Utilities.formatDate(new Date(payload.code_date), project.timezone || KAG_CONFIG.timezone, 'yyyyMMdd') : Utilities.formatDate(new Date(), project.timezone || KAG_CONFIG.timezone, 'yyyyMMdd');
-    const sequenceKey = [project.project_id, entityType, payload.wbs_code || 'NA', payload.path_code || 'NA', payload.version || 'NA', datePart].join('|');
-    const seqSheet = ss.getSheetByName(KAG_CONFIG.codeSequencesSheetName);
-    const values = seqSheet.getDataRange().getValues();
-    var next = 1;
-    var targetRow = 0;
-    for (var r = 1; r < values.length; r++) {
-      if (String(values[r][2]) === sequenceKey) {
-        next = Number(values[r][3] || 0) + 1;
-        targetRow = r + 1;
-        break;
-      }
-    }
-    const seq = String(next).padStart(4, '0');
-    const code = [project.project_prefix, entityType.toUpperCase(), payload.wbs_code || '', payload.path_code || '', payload.version || '', datePart, seq].filter(Boolean).join('-');
-    if (findExistingGeneratedCode_(ss, code)) throw new Error('Generated code collision detected; no code written');
-    if (targetRow) {
-      seqSheet.getRange(targetRow, 4).setValue(next);
-      seqSheet.getRange(targetRow, 5).setValue(new Date());
-      seqSheet.getRange(targetRow, 6).setValue(payload.updated_by || payload.username || '');
-    } else {
-      seqSheet.appendRow([project.project_id, entityType, sequenceKey, next, new Date(), payload.updated_by || payload.username || '']);
-    }
-    ss.getSheetByName(KAG_CONFIG.codeRegistrySheetName).appendRow([code, project.project_id, entityType, payload.wbs_code || '', payload.path_code || '', payload.version || '', datePart, next, new Date(), payload.updated_by || payload.username || '', payload.action || 'generate_project_code', payload.notes || '']);
-    appendAuditLog_({ action: 'generate_project_code', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: code, new_value: code, result: 'no_email_no_notification' });
-    return { generated_code: code, project_id: project.project_id, entity_type: entityType, sequence: next };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function findExistingGeneratedCode_(ss, code) {
-  const sheet = ss.getSheetByName(KAG_CONFIG.codeRegistrySheetName);
-  const values = sheet.getDataRange().getValues();
-  return values.some(function(row, index) { return index > 0 && String(row[0]).trim() === String(code).trim(); });
-}
-
-function buildCodeMigrationReport_(payload) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  ensureProjectGovernanceSheets_(payload);
-  const sheet = ss.getSheetByName(KAG_CONFIG.codeMigrationReportSheetName);
-  const rows = getTaskRows_(ss);
-  const now = new Date();
-  const report = rows.map(function(row) {
-    const existingCode = getField_(row, WBS_FIELD_ALIASES.taskId);
-    const status = existingCode ? 'قابل للمراجعة' : 'غير متاح';
-    const issue = existingCode ? 'يتطلب مطابقة مع Project Master قبل أي ترحيل' : 'لا توجد بيانات كافية: كود المهمة مفقود';
-    return [now, 'task', row.row_number || '', existingCode || 'غير متاح', payload.project_id || '', payload.entity_type || 'task', status, issue, 'مراجعة يدوية فقط؛ لا يتم تعديل الأكواد الحالية تلقائيًا'];
-  });
-  if (report.length) sheet.getRange(sheet.getLastRow() + 1, 1, report.length, report[0].length).setValues(report);
-  appendAuditLog_({ action: 'code_migration_report', operation: 'read_report', status: 'success', updated_by: payload.updated_by || payload.username || '', result: 'no_email_no_notification', new_value: report.length + ' rows' });
-  return { rows_written: report.length, changed_existing_codes: false };
 }
 
 function getStaleTasks_() {
