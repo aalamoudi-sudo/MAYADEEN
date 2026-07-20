@@ -31,7 +31,7 @@ const WBS_FIELD_ALIASES = {
   actualEnd:['تاريخ النهاية الفعلي','تاريخ الانتهاء الفعلي','actual_end_date','actual_finish_date','actual_end','actual_finish','completed_at','completion_date','Actual End Date','Actual Finish Date','تاريخ الإكمال','نهاية فعلية'],
   plannedDurationDays:['المدة بالأيام','مدة المهمة المخططة بالأيام','planned_duration_days','duration_days','duration','مدة المهمة','المدة المخططة'],
   predecessor:['المهمة السابقة','predecessor_task','predecessor','previous_task','dependency'],
-  dependencyType:['نوع الاعتمادية','نوع الاعتماد','dependency_type','dependency','predecessor','اعتمادية'],
+  dependencyType:['نوع الاعتمادية','نوع الاعتماد','dependency_type','اعتمادية'],
   operationalDeliverable:['المخرج المطلوب','المخرج التشغيلي','operational_deliverable','deliverable','المخرج'],
   approvalEntity:['جهة الاعتماد','approval_entity','approver','approving_party','المعتمد'],
   progress:['نسبة الإنجاز','نسبة الانجاز','percent_complete','progress','completion_percent','actual_progress','Progress','% Complete','الإنجاز','الانجاز'],
@@ -43,7 +43,13 @@ const WBS_FIELD_ALIASES = {
   lastUpdate:['last_update','updated','آخر تحديث','تاريخ التحديث'],
   priority:['priority','الأولوية'],
   risk:['risk','المخاطر','blocker','المعوقات'],
-  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك']
+  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
+  followUpOwner:['مسؤول المتابعة','follow_up_owner','متابعة بواسطة'],
+  taskType:['نوع المهمة','task_type','نوع العمل'],
+  originalStatus:['الحالة الأصلية','original_status','sheet_status'],
+  computedStatus:['الحالة المحسوبة','computed_status'],
+  lag:['Lag','lag','فترة التأخير','الفاصل'],
+  dataSource:['مصدر البيانات','source','data_source','_source']
 };
 
 const KAG_CONFIG = {
@@ -108,7 +114,13 @@ function buildDashboardData_(session) {
     commitments: commitments,
     files: files,
     urgent_tasks: urgentTasks,
-    decision_log: decisions
+    decision_log: decisions,
+    sync_meta: {
+      last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
+      rows_read: rows.length,
+      risk_rows_read: riskGovernance.length,
+      connection_status: 'connected'
+    }
   };
 }
 
@@ -152,12 +164,18 @@ function doPost(e) {
       return json_({ ok: true, message: 'Approval updated', approval: item, approvals: getApprovalRows_() });
     }
 
-    if (payload.action === 'task_assignment') {
+    if (payload.action === 'task_assignment_preview') {
       requireCanManageUsers_(session);
+      appendAuditLog_({ action: 'task_assignment_preview', operation: 'preview', status: 'success', result: 'preview_only_no_email', updated_by: session.display_name || session.username, record_ref: payload.wbs_code || payload.title || '' });
+      return json_({ ok: true, message: 'Assignment preview only; no email sent' });
+    }
+
+    if (payload.action === 'task_assignment_confirm' || payload.action === 'task_assignment') {
+      requireCanManageUsers_(session);
+      if (payload.action === 'task_assignment') throw new Error('Preview and explicit confirmation required before sending assignment');
       const item = appendAssignment_(withActor_(payload, session));
-      sendAssignmentEmail_(item);
-      notifyAssignment_(item);
-      return json_({ ok: true, message: 'Assignment logged and email sent', assignment: item });
+      // Staging acceptance: no email or notification is sent from this action.
+      return json_({ ok: true, message: 'Assignment logged; email not sent in staging', assignment: item });
     }
 
     if (payload.action === 'meeting_record') {
@@ -454,23 +472,14 @@ function ensureApprovalSheet_() {
 function ensureAssignmentSheet_() {
   const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   const sheet = ss.getSheetByName(KAG_CONFIG.assignmentsSheetName) || ss.insertSheet(KAG_CONFIG.assignmentsSheetName);
+  const headers = [
+    'assignment_id','wbs_code','title','path','owner','email','deliverable','priority','due_date','drive_link','email_body','status','details','assigned_by','email_sent_at','created_at','updated_at'
+  ];
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      'assignment_id',
-      'title',
-      'owner',
-      'email',
-      'priority',
-      'due_date',
-      'status',
-      'details',
-      'drive_link',
-      'assigned_by',
-      'email_sent_at',
-      'created_at',
-      'updated_at'
-    ]);
+    sheet.appendRow(headers);
     sheet.setFrozenRows(1);
+  } else {
+    ensureSheetColumns_(sheet, headers);
   }
   return sheet;
 }
@@ -967,38 +976,50 @@ function appendAssignment_(payload) {
   const now = new Date();
   const assignment = {
     assignment_id: payload.assignment_id || nextAssignmentId_(sheet),
+    wbs_code: payload.wbs_code || payload.linked_wbs_code || '',
     title: payload.title || payload.task || '',
+    path: payload.path || payload.main_path || '',
     owner: payload.owner || payload.assignee || '',
     email: payload.email || payload.assignee_email || '',
     priority: payload.priority || 'متوسط',
     due_date: payload.due_date || '',
     status: payload.status || 'مكلفة',
+    deliverable: payload.deliverable || payload.details || payload.description || '',
     details: payload.details || payload.description || '',
     drive_link: payload.drive_link || payload.link || '',
+    email_body: payload.email_body || '',
     assigned_by: payload.assigned_by || 'PMO',
     email_sent_at: '',
     created_at: now,
     updated_at: now
   };
-  sheet.appendRow([
-    assignment.assignment_id,
-    assignment.title,
-    assignment.owner,
-    assignment.email,
-    assignment.priority,
-    assignment.due_date,
-    assignment.status,
-    assignment.details,
-    assignment.drive_link,
-    assignment.assigned_by,
-    assignment.email_sent_at,
-    assignment.created_at,
-    assignment.updated_at
-  ]);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) { return normalizeHeader_(h); });
+  const byHeader = {
+    assignment_id: assignment.assignment_id,
+    wbs_code: assignment.wbs_code,
+    title: assignment.title,
+    path: assignment.path,
+    owner: assignment.owner,
+    email: assignment.email,
+    deliverable: assignment.deliverable,
+    priority: assignment.priority,
+    due_date: assignment.due_date,
+    drive_link: assignment.drive_link,
+    email_body: assignment.email_body,
+    status: assignment.status,
+    details: assignment.details,
+    assigned_by: assignment.assigned_by,
+    email_sent_at: assignment.email_sent_at,
+    created_at: assignment.created_at,
+    updated_at: assignment.updated_at
+  };
+  sheet.appendRow(headers.map(function(header) { return byHeader.hasOwnProperty(header) ? byHeader[header] : ''; }));
 
   appendAuditLog_({
-    action: 'task_assignment',
+    action: 'task_assignment_confirm',
+    operation: 'create',
     task: assignment.assignment_id,
+    record_ref: assignment.wbs_code || assignment.assignment_id,
     status: assignment.status,
     updated_by: assignment.assigned_by,
     title: assignment.title
@@ -1404,16 +1425,22 @@ function appendAuditLog_(payload) {
   const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   const sheet = ss.getSheetByName(KAG_CONFIG.auditSheetName) || ss.insertSheet(KAG_CONFIG.auditSheetName);
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['timestamp', 'action', 'task', 'status', 'percent_complete', 'blocker', 'updated_by', 'raw_json']);
+    sheet.appendRow(['timestamp', 'date', 'time', 'user', 'operation', 'record', 'previous_value', 'new_value', 'result', 'reference', 'action', 'status', 'raw_json']);
   }
+  const now = new Date();
   sheet.appendRow([
-    new Date(),
+    now,
+    Utilities.formatDate(now, KAG_CONFIG.timezone, 'yyyy-MM-dd'),
+    Utilities.formatDate(now, KAG_CONFIG.timezone, 'HH:mm:ss'),
+    payload.updated_by || payload.user || payload.username || '',
+    payload.operation || payload.action || '',
+    payload.record || payload.task || payload.title || '',
+    payload.previous_value || '',
+    payload.new_value || payload.status || payload.percent_complete || payload.progress || '',
+    payload.result || payload.status || '',
+    payload.reference || payload.record_ref || payload.official_reference || '',
     payload.action || '',
-    payload.task || payload.title || '',
     payload.status || '',
-    payload.percent_complete || payload.progress || '',
-    payload.blocker || payload.risk || '',
-    payload.updated_by || '',
     JSON.stringify(payload)
   ]);
 }
