@@ -2519,11 +2519,10 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
         <div class="card">
           <div class="sec-title"><h2>إعداد التقرير</h2><span>تصدير محلي آمن</span></div>
           <div class="status-toolbar">
-            <select id="report-type" onchange="renderReportsGenerator()"><option value="pmoDaily">التقرير اليومي لـ PMO</option><option value="tomorrowTasks">تقرير مهام الغد</option><option value="overdueTasks">تقرير المهام المتأخرة</option><option value="criticalPath">تقرير المسار الحرج</option><option value="decisionsApprovals">تقرير القرارات والاعتمادات</option><option value="risks">تقرير المخاطر</option><option value="escalations">تقرير التصعيدات</option><option value="weeklyAchievement">تقرير الإنجاز الأسبوعي</option><option value="deliverablesEvidence">تقرير المخرجات والأدلة</option><option value="baselineChanges">تقرير تغييرات Baseline</option><option value="daily">تقرير يومي عام</option><option value="weekly">تقرير أسبوعي عام</option><option value="executive">تقرير تنفيذي عام</option></select>
+            <select id="report-type" onchange="renderReportsGenerator()"><option value="daily">تقرير يومي</option><option value="weekly">تقرير أسبوعي</option><option value="executive">تقرير تنفيذي</option></select>
             <button class="ops-primary-btn" onclick="renderReportsGenerator()">توليد</button>
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('txt')">تصدير TXT</button>
-            <button class="ops-mini-btn" onclick="downloadGeneratedReport('xlsx')">تصدير Excel</button>
-            <button class="ops-mini-btn" onclick="downloadGeneratedReport('csv')">تصدير CSV</button>
+            <button class="ops-mini-btn" onclick="downloadGeneratedReport('csv')">تصدير Excel</button>
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('pdf')">تصدير PDF</button>
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('ppt-outline')">تصدير PowerPoint</button>
           </div>
@@ -2553,17 +2552,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
             <div class="sec-title"><h2>تصدير السجلات</h2><span>CSV / JSON / تقارير</span></div>
             <div class="ops-link-grid" id="export-actions"></div>
             <div id="export-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-top:10px"></div>
-          </div>
-          <div class="card">
-            <div class="sec-title"><h2>إدارة النسخ الاحتياطية</h2><span>Backup / Restore / Rollback</span></div>
-            <div class="status-toolbar">
-              <button class="ops-primary-btn" onclick="createBackupSnapshot()">إنشاء Backup</button>
-              <button class="ops-mini-btn" onclick="restoreLatestBackup()">Restore آخر نسخة</button>
-              <button class="ops-mini-btn" onclick="rollbackLatestRestore()">Rollback آخر استعادة</button>
-            </div>
-            <input id="backup-restore-reason" placeholder="سبب الاستعادة" style="width:100%;margin:8px 0;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--text);font-family:inherit"/>
-            <div id="backup-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-top:8px"></div>
-            <div style="overflow:auto;max-height:220px;margin-top:10px"><table class="data-table"><thead><tr><th>النوع</th><th>تاريخ الإنشاء</th><th>المنفذ</th><th>السبب</th><th>نسخة البيانات</th></tr></thead><tbody id="backup-log-body"></tbody></table></div>
           </div>
         </div>
       </section>
@@ -2894,7 +2882,6 @@ let sessionToken='';
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
 let syncBackoffMs=30000;
-let lastUpdateTime=null;
 let nextSyncAllowedAt=0;
 let hasCompletedInitialSync=false;
 let dashboardDataVersion=0;
@@ -5443,14 +5430,9 @@ function updateTaskDateFilterUI(counts){
 }
 
 function globalSearchFn(q){
-  const query=String(q||'').trim();
-  if(!query||query.length<2) return;
-  const haystack=[...rows,...approvals,...decisionLogRecords,...escalationRecords].map(r=>[
-    r.code,r.task_code,r.name,r.title,r.owner,r.executionOwner,r.mainPath,r.path,r.phase,r.decision,r.decisionNeeded,r.approvalEntity,r.approver,r.status,r.level,r.itemTitle
-  ].join(' ')).join(' ').toLowerCase();
-  showPage(haystack.includes(query.toLowerCase())?'tasks':'reportsGenerator');
-  const taskSearch=document.getElementById('searchTask');
-  if(taskSearch) taskSearch.value=query;
+  if(!q||q.length<2) return;
+  showPage('tasks');
+  document.getElementById('searchTask').value=q;
   applyFilters();
 }
 
@@ -5694,14 +5676,13 @@ function formatLastUpdate(dt){
   return (sameDay?'اليوم':'') + (sameDay?' ':'') + time;
 }
 function setLastUpdate(source, dt){
-  lastUpdateTime=dt||new Date();
   const l=document.getElementById('lastUpdateText');
   const s=document.getElementById('dataSourceText');
-  if(l) l.textContent=formatLastUpdate(lastUpdateTime);
+  if(l) l.textContent=formatLastUpdate(dt||new Date());
   if(s) s.textContent=source||'ملف WBS';
   const esbSync=document.getElementById('esbSyncTime');
   const esbSrc=document.getElementById('esbSource');
-  if(esbSync) esbSync.textContent=formatLastUpdate(lastUpdateTime);
+  if(esbSync) esbSync.textContent=formatLastUpdate(dt||new Date());
   if(esbSrc) esbSrc.textContent=source||'WBS';
 }
 function plannedProgressPct(){
@@ -8473,39 +8454,6 @@ function loadScriptOnce(url){
   });
 }
 function reportVersionTag(){ return 'v'+new Date().toISOString().slice(0,10).replace(/-/g,'.'); }
-
-function reportSourceMeta(scope){
-  const issuedAt=new Date();
-  return {
-    issuedAtText:issuedAt.toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),
-    lastSync:lastUpdateTime?lastUpdateTime.toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}):NO_KPI_DATA_TEXT,
-    dataVersion:'DV-'+dashboardDataVersion,
-    source:'Google Sheets',
-    preparedBy:(currentUser&&(currentUser.display_name||currentUser.username))||'مستخدم غير معروف',
-    scope:scope||'نطاق المشروع الرسمي'
-  };
-}
-function reportTaskRow(t){return {الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:t.phase||'',الحالة:classifyStatus(t),الاستحقاق:t.end||'',الدليل:t.evidence||''};}
-function buildBatch4ReportSections(type){
-  const today=riyadhTodayKey(), tomorrow=addDaysToDateKey(today,1);
-  const baseTasks=tasks||[];
-  const activeEsc=activeEscalations();
-  const approvalsData=(window._approvalsData||approvals||[]);
-  const sections={
-    pmoDaily:{title:'التقرير اليومي لـ PMO',scope:'اليوم الحالي / PMO',rows:baseTasks.filter(t=>[today,tomorrow].includes(String(t.end||'').slice(0,10))||classifyStatus(t)==='متأخرة').map(reportTaskRow)},
-    tomorrowTasks:{title:'تقرير مهام الغد',scope:'مهام مستحقة غداً',rows:baseTasks.filter(t=>String(t.end||'').slice(0,10)===tomorrow).map(reportTaskRow)},
-    overdueTasks:{title:'تقرير المهام المتأخرة',scope:'كل المهام غير المكتملة بعد تاريخ الاستحقاق',rows:baseTasks.filter(t=>classifyStatus(t)==='متأخرة').map(reportTaskRow)},
-    criticalPath:{title:'تقرير المسار الحرج',scope:'Critical Path Analysis من Google Sheets',rows:(criticalPathAnalysis.tasks||[]).map(t=>({الكود:t.task_code||t.code||'',المهمة:t.task_name||t.name||'',حرج:t.is_critical?'نعم':'لا','Total Float':t.total_float??'',المسار:t.path||'',المرحلة:t.phase||''}))},
-    decisionsApprovals:{title:'تقرير القرارات والاعتمادات',scope:'Decision Log + Approvals Register',rows:[...decisionLogRecords.map(d=>({النوع:'قرار',العنوان:d.title||d.decision||'',المسؤول:d.owner||d.decisionOwner||'',الحالة:d.status||'',الاعتماد:d.approval||''})),...approvalsData.map(a=>({النوع:'اعتماد',العنوان:a.title||'',المسؤول:a.owner||a.approver||'',الحالة:a.status||'',الاعتماد:a.reference||a.id||''}))]},
-    risks:{title:'تقرير المخاطر',scope:'Risk Governance Register',rows:riskGovernanceRegister.map(r=>({الخطر:r.title||r.risk||'',المسؤول:r.owner||'',الشدة:r.severity||r.level||'',الحالة:r.status||'',المسار:r.path||''}))},
-    escalations:{title:'تقرير التصعيدات',scope:'Escalation Records',rows:activeEsc.map(e=>({المستوى:e.level||'',العنوان:e.itemTitle||e.title||'',إلى:e.to||'',الحالة:e.status||'',القرار:e.decisionNeeded||''}))},
-    weeklyAchievement:{title:'تقرير الإنجاز الأسبوعي',scope:'آخر 7 أيام',rows:baseTasks.filter(t=>classifyStatus(t)==='مكتملة').slice(0,100).map(reportTaskRow)},
-    deliverablesEvidence:{title:'تقرير المخرجات والأدلة',scope:'Operational Deliverables + Evidence Center',rows:baseTasks.filter(t=>t.operationalDeliverable||t.evidence).map(reportTaskRow).concat(evidenceRecords.map(e=>({الكود:e.linkedId||'',المهمة:e.title||'',المسؤول:e.uploadedBy||'',المسار:e.linkedType||'',المرحلة:'Evidence',الحالة:e.fileType||'',الاستحقاق:e.uploadedAt||'',الدليل:e.fileUrl||e.notes||''})))},
-    baselineChanges:{title:'تقرير تغييرات Baseline',scope:'Baseline Management + Version History',rows:[...(baselineManagement||[]),...versionHistoryRecords].map(v=>({الكود:v.task_code||v.code||v.recordId||'',المهمة:v.task_name||v.title||'',Revision:v.revision||v.version||'',التغيير:v.change_reason||v.reason||v.notes||'',التاريخ:v.updated_at||v.createdAt||v.date||'',المنفذ:v.updated_by||v.changedBy||''}))}
-  };
-  return sections[type]||null;
-}
-
 function buildReportData(type='daily'){
   const noData=!isOfficialKpiReady();
   const readiness=noData?{score:null,label:NO_KPI_DATA_TEXT,color:'#7c5cff'}:smartReadinessScore();
@@ -8521,19 +8469,15 @@ function buildReportData(type='daily'){
   const openIssues=issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length;
   const openViolations=vendorViolations.filter(v=>!['مغلق','مغلقة'].includes(v.status)).length;
   const openApprovals=(window._approvalsData||approvals||[]).filter(a=>!['معتمد','مرفوض'].includes(a.status)).length;
-  const batch4=buildBatch4ReportSections(type);
-  const title=batch4?batch4.title:(type==='weekly'?'التقرير الأسبوعي':type==='executive'?'التقرير التنفيذي':'التقرير اليومي');
+  const title=type==='weekly'?'التقرير الأسبوعي':type==='executive'?'التقرير التنفيذي':'التقرير اليومي';
   const generatedAt=new Date();
-  const meta=reportSourceMeta(batch4?batch4.scope:'نطاق المشروع الرسمي');
   return {
     type,title,
     brand:REPORT_BRAND,
     generatedAt,
     generatedAtText:generatedAt.toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),
-    generatedBy:meta.preparedBy,
+    generatedBy:(currentUser&&(currentUser.display_name||currentUser.username))||'مستخدم غير معروف',
     version:reportVersionTag(),
-    meta,
-    detailRows:batch4?batch4.rows:[],
     kpis:[
       {label:'نسبة الإنجاز',value:completionPct===null?NO_KPI_DATA_TEXT:completionPct+'%',color:'#10e87a'},
       {label:'إجمالي المهام',value:noData?NO_KPI_DATA_TEXT:totalTasks,color:'#7c5cff'},
@@ -8541,22 +8485,22 @@ function buildReportData(type='daily'){
       {label:'المهام المتأخرة',value:noData?NO_KPI_DATA_TEXT:lateTasks,color:'#ff4d6a'},
       {label:'قيد التنفيذ',value:noData?NO_KPI_DATA_TEXT:inProgressTasks,color:'#f5b800'},
       {label:'جاهزية ذكية',value:noData?NO_KPI_DATA_TEXT:readiness.score+'%',color:readiness.color},
-      {label:'تصعيدات نشطة',value:noData?NO_KPI_DATA_TEXT:active.length,color:'#ff4d6a'},
-      {label:'بلاغات مفتوحة',value:noData?NO_KPI_DATA_TEXT:openIssues,color:'#ff8c42'}
+      {label:'تصعيدات نشطة',value:active.length,color:'#ff4d6a'},
+      {label:'بلاغات مفتوحة',value:openIssues,color:'#ff8c42'}
     ],
     readiness,
     criticalItems:critical.slice(0,10).map(c=>({title:c.title||c.name||'-',type:c.type||'-',detail:c.detail||c.owner||'-'})),
     vendors:vendors.map(v=>({name:v.name,score:v.score+'%',status:v.status,violations:v.violations,issues:v.issues})),
     escalations:active.slice(0,10).map(e=>({id:e.id,title:e.itemTitle,level:e.level,to:e.to,status:e.status})),
     metrics:[
-      {label:'الاعتمادات المفتوحة',value:noData?NO_KPI_DATA_TEXT:openApprovals},
-      {label:'التصاريح التي تنتهي قريباً',value:noData?NO_KPI_DATA_TEXT:m.expiringPermits},
-      {label:'المشتريات المتأخرة',value:noData?NO_KPI_DATA_TEXT:m.delayedProc},
-      {label:'أوامر تغيير عالية الخطورة',value:noData?NO_KPI_DATA_TEXT:m.highRiskCo},
-      {label:'مخالفات موردين مفتوحة',value:noData?NO_KPI_DATA_TEXT:openViolations}
+      {label:'الاعتمادات المفتوحة',value:openApprovals},
+      {label:'التصاريح التي تنتهي قريباً',value:m.expiringPermits},
+      {label:'المشتريات المتأخرة',value:m.delayedProc},
+      {label:'أوامر تغيير عالية الخطورة',value:m.highRiskCo},
+      {label:'مخالفات موردين مفتوحة',value:openViolations}
     ],
     recommendations:[
-      noData?NO_KPI_DATA_TEXT:(readiness.score<70?'فتح جلسة متابعة تشغيلية عاجلة للمتأخرات والتصعيدات.':'الاستمرار في المتابعة الدورية الحالية، الأداء ضمن النطاق المقبول.'),
+      readiness.score<70?'فتح جلسة متابعة تشغيلية عاجلة للمتأخرات والتصعيدات.':'الاستمرار في المتابعة الدورية الحالية، الأداء ضمن النطاق المقبول.',
       active.some(e=>e.level==='Level 4')?'حسم التصعيدات الحرجة (Level 4) فوراً وتوثيق القرار التنفيذي.':'لا توجد تصعيدات حرجة (Level 4) مفتوحة حالياً.',
       vendors.some(v=>v.status==='High Risk')?'طلب خطة تصحيح رسمية من الموردين عاليي الخطورة خلال 48 ساعة.':'أداء الموردين عموماً تحت السيطرة.'
     ]
@@ -8579,22 +8523,11 @@ function buildReportText(type='daily'){
     `تاريخ الإنشاء : ${r.generatedAtText}`,
     `أنشأه         : ${r.generatedBy}`,
     `رقم الإصدار   : ${r.version}`,
-    `وقت الإصدار    : ${r.meta.issuedAtText}`,
-    `آخر مزامنة     : ${r.meta.lastSync}`,
-    `نسخة البيانات  : ${r.meta.dataVersion}`,
-    `مصدر البيانات  : ${r.meta.source}`,
-    `معد التقرير    : ${r.meta.preparedBy}`,
-    `نطاق التقرير   : ${r.meta.scope}`,
     '',
     line(),
     'الملخص التنفيذي (Executive Summary)',
     line(),
     kpiLines,
-    '',
-    line(),
-    'تفاصيل التقرير',
-    line(),
-    r.detailRows&&r.detailRows.length?csvFromObjects(r.detailRows).replace(/,/g,' | '):'لا توجد بيانات كافية',
     '',
     line(),
     'أهم البنود الحرجة',
@@ -8642,16 +8575,10 @@ function generatePdfReport(type='daily'){
         نوع التقرير: ${escapeHtml(r.title)}<br/>
         تاريخ الإنشاء: ${escapeHtml(r.generatedAtText)}<br/>
         أنشأه: ${escapeHtml(r.generatedBy)}<br/>
-        الإصدار: ${escapeHtml(r.version)}<br/>
-        آخر مزامنة: ${escapeHtml(r.meta.lastSync)}<br/>
-        نسخة البيانات: ${escapeHtml(r.meta.dataVersion)}<br/>
-        مصدر البيانات: ${escapeHtml(r.meta.source)}<br/>
-        معد التقرير: ${escapeHtml(r.meta.preparedBy)}<br/>
-        نطاق التقرير: ${escapeHtml(r.meta.scope)}
+        الإصدار: ${escapeHtml(r.version)}
       </div>
     </div>
     <div class="rpt-title-bar">${escapeHtml(r.title)} — الملخص التنفيذي</div>
-    <div class="rpt-section"><h2>تفاصيل التقرير</h2>${r.detailRows&&r.detailRows.length?`<table class="rpt-table"><thead><tr>${Object.keys(r.detailRows[0]).map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${r.detailRows.slice(0,120).map(row=>`<tr>${Object.keys(r.detailRows[0]).map(h=>`<td>${escapeHtml(row[h])}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p>لا توجد بيانات كافية</p>'}</div>
     <div class="rpt-kpi-grid">${r.kpis.map(k=>`<div class="rpt-kpi"><b style="color:${k.color}">${escapeHtml(k.value)}</b><span>${escapeHtml(k.label)}</span></div>`).join('')}</div>
     <div class="rpt-section">
       <h2>أهم البنود الحرجة</h2>
@@ -8758,7 +8685,7 @@ async function generateXlsxReport(type='daily'){
     const wb=window.XLSX.utils.book_new();
     const summarySheet=window.XLSX.utils.aoa_to_sheet([
       [r.brand.platform],[r.title],[r.brand.project],
-      [`تاريخ الإنشاء: ${r.generatedAtText}`],[`أنشأه: ${r.generatedBy}`],[`الإصدار: ${r.version}`],[`آخر مزامنة: ${r.meta.lastSync}`],[`نسخة البيانات: ${r.meta.dataVersion}`],[`مصدر البيانات: ${r.meta.source}`],[`نطاق التقرير: ${r.meta.scope}`],
+      [`تاريخ الإنشاء: ${r.generatedAtText}`],[`أنشأه: ${r.generatedBy}`],[`الإصدار: ${r.version}`],
       [],
       ['المؤشر','القيمة'],
       ...r.kpis.map(k=>[k.label,k.value]),
@@ -8768,9 +8695,6 @@ async function generateXlsxReport(type='daily'){
     ]);
     summarySheet['!cols']=[{wch:32},{wch:20}];
     window.XLSX.utils.book_append_sheet(wb,summarySheet,'الملخص التنفيذي');
-    const detailsSheet=window.XLSX.utils.json_to_sheet((r.detailRows&&r.detailRows.length)?r.detailRows:[{الحالة:'لا توجد بيانات كافية'}]);
-    detailsSheet['!cols']=Object.keys((r.detailRows&&r.detailRows[0])||{الحالة:''}).map(()=>({wch:24}));
-    window.XLSX.utils.book_append_sheet(wb,detailsSheet,'تفاصيل التقرير');
     const critSheet=window.XLSX.utils.json_to_sheet(r.criticalItems.map(c=>({النوع:c.type,البند:c.title,التفاصيل:c.detail})));
     critSheet['!cols']=[{wch:14},{wch:36},{wch:44}];
     window.XLSX.utils.book_append_sheet(wb,critSheet,'البنود الحرجة');
@@ -8796,13 +8720,12 @@ function renderReportsGenerator(){
   out.value=buildReportText(type);
   const k=document.getElementById('report-kpis');
   if(k){
-    const noData=!isOfficialKpiReady();
-    const readiness=noData?{score:null,color:'#7c5cff'}:smartReadinessScore();
+    const readiness=smartReadinessScore();
     k.innerHTML=[
-      {label:'جاهزية ذكية',val:noData?NO_KPI_DATA_TEXT:readiness.score+'%',color:readiness.color},
-      {label:'تصعيدات',val:noData?NO_KPI_DATA_TEXT:activeEscalations().length,color:'#ff4d6a'},
-      {label:'موردون High Risk',val:noData?NO_KPI_DATA_TEXT:vendorNames().map(vendorStats).filter(v=>v.status==='High Risk').length,color:'#ff8c42'},
-      {label:'بلاغات مفتوحة',val:noData?NO_KPI_DATA_TEXT:issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length,color:'#f5b800'}
+      {label:'جاهزية ذكية',val:readiness.score+'%',color:readiness.color},
+      {label:'تصعيدات',val:activeEscalations().length,color:'#ff4d6a'},
+      {label:'موردون High Risk',val:vendorNames().map(vendorStats).filter(v=>v.status==='High Risk').length,color:'#ff8c42'},
+      {label:'بلاغات مفتوحة',val:issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length,color:'#f5b800'}
     ].map(x=>`<div class="dec-kpi" style="--dk-color:${x.color}"><div class="dk-val">${escapeHtml(x.val)}</div><div class="dk-label">${escapeHtml(x.label)}</div></div>`).join('');
   }
 }
@@ -8822,8 +8745,7 @@ function downloadGeneratedReport(format){
   const type=document.getElementById('report-type')?.value||'daily';
   if(format==='pdf') return generatePdfReport(type);
   if(format==='ppt-outline') return generatePptxReport(type);
-  if(format==='xlsx') return generateXlsxReport(type);
-  if(format==='csv'){ const r=buildReportData(type); return downloadTextFile(`mayadeen-report-${type}.csv`,csvFromObjects((r.detailRows&&r.detailRows.length)?r.detailRows:[{الحالة:'لا توجد بيانات كافية'}]),'text/csv;charset=utf-8'); }
+  if(format==='csv') return generateXlsxReport(type);
   return downloadTextFile(`mayadeen-report-${type}.txt`,buildReportText(type));
 }
 function parseCsvRows(text){
@@ -8899,7 +8821,6 @@ function renderImportExportCenter(){
     {label:'قرارات',val:decisionLogRecords.length,color:'#a07dff'}
   ].map(x=>`<div class="dec-kpi" style="--dk-color:${x.color}"><div class="dk-val">${escapeHtml(x.val)}</div><div class="dk-label">${escapeHtml(x.label)}</div></div>`).join('');
   const actions=document.getElementById('export-actions');
-  renderBackupManager();
   if(actions) actions.innerHTML=[
     ['vendors','Vendor Scorecard','تصدير أداء الموردين'],
     ['evidence','Evidence','تصدير الأدلة والمرفقات'],
@@ -8909,36 +8830,6 @@ function renderImportExportCenter(){
     ['versions','Version History','تصدير سجل التعديلات']
   ].map(x=>`<div class="ops-link-card" onclick="exportAdvancedDataset('${x[0]}')"><b>${escapeHtml(x[1])}</b><span>Excel</span><span>${escapeHtml(x[2])}</span></div>`).join('');
 }
-
-const BACKUP_STORAGE_KEY='mayadeen_backup_manager_v1';
-let lastRollbackSnapshot=null;
-function backupPayload(){return {rows,approvals,decisionLogRecords,riskGovernanceRegister,escalationRecords,evidenceRecords,versionHistoryRecords,baselineManagement,dashboardDataVersion,createdAt:new Date().toISOString()};}
-function readBackupLog(){try{return JSON.parse(localStorage.getItem(BACKUP_STORAGE_KEY)||'[]');}catch(e){return [];}}
-function writeBackupLog(log){localStorage.setItem(BACKUP_STORAGE_KEY,JSON.stringify(log.slice(0,25)));}
-function createBackupSnapshot(reason='نسخة يدوية'){
-  const actor=currentUser.display_name||currentUser.username||'مستخدم غير معروف';
-  const item={type:'Backup',createdAt:new Date().toISOString(),createdAtText:new Date().toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),actor,reason,dataVersion:'DV-'+dashboardDataVersion,payload:backupPayload()};
-  const log=readBackupLog(); log.unshift(item); writeBackupLog(log); renderBackupManager();
-  const st=document.getElementById('backup-status'); if(st) st.textContent='تم إنشاء نسخة احتياطية للقراءة فقط من بيانات Google Sheets الحالية.';
-}
-function restoreLatestBackup(){
-  const log=readBackupLog(); const latest=log.find(x=>x.type==='Backup'); const st=document.getElementById('backup-status');
-  if(!latest){if(st) st.textContent='لا توجد نسخة احتياطية للاستعادة.';return;}
-  const reason=(document.getElementById('backup-restore-reason')?.value||'استعادة آخر نسخة').trim();
-  lastRollbackSnapshot=backupPayload();
-  Object.assign(window,latest.payload||{});
-  rows=latest.payload.rows||rows; approvals=latest.payload.approvals||approvals; decisionLogRecords=latest.payload.decisionLogRecords||decisionLogRecords; riskGovernanceRegister=latest.payload.riskGovernanceRegister||riskGovernanceRegister; escalationRecords=latest.payload.escalationRecords||escalationRecords; evidenceRecords=latest.payload.evidenceRecords||evidenceRecords; versionHistoryRecords=latest.payload.versionHistoryRecords||versionHistoryRecords; baselineManagement=latest.payload.baselineManagement||baselineManagement;
-  initData();
-  log.unshift({type:'Restore',createdAt:new Date().toISOString(),createdAtText:new Date().toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),actor:currentUser.display_name||currentUser.username||'مستخدم غير معروف',reason,dataVersion:latest.dataVersion}); writeBackupLog(log); renderBackupManager();
-  if(st) st.textContent='تمت الاستعادة محلياً من Backup مع توثيق السبب والمنفذ.';
-}
-function rollbackLatestRestore(){
-  const st=document.getElementById('backup-status'); if(!lastRollbackSnapshot){if(st) st.textContent='لا توجد عملية Restore قابلة للـ Rollback.';return;}
-  rows=lastRollbackSnapshot.rows||rows; approvals=lastRollbackSnapshot.approvals||approvals; decisionLogRecords=lastRollbackSnapshot.decisionLogRecords||decisionLogRecords; riskGovernanceRegister=lastRollbackSnapshot.riskGovernanceRegister||riskGovernanceRegister; escalationRecords=lastRollbackSnapshot.escalationRecords||escalationRecords; evidenceRecords=lastRollbackSnapshot.evidenceRecords||evidenceRecords; versionHistoryRecords=lastRollbackSnapshot.versionHistoryRecords||versionHistoryRecords; baselineManagement=lastRollbackSnapshot.baselineManagement||baselineManagement;
-  initData(); const log=readBackupLog(); log.unshift({type:'Rollback',createdAt:new Date().toISOString(),createdAtText:new Date().toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),actor:currentUser.display_name||currentUser.username||'مستخدم غير معروف',reason:'Rollback آخر استعادة',dataVersion:'DV-'+dashboardDataVersion}); writeBackupLog(log); lastRollbackSnapshot=null; renderBackupManager(); if(st) st.textContent='تم تنفيذ Rollback محلياً.';
-}
-function renderBackupManager(){const b=document.getElementById('backup-log-body'); if(!b) return; const log=readBackupLog(); b.innerHTML=log.length?log.map(x=>`<tr><td>${escapeHtml(x.type)}</td><td>${escapeHtml(x.createdAtText||x.createdAt)}</td><td>${escapeHtml(x.actor)}</td><td>${escapeHtml(x.reason)}</td><td>${escapeHtml(x.dataVersion)}</td></tr>`).join(''):`<tr><td colspan="5">لا توجد بيانات كافية</td></tr>`;}
-
 function submitMobileFieldAction(){
   if(!guardAdvancedAction('mobileFieldMode','إنشاء')) return;
   const action=document.getElementById('field-action')?.value||'إضافة ملاحظة';
