@@ -3132,40 +3132,8 @@ async function login(){
 }
 function loginOnEnter(e){ if(e.key==='Enter') login(); }
 // nav listeners attached on DOM ready
-function debounce(fn,wait){
-  let timer=null;
-  return function(){
-    const ctx=this,args=arguments;
-    clearTimeout(timer);
-    timer=setTimeout(function(){fn.apply(ctx,args);},wait);
-  };
-}
-function throttle(fn,wait){
-  let last=0,timer=null;
-  return function(){
-    const now=Date.now(),ctx=this,args=arguments,remaining=wait-(now-last);
-    if(remaining<=0){clearTimeout(timer);timer=null;last=now;fn.apply(ctx,args);return;}
-    if(!timer) timer=setTimeout(function(){last=Date.now();timer=null;fn.apply(ctx,args);},remaining);
-  };
-}
-function bindPerformanceGuards(){
-  document.querySelectorAll('[oninput]').forEach(el=>{
-    const handler=el.oninput;
-    if(typeof handler!=='function'||el.dataset.debounced==='true') return;
-    el.oninput=null; el.dataset.debounced='true';
-    el.addEventListener('input',debounce(function(event){handler.call(el,event);},180));
-  });
-  document.querySelectorAll('select[onchange]').forEach(el=>{
-    const handler=el.onchange;
-    if(typeof handler!=='function'||el.dataset.throttled==='true') return;
-    el.onchange=null; el.dataset.throttled='true';
-    el.addEventListener('change',throttle(function(event){handler.call(el,event);},120));
-  });
-}
-// nav listeners attached on DOM ready
 document.addEventListener('DOMContentLoaded',function(){
   document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
-  bindPerformanceGuards();
 });
 function showPage(id){
   if(!canAccessPage(id)){alert('ليست لديك صلاحية فتح هذه الصفحة.');return;}
@@ -4777,6 +4745,18 @@ function renderMilestones(){
   }).join('');
 }
 function unique(arr,key){return [...new Set(arr.map(r=>r[key]).filter(Boolean))].sort()} function opt(v,t){return `<option value="${v}">${t||v}</option>`}
+function fillFilters(){
+  const phases=[...new Set(rows.map(r=>r.phase).filter(Boolean))].sort();
+  const owners=[...new Set(rows.map(r=>r.owner).filter(Boolean))].sort();
+  const officialUsed=OFFICIAL_PATHS.filter(path=>rows.some(r=>r.mainPath===path));
+  const pSel=document.getElementById('filterPhase');
+  const pathSel=document.getElementById('filterPath');
+  const oSel=document.getElementById('filterOwner');
+  if(pSel) pSel.innerHTML='<option value="">كل المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
+  if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}" ${officialUsed.includes(path)?'':'disabled'}>${escapeHtml(path)}</option>`).join('');
+  if(oSel) oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(o=>`<option>${o}</option>`).join('');
+}
+
 function filtered(prefix, base=rows){const search=document.getElementById(prefix+'Search')?.value?.trim()||''; const ph=document.getElementById(prefix+'Phase')?.value||''; const ow=document.getElementById(prefix+'Owner')?.value||''; const ty=document.getElementById(prefix+'Type')?.value||''; const mo=document.getElementById(prefix+'Month')?.value||''; return base.filter(r=>(!search||r.name.includes(search)||r.code.includes(search))&&(!ph||r.phase===ph)&&(!ow||r.owner===ow)&&(!ty||r.type===ty)&&(!mo||(d(r.start)?.getMonth()+1==Number(mo)||d(r.end)?.getMonth()+1==Number(mo))));}
 function renderTimeline(){
   const data=filtered('tl',rows).filter(r=>r.start&&r.end);
