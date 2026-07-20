@@ -17,6 +17,28 @@
  * 5. شغل installKagTriggers مرة واحدة من Apps Script.
  */
 
+
+const WBS_FIELD_ALIASES = {
+  taskId: ['معرف المهمة', 'code', 'WBS Code', 'Code', 'الكود', 'رمز WBS', 'task_id', 'id', 'رقم المهمة'],
+  taskName: ['اسم المهمة', 'name', 'Milestone / Task', 'Milestone/Task', 'Task', 'المهمة', 'العنوان'],
+  mainPath: ['المسار الرئيسي', 'main_path', 'path', 'المسار'],
+  phase: ['المرحلة', 'phase', 'PMBOK', 'مرحلة المهمة حسب PMBOK', 'مرحلة PMBOK'],
+  owner: ['اسم المسؤول', 'owner', 'Assigned To', 'AssignedTo', 'المسؤول', 'مسند إلى', 'responsible', 'المالك'],
+  ownerEmail: ['البريد الإلكتروني للمسؤول', 'owner_email', 'responsible_email', 'email', 'البريد الإلكتروني', 'بريد المسؤول'],
+  status: ['الحالة', 'status', 'Status', 'progress_status'],
+  progress: ['نسبة الإنجاز', 'نسبة الانجاز', 'percent_complete', 'progress', 'completion_percent', 'actual_progress', 'Progress', '% Complete', 'الإنجاز', 'الانجاز'],
+  plannedDurationDays: ['مدة المهمة المخططة بالأيام', 'planned_duration_days', 'duration_days', 'duration', 'مدة المهمة', 'المدة المخططة'],
+  plannedStart: ['تاريخ البدء المخطط', 'planned_start', 'start_date', 'planned_start_date', 'baseline_start', 'baseline_start_date', 'start', 'Start Date', 'Planned Start Date', 'Baseline Start Date', 'تاريخ البدء', 'تاريخ البداية', 'تاريخ بدء المهمة', 'البداية'],
+  plannedEnd: ['تاريخ النهاية المخطط', 'planned_end', 'planned_finish', 'end_date', 'planned_end_date', 'baseline_end', 'baseline_end_date', 'due_date', 'finish_date', 'deadline', 'end', 'End Date', 'Planned End Date', 'Baseline End Date', 'Due Date', 'Finish Date', 'Deadline', 'تاريخ النهاية', 'تاريخ الانتهاء', 'تاريخ الاستحقاق', 'تاريخ التسليم', 'النهاية'],
+  actualStart: ['تاريخ البدء الفعلي', 'actual_start_date', 'actual_start', 'started_at', 'Actual Start Date', 'Actual Start', 'تاريخ البداية الفعلي', 'بداية فعلية'],
+  actualEnd: ['تاريخ النهاية الفعلي', 'actual_end_date', 'actual_finish_date', 'actual_end', 'actual_finish', 'completed_at', 'completion_date', 'Actual End Date', 'Actual Finish Date', 'تاريخ الانتهاء الفعلي', 'تاريخ الإكمال', 'نهاية فعلية'],
+  delayDays: ['عدد أيام التأخير', 'delay_days', 'delayed_days', 'days_late', 'أيام التأخير'],
+  dependencyType: ['نوع الاعتماد', 'dependency_type', 'dependency', 'predecessor', 'اعتمادية'],
+  approvalEntity: ['جهة الاعتماد', 'approval_entity', 'approver', 'approving_party', 'المعتمد'],
+  operationalDeliverable: ['المخرج التشغيلي', 'operational_deliverable', 'deliverable', 'المخرج'],
+  executionOwner: ['جهة التنفيذ أو المالك', 'جهة التنفيذ', 'execution_owner', 'implementing_party', 'owner_entity', 'المالك']
+};
+
 const KAG_CONFIG = {
   timezone: 'Asia/Riyadh',
   sheetId: '1hymTfPLDR7QX1Rq9e3I4OyZJBpmnHNp4SxEUfjXnBGU',
@@ -51,6 +73,7 @@ function doGet(e) {
 function buildDashboardData_(session) {
   const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
   const rows = getTaskRows_(ss);
+  const taskHeaders = getTaskHeaders_(ss);
   const approvals = getApprovalRows_(ss);
   const approvalChain = getExistingRegisterRows_(ss, KAG_CONFIG.approvalChainSheetName);
   const escalationChain = getExistingRegisterRows_(ss, KAG_CONFIG.escalationChainSheetName);
@@ -67,6 +90,7 @@ function buildDashboardData_(session) {
     generated_at: new Date().toISOString(),
     user: session ? safeUser_(session) : null,
     rows: rows,
+    task_headers: taskHeaders,
     approvals: approvals,
     approval_chain: approvalChain,
     escalation_chain: escalationChain,
@@ -336,6 +360,14 @@ function isTestOrSyntheticRecord_(row) {
   const exact = title.indexOf('test atheer') !== -1 || title.indexOf('تيست اخسر') !== -1;
   const testToken = /(^|[^a-z0-9])test([^a-z0-9]|$)/i.test(title);
   return exact || testToken;
+}
+
+function getTaskHeaders_(ss) {
+  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const sheet = findTaskSheet_(ss);
+  const values = sheet.getDataRange().getValues();
+  if (!values.length) return [];
+  return values[0].map(function(h) { return normalizeHeader_(h); });
 }
 
 function getTaskRows_(ss) {
@@ -1310,7 +1342,7 @@ function nextApprovalId_(sheet) {
 
 function getStaleTasks_() {
   return getTaskRows_().filter(function(row) {
-    const status = getField_(row, ['status', 'الحالة', 'progress_status']);
+    const status = getField_(row, WBS_FIELD_ALIASES.status);
     const updated = getField_(row, ['last_update', 'updated', 'آخر تحديث', 'تاريخ التحديث']);
     if (String(status).match(/مكتمل|completed|done/i)) return false;
     if (!updated) return true;
@@ -1322,7 +1354,7 @@ function getStaleTasks_() {
 
 function getCriticalTasks_() {
   return getTaskRows_().filter(function(row) {
-    const status = getField_(row, ['status', 'الحالة', 'schedule_status']);
+    const status = getField_(row, WBS_FIELD_ALIASES.status.concat(['schedule_status']));
     const priority = getField_(row, ['priority', 'الأولوية']);
     const risk = getField_(row, ['risk', 'المخاطر', 'blocker', 'المعوقات']);
     return String(status + ' ' + priority + ' ' + risk).match(/حرج|متأخر|عالي|critical|late|high|blocked/i);
@@ -1341,10 +1373,10 @@ function buildExecutiveSummary_(rows) {
     return status.match(/متأخر|late|overdue/i) || (!isNaN(due.getTime()) && due < new Date() && !status.match(/معتمد|approved/i));
   }).length;
   const completed = rows.filter(function(row) {
-    return String(getField_(row, ['status', 'الحالة', 'progress_status'])).match(/مكتمل|completed|done/i);
+    return String(getField_(row, WBS_FIELD_ALIASES.status)).match(/مكتمل|completed|done/i);
   }).length;
   const late = rows.filter(function(row) {
-    return String(getField_(row, ['status', 'الحالة', 'schedule_status'])).match(/متأخر|late|delayed/i);
+    return String(getField_(row, WBS_FIELD_ALIASES.status.concat(['schedule_status']))).match(/متأخر|late|delayed/i);
   }).length;
   const critical = getCriticalTasks_();
   const stale = getStaleTasks_();
@@ -1414,10 +1446,10 @@ function mention_(id) {
 function formatTaskList_(title, rows) {
   if (!rows || rows.length === 0) return `${title}: لا توجد عناصر ظاهرة حاليًا.`;
   const lines = rows.map(function(row, index) {
-    const code = getField_(row, ['code', 'id', 'task_id', 'الكود', 'رقم المهمة']) || ('#' + row.row_number);
-    const name = getField_(row, ['name', 'task', 'title', 'المهمة', 'العنوان', 'اسم المهمة']) || 'بدون عنوان';
-    const owner = getField_(row, ['owner', 'responsible', 'المسؤول', 'المالك']) || '-';
-    const status = getField_(row, ['status', 'الحالة', 'progress_status']) || '-';
+    const code = getField_(row, WBS_FIELD_ALIASES.taskId) || ('#' + row.row_number);
+    const name = getField_(row, WBS_FIELD_ALIASES.taskName) || 'بدون عنوان';
+    const owner = getField_(row, WBS_FIELD_ALIASES.owner) || '-';
+    const status = getField_(row, WBS_FIELD_ALIASES.status) || '-';
     return `${index + 1}. ${code} - ${name} | المسؤول: ${owner} | الحالة: ${status}`;
   });
   return `${title}:\n${lines.join('\n')}`;

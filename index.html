@@ -3119,10 +3119,12 @@ function valueOf(obj,names){
 }
 function normalizeRow(raw){
   const typeRaw=String(valueOf(raw,['type','Type','Row Type','نوع الصف','النوع'])||'').trim();
-  const code=String(valueOf(raw,['code','WBS Code','Code','الكود','رمز WBS'])||'').trim();
-  const name=String(valueOf(raw,['name','Milestone / Task','Milestone/Task','Task','المهمة','اسم المهمة'])||'').trim();
-  const phase=String(valueOf(raw,['phase','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK','المرحلة'])||'').trim();
-  const owner=String(valueOf(raw,['owner','Assigned To','AssignedTo','المسؤول','مسند إلى'])||'').trim();
+  const code=String(valueOf(raw,WBS_FIELD_ALIASES.taskId)||'').trim();
+  const name=String(valueOf(raw,WBS_FIELD_ALIASES.taskName)||'').trim();
+  const phase=String(valueOf(raw,WBS_FIELD_ALIASES.phase)||'').trim();
+  const mainPath=String(valueOf(raw,WBS_FIELD_ALIASES.mainPath)||'').trim();
+  const owner=String(valueOf(raw,WBS_FIELD_ALIASES.owner)||'').trim();
+  const ownerEmail=String(valueOf(raw,WBS_FIELD_ALIASES.ownerEmail)||'').trim();
   const rawStart=valueOf(raw,TASK_FIELD_ALIASES.plannedStart);
   const rawEnd=valueOf(raw,TASK_FIELD_ALIASES.plannedEnd);
   const rawActualStart=valueOf(raw,TASK_FIELD_ALIASES.actualStart);
@@ -3132,14 +3134,20 @@ function normalizeRow(raw){
   const start=isoDate(rawStart);
   const end=isoDate(rawEnd);
   const notes=String(valueOf(raw,['notes','ملاحظات / عدد المهام','Notes','ملاحظات'])||'').trim();
-  const status=String(valueOf(raw,['status','Status','الحالة'])||'').trim();
+  const status=String(valueOf(raw,WBS_FIELD_ALIASES.status)||'').trim();
+  const plannedDurationDays=valueOf(raw,WBS_FIELD_ALIASES.plannedDurationDays);
+  const sheetDelayDays=valueOf(raw,WBS_FIELD_ALIASES.delayDays);
+  const dependencyType=valueOf(raw,WBS_FIELD_ALIASES.dependencyType);
+  const approvalEntity=valueOf(raw,WBS_FIELD_ALIASES.approvalEntity);
+  const operationalDeliverable=valueOf(raw,WBS_FIELD_ALIASES.operationalDeliverable);
+  const executionOwner=valueOf(raw,WBS_FIELD_ALIASES.executionOwner);
   let type = typeRaw || (/^\d+$/.test(code) || /Tasks/i.test(notes) ? 'Milestone' : 'Task');
   if(type==='معلم') type='Milestone'; if(type==='مهمة') type='Task';
   if(!name) return null;
   const source=String(valueOf(raw,['source','_source'])||'google_sheets').trim();
   const record_type=String(valueOf(raw,['record_type'])||'').trim();
   const is_test=String(valueOf(raw,['is_test'])||'').trim();
-  const normalized={type,code,name,phase,owner,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,evidence,notes,sheet_status:status,status,source,record_type,is_test,_source:raw._source||source,raw};
+  const normalized={type,code,name,phase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,plannedDurationDays,sheetDelayDays,dependencyType,approvalEntity,operationalDeliverable,executionOwner,evidence,notes,sheet_status:status,status,source,record_type,is_test,_source:raw._source||source,raw};
   normalized.computed_status=computeTaskStatus(normalized);
   normalized.delay_days=getTaskDelayDays(normalized);
   return normalized;
@@ -4232,15 +4240,28 @@ function normalizeArabic(s){
     .trim();
 }
 const TASK_STATUS_VALUES=['مكتملة','متأخرة','قيد التنفيذ','لم تبدأ','ملغاة','غير مكتملة البيانات'];
-const TASK_FIELD_ALIASES={
-  status:['status','Status','الحالة'],
-  plannedStart:['planned_start','start_date','planned_start_date','baseline_start','baseline_start_date','start','Start Date','Planned Start Date','Baseline Start Date','تاريخ البدء','تاريخ البداية','تاريخ بدء المهمة','البداية'],
-  plannedEnd:['planned_end','end_date','planned_end_date','baseline_end','baseline_end_date','due_date','finish_date','deadline','end','End Date','Planned End Date','Baseline End Date','Due Date','Finish Date','Deadline','تاريخ النهاية','تاريخ الانتهاء','تاريخ الاستحقاق','تاريخ التسليم','النهاية'],
-  actualStart:['actual_start_date','actual_start','started_at','Actual Start Date','Actual Start','تاريخ البداية الفعلي','بداية فعلية'],
-  actualEnd:['actual_end_date','actual_finish_date','actual_end','actual_finish','completed_at','completion_date','Actual End Date','Actual Finish Date','تاريخ النهاية الفعلي','تاريخ الانتهاء الفعلي','تاريخ الإكمال','نهاية فعلية'],
-  progress:['percent_complete','progress','completion_percent','actual_progress','Progress','% Complete','نسبة الإنجاز','نسبة الانجاز','الإنجاز','الانجاز'],
+const WBS_FIELD_ALIASES={
+  taskId:['معرف المهمة','code','WBS Code','Code','الكود','رمز WBS','task_id','id','رقم المهمة'],
+  taskName:['اسم المهمة','name','Milestone / Task','Milestone/Task','Task','المهمة','العنوان'],
+  mainPath:['المسار الرئيسي','main_path','path','المسار'],
+  phase:['المرحلة','phase','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK'],
+  owner:['اسم المسؤول','owner','Assigned To','AssignedTo','المسؤول','مسند إلى','responsible','المالك'],
+  ownerEmail:['البريد الإلكتروني للمسؤول','owner_email','responsible_email','email','البريد الإلكتروني','بريد المسؤول'],
+  status:['الحالة','status','Status','progress_status'],
+  progress:['نسبة الإنجاز','نسبة الانجاز','percent_complete','progress','completion_percent','actual_progress','Progress','% Complete','الإنجاز','الانجاز'],
+  plannedDurationDays:['مدة المهمة المخططة بالأيام','planned_duration_days','duration_days','duration','مدة المهمة','المدة المخططة'],
+  plannedStart:['تاريخ البدء المخطط','planned_start','start_date','planned_start_date','baseline_start','baseline_start_date','start','Start Date','Planned Start Date','Baseline Start Date','تاريخ البدء','تاريخ البداية','تاريخ بدء المهمة','البداية'],
+  plannedEnd:['تاريخ النهاية المخطط','planned_end','planned_finish','end_date','planned_end_date','baseline_end','baseline_end_date','due_date','finish_date','deadline','end','End Date','Planned End Date','Baseline End Date','Due Date','Finish Date','Deadline','تاريخ النهاية','تاريخ الانتهاء','تاريخ الاستحقاق','تاريخ التسليم','النهاية'],
+  actualStart:['تاريخ البدء الفعلي','actual_start_date','actual_start','started_at','Actual Start Date','Actual Start','تاريخ البداية الفعلي','بداية فعلية'],
+  actualEnd:['تاريخ النهاية الفعلي','actual_end_date','actual_finish_date','actual_end','actual_finish','completed_at','completion_date','Actual End Date','Actual Finish Date','تاريخ الانتهاء الفعلي','تاريخ الإكمال','نهاية فعلية'],
+  delayDays:['عدد أيام التأخير','delay_days','delayed_days','days_late','أيام التأخير'],
+  dependencyType:['نوع الاعتماد','dependency_type','dependency','predecessor','اعتمادية'],
+  approvalEntity:['جهة الاعتماد','approval_entity','approver','approving_party','المعتمد'],
+  operationalDeliverable:['المخرج التشغيلي','operational_deliverable','deliverable','المخرج'],
+  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
   evidence:['evidence_link','completion_evidence','evidence','proof_link','drive_link','deliverable_link','رابط دليل الإنجاز','رابط الإنجاز','مرجع الإنجاز','رابط الملف']
 };
+const TASK_FIELD_ALIASES=WBS_FIELD_ALIASES;
 function taskStatusText_(task){return normalizeArabic(String(task?.sheet_status ?? task?.status ?? '').trim().toLowerCase());}
 function normalizeTaskStatus(status){
   const raw=String(status||'').trim();
@@ -4264,7 +4285,8 @@ function getTaskProgress(task){
   const raw=String(getFirstTaskField_(task,'progress')??task?.progress??'').replace('%','').trim();
   if(!raw) return 0;
   const n=Number(raw.replace(',', '.'));
-  return Number.isFinite(n)?n:0;
+  if(!Number.isFinite(n)) return 0;
+  return n>0&&n<=1?n*100:n;
 }
 function taskProgressNumber_(task){return getTaskProgress(task);}
 function getTaskEvidence(task){
@@ -4304,6 +4326,11 @@ function isTaskOverdue(task){
   return dateKeyToUtcDay_(endKey)<dateKeyToUtcDay_(riyadhTodayKey());
 }
 function getTaskDelayDays(task){
+  const rawDelay=valueOf(task,WBS_FIELD_ALIASES.delayDays)||task?.sheetDelayDays;
+  if(rawDelay!==''&&rawDelay!==null&&rawDelay!==undefined){
+    const n=Number(String(rawDelay).replace(',', '.'));
+    if(Number.isFinite(n)) return Math.max(0,Math.round(n));
+  }
   if(!isTaskOverdue(task)) return 0;
   const days=Math.round((dateKeyToUtcDay_(riyadhTodayKey())-dateKeyToUtcDay_(getTaskPlannedEndDate(task)))/86400000);
   return Math.max(0,days);
@@ -5117,6 +5144,7 @@ async function loadExternal(initial=true){
     if(!data.ok) throw new Error(data.error||'sync failed');
     const normalized=normalizeRows(data);
     console.log(`⏱️ [Sync] عدد المهام المستلمة من الشيت: ${normalized.length}`);
+    if(Array.isArray(data.task_headers)) console.table(data.task_headers.map((header,index)=>({index:index+1,normalized_header:header})));
     const normalizedApprovalChain=normalizeApprovalChainRows(data.approval_chain||[]);
     const normalizedEscalationChain=normalizeEscalationChainRows(data.escalation_chain||[]);
     const normalizedApprovals=normalizeApprovalRows(data.approvals||data.approvals_register||[]);
