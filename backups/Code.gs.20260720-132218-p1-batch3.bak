@@ -71,11 +71,6 @@ const KAG_CONFIG = {
   urgentTasksSheetName: 'Urgent Task',
   auditSheetName: 'Audit Log',
   employeeMasterSheetName: 'Employee Master',
-  baselineSheetName: 'Baseline Management',
-  raciSheetName: 'RACI Matrix',
-  workloadSheetName: 'Employee Workload',
-  criticalPathSheetName: 'Critical Path Analysis',
-  dataQualitySheetName: 'Data Quality Center',
   projectMasterSheetName: 'Project Master',
   projectSettingsSheetName: 'Project Settings',
   codeSequencesSheetName: 'Code Sequences',
@@ -114,12 +109,6 @@ function buildDashboardData_(session) {
   const decisions = getDecisionRows_(ss);
   const projectMaster = getProjectMasterRows_(ss);
   const projectSettings = getProjectSettingsRows_(ss);
-  const employeeMaster = getEmployeeMasterRows_(ss);
-  const baselineManagement = buildBaselineManagement_(ss, rows);
-  const raci = buildRaciMatrix_(ss, rows, employeeMaster);
-  const workload = buildEmployeeWorkload_(ss, rows, employeeMaster);
-  const criticalPath = buildCriticalPathAnalysis_(ss, rows);
-  const dataQuality = buildDataQualityCenter_(ss, rows, employeeMaster, criticalPath);
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -139,12 +128,6 @@ function buildDashboardData_(session) {
     decision_log: decisions,
     project_master: projectMaster,
     project_settings: projectSettings,
-    employee_master: employeeMaster,
-    baseline_management: baselineManagement,
-    raci_matrix: raci,
-    employee_workload: workload,
-    critical_path: criticalPath,
-    data_quality: dataQuality,
     sync_meta: {
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
@@ -267,7 +250,6 @@ function installKagTriggers() {
   ensureRegisterSheet_(KAG_CONFIG.meetingsSheetName, getMeetingHeaders_());
   ensureRegisterSheet_(KAG_CONFIG.commitmentsSheetName, getCommitmentHeaders_());
   ensureRegisterSheet_(KAG_CONFIG.filesSheetName, getFileHeaders_());
-  ensureP1Batch3Sheets_();
 
   ScriptApp.newTrigger('sendNoonUpdateRequest')
     .timeBased()
@@ -549,65 +531,6 @@ function ensureAssignmentSheet_() {
     ensureSheetColumns_(sheet, headers);
   }
   return sheet;
-}
-
-
-function ensureP1Batch3Sheets_() {
-  ensureRegisterSheet_(KAG_CONFIG.baselineSheetName, getBaselineHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.raciSheetName, getRaciHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.workloadSheetName, getWorkloadHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.criticalPathSheetName, getCriticalPathHeaders_());
-  ensureRegisterSheet_(KAG_CONFIG.dataQualitySheetName, getDataQualityHeaders_());
-  appendAuditLog_({ action: 'p1_batch3_sheets_ensure', operation: 'verify', status: 'success', result: 'baseline_raci_workload_critical_path_data_quality_ready', updated_by: 'System' });
-}
-
-function getBaselineHeaders_() { return ['task_code','task_name','original_baseline_start','original_baseline_end','current_plan_start','current_plan_end','start_variance_days','end_variance_days','revision_number','modified_at','revision_reason','modified_by','approved_by','audit_status']; }
-function getRaciHeaders_() { return ['task_code','task_name','responsible','accountable','consulted','informed','source','data_status']; }
-function getWorkloadHeaders_() { return ['employee','email','task_count','overdue_task_count','critical_task_count','total_duration_days','workload_limit_days','alert','source']; }
-function getCriticalPathHeaders_() { return ['task_code','task_name','early_start','early_finish','late_start','late_finish','total_float','free_float','is_critical','directly_impacts_opening','dependency_type','lag','data_status']; }
-function getDataQualityHeaders_() { return ['issue_type','task_code','task_name','details','severity','excluded_from_kpi','detected_at']; }
-
-function getEmployeeMasterRows_(ss) { return getExistingRegisterRows_(ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId), KAG_CONFIG.employeeMasterSheetName); }
-function normKey_(value) { return String(value || '').trim().toLowerCase(); }
-function taskField_(row, field) { return getField_(row, WBS_FIELD_ALIASES[field] || []); }
-function taskCode_(row) { return String(taskField_(row, 'taskId') || '').trim(); }
-function taskName_(row) { return String(taskField_(row, 'taskName') || '').trim(); }
-function taskOwner_(row) { return String(taskField_(row, 'owner') || '').trim(); }
-function taskEnd_(row) { return parseDateKey_(taskField_(row, 'plannedEnd')); }
-function taskStart_(row) { return parseDateKey_(taskField_(row, 'plannedStart')); }
-function taskProgress_(row) { const n = Number(String(taskField_(row, 'progress') || '0').replace('%','')); return isNaN(n) ? 0 : n; }
-function isCompleteTask_(row) { return taskProgress_(row) >= 100 || /مكتمل|completed|done/i.test(String(taskField_(row, 'status') || '')); }
-function parseDateKey_(value) { if (!value) return ''; const d = new Date(value); if (isNaN(d.getTime())) return ''; return Utilities.formatDate(d, KAG_CONFIG.timezone, 'yyyy-MM-dd'); }
-function dayNumber_(key) { return key ? Math.floor(new Date(key + 'T00:00:00Z').getTime() / 86400000) : null; }
-function durationDays_(row) { const explicit = Number(taskField_(row, 'plannedDurationDays')); if (!isNaN(explicit) && explicit > 0) return explicit; const s = dayNumber_(taskStart_(row)), e = dayNumber_(taskEnd_(row)); return s !== null && e !== null ? Math.max(1, e - s + 1) : 0; }
-function employeeByNameOrEmail_(employees) { const m = {}; employees.forEach(function(e) { ['name','employee_name','display_name','الاسم','اسم الموظف'].forEach(function(k){ if(e[k]) m[normKey_(e[k])] = e; }); ['email','البريد الإلكتروني','employee_email'].forEach(function(k){ if(e[k]) m[normKey_(e[k])] = e; }); }); return m; }
-function employeeField_(e, names) { return getField_(e || {}, names); }
-function findEmployee_(index, name, email) { return index[normKey_(email)] || index[normKey_(name)] || null; }
-
-function buildBaselineManagement_(ss, rows) {
-  const existing = getExistingRegisterRows_(ss, KAG_CONFIG.baselineSheetName);
-  const byCode = {}; existing.forEach(function(r){ if(r.task_code) byCode[normKey_(r.task_code)] = r; });
-  return rows.map(function(r){ const code=taskCode_(r), prev=byCode[normKey_(code)]||{}; const cs=taskStart_(r), ce=taskEnd_(r); const bs=prev.original_baseline_start || cs, be=prev.original_baseline_end || ce; const sv=(dayNumber_(cs)!==null&&dayNumber_(bs)!==null)?dayNumber_(cs)-dayNumber_(bs):''; const ev=(dayNumber_(ce)!==null&&dayNumber_(be)!==null)?dayNumber_(ce)-dayNumber_(be):''; return { task_code:code, task_name:taskName_(r), original_baseline_start:bs, original_baseline_end:be, current_plan_start:cs, current_plan_end:ce, start_variance_days:sv, end_variance_days:ev, revision_number:prev.revision_number||'0', modified_at:prev.modified_at||'', revision_reason:prev.revision_reason||'', modified_by:prev.modified_by||'', approved_by:prev.approved_by||'', audit_status:'original_baseline_locked' }; });
-}
-
-function buildRaciMatrix_(ss, rows, employees) {
-  const idx=employeeByNameOrEmail_(employees); return rows.map(function(r){ const emp=findEmployee_(idx, taskOwner_(r), taskField_(r,'ownerEmail')); if(!emp) return {task_code:taskCode_(r),task_name:taskName_(r),responsible:'لا توجد بيانات كافية',accountable:'لا توجد بيانات كافية',consulted:'لا توجد بيانات كافية',informed:'لا توجد بيانات كافية',source:'Employee Master',data_status:'لا توجد بيانات كافية'}; return {task_code:taskCode_(r),task_name:taskName_(r),responsible:employeeField_(emp,['responsible','Responsible','R','name','employee_name','اسم الموظف'])||'لا توجد بيانات كافية',accountable:employeeField_(emp,['accountable','Accountable','A','manager','line_manager','المدير المباشر'])||'لا توجد بيانات كافية',consulted:employeeField_(emp,['consulted','Consulted','C','consulted_group','استشاري'])||'لا توجد بيانات كافية',informed:employeeField_(emp,['informed','Informed','I','informed_group','للعلم'])||'لا توجد بيانات كافية',source:'Employee Master',data_status:'ok'}; });
-}
-
-function buildEmployeeWorkload_(ss, rows, employees) {
-  const idx=employeeByNameOrEmail_(employees), today=dayNumber_(Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd')), critical=buildCriticalPathAnalysis_(ss, rows); const crit={}; (critical.tasks||[]).forEach(function(t){ if(t.is_critical) crit[normKey_(t.task_code)]=true; }); const agg={}; rows.forEach(function(r){ const emp=findEmployee_(idx, taskOwner_(r), taskField_(r,'ownerEmail')); if(!emp) return; const key=employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||employeeField_(emp,['name','employee_name','اسم الموظف']); if(!agg[key]) agg[key]={employee:employeeField_(emp,['name','employee_name','اسم الموظف'])||taskOwner_(r),email:employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||'',task_count:0,overdue_task_count:0,critical_task_count:0,total_duration_days:0,workload_limit_days:Number(employeeField_(emp,['workload_limit_days','capacity_days','حد العبء'])||0)}; agg[key].task_count++; agg[key].total_duration_days+=durationDays_(r); if(!isCompleteTask_(r)&&dayNumber_(taskEnd_(r))!==null&&dayNumber_(taskEnd_(r))<today) agg[key].overdue_task_count++; if(crit[normKey_(taskCode_(r))]) agg[key].critical_task_count++; }); return Object.keys(agg).map(function(k){ const a=agg[k]; a.alert=a.workload_limit_days&&a.total_duration_days>a.workload_limit_days?'تجاوز الحد':'ضمن الحد'; a.source='Employee Master + WBS'; return a; });
-}
-
-function buildCriticalPathAnalysis_(ss, rows) {
-  const nodes={}, missing=[]; rows.forEach(function(r){ const c=taskCode_(r); if(c&&taskStart_(r)&&taskEnd_(r)) nodes[c]={row:r,code:c,dur:durationDays_(r),preds:[]}; }); rows.forEach(function(r){ const c=taskCode_(r); if(!nodes[c]) return; String(taskField_(r,'predecessor')||'').split(/[,;،]/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(p){ if(!nodes[p]) missing.push(p+' -> '+c); else nodes[c].preds.push({code:p,type:String(taskField_(r,'dependencyType')||'FS').trim().toUpperCase(),lag:Number(taskField_(r,'lag')||0)||0}); }); }); if(!Object.keys(nodes).length || missing.length) return { ok:false, message:'لا توجد بيانات كافية لاحتساب المسار الحرج', missing_dependencies:missing, tasks:[] }; const order=[], temp={}, perm={}, cycle=false; function visit(c){ if(temp[c]){cycle=true;return;} if(perm[c])return; temp[c]=true; nodes[c].preds.forEach(function(p){visit(p.code);}); perm[c]=true; temp[c]=false; order.push(c);} Object.keys(nodes).forEach(visit); if(cycle) return { ok:false, message:'لا توجد بيانات كافية لاحتساب المسار الحرج', circular_dependencies:true, tasks:[] }; order.forEach(function(c){ const n=nodes[c]; n.es=0; n.preds.forEach(function(p){ const pn=nodes[p.code], rel=(p.type==='SS'?pn.es:pn.ef)+p.lag; n.es=Math.max(n.es,rel); }); n.ef=n.es+n.dur; }); const projectFinish=Math.max.apply(null, order.map(function(c){return nodes[c].ef;})); order.slice().reverse().forEach(function(c){ const n=nodes[c]; n.lf=projectFinish; Object.keys(nodes).forEach(function(s){ nodes[s].preds.forEach(function(p){ if(p.code===c){ const succ=nodes[s], rel=(p.type==='SS'?succ.ls:succ.es)-p.lag; n.lf=Math.min(n.lf, rel+(p.type==='SS'?n.dur:0)); } }); }); n.ls=n.lf-n.dur; n.total_float=n.ls-n.es; let minFree=projectFinish-n.ef; Object.keys(nodes).forEach(function(s){ nodes[s].preds.forEach(function(p){ if(p.code===c) minFree=Math.min(minFree,(p.type==='SS'?nodes[s].es:nodes[s].es)-p.lag-n.ef); }); }); n.free_float=Math.max(0,minFree); }); return { ok:true, message:'ok', project_duration_days:projectFinish, tasks:order.map(function(c){ const n=nodes[c]; return {task_code:c,task_name:taskName_(n.row),early_start:n.es,early_finish:n.ef,late_start:n.ls,late_finish:n.lf,total_float:n.total_float,free_float:n.free_float,is_critical:n.total_float===0,directly_impacts_opening:n.ef===projectFinish||n.total_float===0,dependency_type:String(taskField_(n.row,'dependencyType')||'FS'),lag:Number(taskField_(n.row,'lag')||0)||0,data_status:'ok'}; }) };
-}
-
-function buildDataQualityCenter_(ss, rows, employees, criticalPath) {
-  const issues=[], codes={}, names={}, taskCodes={}; rows.forEach(function(r){ const c=taskCode_(r), n=taskName_(r); if(c){ (codes[c]=codes[c]||[]).push(r); taskCodes[c]=true; } if(n) (names[n]=names[n]||[]).push(r); }); const idx=employeeByNameOrEmail_(employees), now=new Date().toISOString(); function add(type,r,details,severity){ issues.push({issue_type:type,task_code:r?taskCode_(r):'',task_name:r?taskName_(r):'',details:details,severity:severity||'high',excluded_from_kpi:'TRUE',detected_at:now}); }
-  Object.keys(codes).forEach(function(k){ if(codes[k].length>1) codes[k].forEach(function(r){add('الأكواد المكررة',r,k,'critical');}); }); Object.keys(names).forEach(function(k){ if(names[k].length>1) names[k].forEach(function(r){add('أسماء المهام المكررة',r,k,'medium');}); });
-  rows.forEach(function(r){ if(!taskOwner_(r)) add('المهام بدون مسؤول',r,'owner missing'); if(!taskField_(r,'mainPath')) add('المهام بدون مسار',r,'path missing'); if(!taskField_(r,'approvalEntity')) add('المهام بدون معتمد',r,'approver missing'); if(!taskField_(r,'operationalDeliverable')) add('المهام بدون مخرج',r,'deliverable missing'); String(taskField_(r,'predecessor')||'').split(/[,;،]/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(p){ if(!taskCodes[p]) add('الاعتماديات المفقودة',r,p,'critical'); }); if(taskStart_(r)&&taskEnd_(r)&&dayNumber_(taskStart_(r))>dayNumber_(taskEnd_(r))) add('البداية بعد النهاية',r,'start > end','critical'); if(/1900|1970|2099|placeholder|tbd|لاحق/i.test(String(taskField_(r,'plannedStart'))+String(taskField_(r,'plannedEnd')))) add('Placeholder Dates',r,'placeholder date'); if(isCompleteTask_(r)&&!taskField_(r,'evidence')) add('المهام المكتملة بدون دليل',r,'evidence missing'); if(taskProgress_(r)>=100&&!taskField_(r,'actualEnd')) add('المهام 100% بدون تاريخ نهاية فعلي',r,'actual end missing'); if(/قيد التنفيذ|in progress/i.test(String(taskField_(r,'status')))&&taskStart_(r)&&dayNumber_(taskStart_(r))>dayNumber_(Utilities.formatDate(new Date(),KAG_CONFIG.timezone,'yyyy-MM-dd'))) add('المهام قيد التنفيذ قبل تاريخ البداية',r,'status before start'); const email=taskField_(r,'ownerEmail'); if(email && !findEmployee_(idx, taskOwner_(r), email)) add('البريد غير المطابق لـ Employee Master',r,email); });
-  if(criticalPath && criticalPath.circular_dependencies) add('الاعتماديات الدائرية',null,'cycle detected','critical');
-  appendAuditLog_({ action:'data_quality_check', operation:'verify', status:'success', result:String(issues.length)+' issues detected', updated_by:'System' }); return { issues:issues, excluded_task_codes:issues.map(function(i){return i.task_code;}).filter(Boolean), summary:{issue_count:issues.length, excluded_from_kpi_count:issues.length} };
 }
 
 function getMeetingHeaders_() {
