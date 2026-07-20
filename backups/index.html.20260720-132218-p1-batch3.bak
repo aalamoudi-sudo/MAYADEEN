@@ -1350,10 +1350,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
       <button class="nav-item" data-page="executiveBoard">لوحة المدير العام</button>
       <button class="nav-item" data-page="supervisorDaily">لوحة المشرف اليومية</button>
       <button class="nav-item" data-page="analytics">التحليلات التنفيذية</button>
-      <button class="nav-item" data-page="baselineManagement">Baseline Management</button>
-      <button class="nav-item" data-page="raciWorkload">RACI وعبء العمل</button>
-      <button class="nav-item" data-page="criticalPath">Critical Path</button>
-      <button class="nav-item" data-page="dataQualityCenter">مركز جودة البيانات</button>
       <button class="nav-item" data-page="commitmentsHub">الالتزامات</button>
       <button class="nav-item" data-page="smartReminders">التذكير الذكي</button>
       <button class="nav-item" data-page="fileControl">مركز الملفات</button>
@@ -1531,27 +1527,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
           <div class="kpi-value" id="urgentTasksCount" style="color:var(--red);font-size:30px;margin-bottom:8px">0</div>
           <div id="urgentTasksCardList"></div>
         </div>
-      </section>
-
-
-      <section class="page" id="baselineManagement">
-        <div class="page-header"><h1>Baseline Management</h1><p>خط الأساس الأصلي ثابت، والخطة الحالية والانحرافات والمراجعات من Google Sheets فقط.</p></div>
-        <div class="card" style="overflow:auto;max-height:70vh"><table class="data-table" id="baselineTable"><thead><tr><th>الكود</th><th>المهمة</th><th>Baseline Start</th><th>Baseline End</th><th>Current Start</th><th>Current End</th><th>فرق البداية</th><th>فرق النهاية</th><th>Revision</th><th>تاريخ التعديل</th><th>سبب التعديل</th><th>عدّل</th><th>اعتمد</th></tr></thead><tbody></tbody></table></div>
-      </section>
-      <section class="page" id="raciWorkload">
-        <div class="page-header"><h1>RACI وعبء العمل</h1><p>كل الأدوار والحدود تُقرأ من Employee Master دون إنشاء قيم افتراضية.</p></div>
-        <div class="card" style="overflow:auto;margin-bottom:14px"><div class="sec-title"><h2>RACI</h2><span>Responsible / Accountable / Consulted / Informed</span></div><table class="data-table" id="raciTable"><thead><tr><th>الكود</th><th>المهمة</th><th>Responsible</th><th>Accountable</th><th>Consulted</th><th>Informed</th><th>الحالة</th></tr></thead><tbody></tbody></table></div>
-        <div class="card" style="overflow:auto"><div class="sec-title"><h2>عبء العمل</h2><span>بدون أرقام ثابتة: الحدود من Employee Master</span></div><table class="data-table" id="workloadTable"><thead><tr><th>الموظف</th><th>البريد</th><th>عدد المهام</th><th>المتأخرة</th><th>الحرجة</th><th>إجمالي المدة</th><th>الحد</th><th>التنبيه</th></tr></thead><tbody></tbody></table></div>
-      </section>
-      <section class="page" id="criticalPath">
-        <div class="page-header"><h1>Critical Path</h1><p>يُحتسب من الاعتماديات الرسمية ونوع الاعتمادية والـ Lag فقط، وليس من ترتيب WBS.</p></div>
-        <div class="card" style="margin-bottom:14px"><div id="criticalPathStatus" style="color:var(--muted)">لا توجد بيانات كافية لاحتساب المسار الحرج</div></div>
-        <div class="card" style="overflow:auto;max-height:70vh"><table class="data-table" id="criticalPathTable"><thead><tr><th>الكود</th><th>المهمة</th><th>ES</th><th>EF</th><th>LS</th><th>LF</th><th>Total Float</th><th>Free Float</th><th>حرج</th><th>يؤثر على الافتتاح</th><th>النوع</th><th>Lag</th></tr></thead><tbody></tbody></table></div>
-      </section>
-      <section class="page" id="dataQualityCenter">
-        <div class="page-header"><h1>مركز جودة البيانات</h1><p>كل المخالفات المستبعدة من KPI تُعرض تلقائياً وتسجل في Audit Log المركزي.</p></div>
-        <div class="card" style="margin-bottom:14px"><div class="kpi-value" id="dqIssueCount" style="color:var(--yellow);font-size:30px">0</div><div style="color:var(--muted);font-size:12px">سجل مخالفات مستبعد من KPI</div></div>
-        <div class="card" style="overflow:auto;max-height:70vh"><table class="data-table" id="dataQualityTable"><thead><tr><th>نوع المخالفة</th><th>الكود</th><th>المهمة</th><th>التفاصيل</th><th>الشدة</th><th>مستبعد من KPI</th><th>تاريخ الرصد</th></tr></thead><tbody></tbody></table></div>
       </section>
 
       <!-- PROJECT PAGE -->
@@ -2869,7 +2844,6 @@ const OFFICIAL_PATHS=['الضيافة','التشغيل','تجربة الضيوف
 let officialDataReady=false;
 let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
-let employeeMaster=[]; let baselineManagement=[]; let raciMatrix=[]; let employeeWorkload=[]; let criticalPathAnalysis={ok:false,tasks:[],message:'لا توجد بيانات كافية لاحتساب المسار الحرج'}; let dataQualityCenter={issues:[],excluded_task_codes:[],summary:{}};
 let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords=[]; let issuesIncidents=[]; let vendorViolations=[]; let decisionLogRecords=[]; let suppliersRegister=[]; let riskGovernanceRegister=[];
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
 let taskDateFilter='all';
@@ -2915,10 +2889,6 @@ const PAGE_RENDERERS={
   projectHealth:['renderProjectHealth'],
   executiveBoard:['renderExecutiveBoard'],
   supervisorDaily:['renderSupervisorDaily'],
-  baselineManagement:['renderBaselineManagement'],
-  raciWorkload:['renderRaciWorkload'],
-  criticalPath:['renderCriticalPath'],
-  dataQualityCenter:['renderDataQualityCenter'],
   commitmentsHub:['renderCommitmentsHub'],
   smartReminders:['renderSmartReminders'],
   fileControl:['renderFileControl'],
@@ -4471,24 +4441,6 @@ function completionPct(taskList){
   return Math.round((done/total)*100);
 }
 function monthName(n){return ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][n-1]}
-
-function setTableRows_(id, rowsHtml, colspan){ const tb=document.querySelector('#'+id+' tbody'); if(tb) tb.innerHTML=rowsHtml||`<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted)">لا توجد بيانات كافية</td></tr>`; }
-function renderBaselineManagement(){
-  setTableRows_('baselineTable',(baselineManagement||[]).map(r=>`<tr><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.original_baseline_start)}</td><td>${escapeHtml(r.original_baseline_end)}</td><td>${escapeHtml(r.current_plan_start)}</td><td>${escapeHtml(r.current_plan_end)}</td><td>${escapeHtml(r.start_variance_days)}</td><td>${escapeHtml(r.end_variance_days)}</td><td>${escapeHtml(r.revision_number)}</td><td>${escapeHtml(r.modified_at)}</td><td>${escapeHtml(r.revision_reason||'لا توجد بيانات كافية')}</td><td>${escapeHtml(r.modified_by||'لا توجد بيانات كافية')}</td><td>${escapeHtml(r.approved_by||'لا توجد بيانات كافية')}</td></tr>`).join(''),13);
-}
-function renderRaciWorkload(){
-  setTableRows_('raciTable',(raciMatrix||[]).map(r=>`<tr><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.responsible)}</td><td>${escapeHtml(r.accountable)}</td><td>${escapeHtml(r.consulted)}</td><td>${escapeHtml(r.informed)}</td><td>${escapeHtml(r.data_status)}</td></tr>`).join(''),7);
-  setTableRows_('workloadTable',(employeeWorkload||[]).map(r=>`<tr><td>${escapeHtml(r.employee)}</td><td>${escapeHtml(r.email)}</td><td>${escapeHtml(r.task_count)}</td><td>${escapeHtml(r.overdue_task_count)}</td><td>${escapeHtml(r.critical_task_count)}</td><td>${escapeHtml(r.total_duration_days)}</td><td>${escapeHtml(r.workload_limit_days||'لا توجد بيانات كافية')}</td><td><span class="pill ${r.alert==='تجاوز الحد'?'red':''}">${escapeHtml(r.alert)}</span></td></tr>`).join(''),8);
-}
-function renderCriticalPath(){
-  const st=document.getElementById('criticalPathStatus'); if(st) st.textContent=criticalPathAnalysis&&criticalPathAnalysis.ok?`مدة المشروع المحسوبة: ${criticalPathAnalysis.project_duration_days} يوم`:'لا توجد بيانات كافية لاحتساب المسار الحرج';
-  setTableRows_('criticalPathTable',((criticalPathAnalysis&&criticalPathAnalysis.tasks)||[]).map(r=>`<tr><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.early_start)}</td><td>${escapeHtml(r.early_finish)}</td><td>${escapeHtml(r.late_start)}</td><td>${escapeHtml(r.late_finish)}</td><td>${escapeHtml(r.total_float)}</td><td>${escapeHtml(r.free_float)}</td><td>${r.is_critical?'نعم':'لا'}</td><td>${r.directly_impacts_opening?'نعم':'لا'}</td><td>${escapeHtml(r.dependency_type)}</td><td>${escapeHtml(r.lag)}</td></tr>`).join(''),12);
-}
-function renderDataQualityCenter(){
-  const issues=(dataQualityCenter&&dataQualityCenter.issues)||[]; const c=document.getElementById('dqIssueCount'); if(c) c.textContent=issues.length;
-  setTableRows_('dataQualityTable',issues.map(r=>`<tr><td>${escapeHtml(r.issue_type)}</td><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.details)}</td><td>${escapeHtml(r.severity)}</td><td>${escapeHtml(r.excluded_from_kpi)}</td><td>${escapeHtml(r.detected_at)}</td></tr>`).join(''),7);
-}
-
 function initData(){const clean=(Array.isArray(rows)?rows:[]).filter(r=>!isTestOrSyntheticRecord_(r)); rows=clean; tasks=clean.filter(r=>r.type==='Task'); milestones=clean.filter(r=>r.type==='Milestone'); enrichComputedTaskStatuses(); markAllPagesDirty(); renderCurrentPage(true); logTaskStatusDiagnostics();}
 function countBy(arr,key){return arr.reduce((a,r)=>{const k=typeof key==='function'?key(r):(r[key]||'غير محدد');a[k]=(a[k]||0)+1;return a},{})}
 function topEntries(obj,n=8){return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n)}
@@ -5268,12 +5220,10 @@ async function loadExternal(initial=true){
     const normalizedDecisionLog=normalizeDecisionRows(data.decision_log||[]);
     const normalizedSuppliers=normalizeSupplierRows(data.suppliers_register||data.suppliers||[]);
     const normalizedRiskGovernance=normalizeRiskGovernanceRows(data.risk_governance_register||data.riskGovernanceRegister||data.risk_governance||data.risks_governance||[]);
-    employeeMaster=data.employee_master||[]; baselineManagement=data.baseline_management||[]; raciMatrix=data.raci_matrix||[]; employeeWorkload=data.employee_workload||[]; criticalPathAnalysis=data.critical_path||criticalPathAnalysis; dataQualityCenter=data.data_quality||dataQualityCenter;
-    const excludedCodes=new Set((dataQualityCenter.excluded_task_codes||[]).map(x=>String(x).trim()));
     if(normalized.length||normalizedRiskGovernance.length||Object.prototype.hasOwnProperty.call(data,'decision_log')){
       if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
       if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
-      rows=normalized.filter(r=>!isTestOrSyntheticRecord_(r)&&!excludedCodes.has(String(r.code||'').trim()));
+      rows=normalized.filter(r=>!isTestOrSyntheticRecord_(r));
       officialDataReady=rows.length>0||normalizedRiskGovernance.length>0;
       approvals=normalizedApprovals.filter(r=>!isTestOrSyntheticRecord_(r));
       assignments=normalizedAssignments.filter(r=>!isTestOrSyntheticRecord_(r));
