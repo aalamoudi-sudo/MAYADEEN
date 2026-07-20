@@ -104,52 +104,6 @@
   }
   setTimeout(tryInit, 800);
 })();
-
-function supListHtml(items, emptyText='لا توجد بيانات كافية'){
-  if(!items||!items.length) return `<div style="color:var(--muted);padding:18px;text-align:center">${escapeHtml(emptyText)}</div>`;
-  return items.slice(0,30).map(i=>`<div class="urgent-dec"><div class="urgent-dec-num">${escapeHtml(i.badge||i.code||'—')}</div><div style="flex:1"><b>${escapeHtml(i.title||i.name||'لا توجد بيانات كافية')}</b><div style="font-size:11px;color:var(--muted);margin-top:3px">${escapeHtml(i.detail||'')}</div></div>${i.tag?`<span class="pill ${i.red?'red':''}">${escapeHtml(i.tag)}</span>`:''}</div>`).join('');
-}
-function supervisorTaskTitle(t){return t.name||valueOf(t,WBS_FIELD_ALIASES.taskName)||'لا توجد بيانات كافية';}
-function supervisorTaskOwner(t){return t.owner||valueOf(t,WBS_FIELD_ALIASES.owner)||'لا توجد بيانات كافية';}
-function supervisorTaskPath(t){return t.mainPath||valueOf(t,WBS_FIELD_ALIASES.mainPath)||'لا توجد بيانات كافية';}
-function supervisorProgressEnough(t){return getTaskProgress(t)>=75||!!getTaskActualStartDate(t)||!!getTaskEvidence(t);}
-function renderSupervisorDaily(){
-  const sourceTasks=(tasks||[]).filter(isTaskRecord_);
-  const today=riyadhTodayKey();
-  const tomorrow=dateToKey_(new Date(dateKeyToUtcDay_(today)+86400000));
-  const doneToday=sourceTasks.filter(t=>isTaskCompleted(t)&&(getTaskActualEndDate(t)===today||riyadhDateKey(getFirstTaskField_(t,'lastUpdate')||t.lastUpdate)===today));
-  const tomorrowTasks=sourceTasks.filter(t=>getTaskPlannedEndDate(t)===tomorrow);
-  const overdue=sourceTasks.filter(isTaskOverdue);
-  const upcoming=n=>sourceTasks.filter(t=>!isTaskCompleted(t)&&!isTaskCancelled(t)&&!isTaskOverdue(t)&&getTaskPlannedEndDate(t)&&daysBetween(today,getTaskPlannedEndDate(t))>0&&daysBetween(today,getTaskPlannedEndDate(t))<=n&&!supervisorProgressEnough(t));
-  const p48=upcoming(2), p72=upcoming(3);
-  const openApprovals=(window._approvalsData||approvals||[]).filter(a=>!['معتمد','مرفوض','مكتملة','ملغاة'].includes(normalizeTaskStatus(a.status||'')));
-  const openDecisions=(decisionLogRecords||[]).filter(d=>!['مغلق','معتمد','مكتملة'].includes(normalizeTaskStatus(d.status||d.decisionStatus||'')));
-  const set=(id,html)=>{const el=document.getElementById(id); if(el) el.innerHTML=html;};
-  set('sup-kpis',[['منجز اليوم',doneToday.length,'#10e87a'],['مهام الغد',tomorrowTasks.length,'#3b82f6'],['متأخرة',overdue.length,'#ff4d6a'],['تعطيل قرارات/اعتمادات',openApprovals.length+openDecisions.length,'#f5b800']].map(x=>`<div class="dec-kpi" style="--dk-color:${x[2]}"><div class="dk-val">${x[1]}</div><div class="dk-label">${x[0]}</div></div>`).join(''));
-  set('sup-done-today',supListHtml(doneToday.map(t=>({code:t.code,title:supervisorTaskTitle(t),detail:`${supervisorTaskPath(t)} · ${supervisorTaskOwner(t)}`})),'لا توجد مهام مكتملة اليوم'));
-  set('sup-tomorrow',supListHtml(tomorrowTasks.map(t=>({code:t.code,title:supervisorTaskTitle(t),detail:`المسار: ${supervisorTaskPath(t)} · المسؤول: ${supervisorTaskOwner(t)}`})),'لا توجد مهام للغد'));
-  set('sup-overdue',supListHtml(overdue.map(t=>({code:t.code,title:supervisorTaskTitle(t),detail:`${supervisorTaskOwner(t)} · تأخير ${getTaskDelayDays(t)} يوم`,tag:`${getTaskDelayDays(t)} يوم`,red:true})),'لا توجد مهام متأخرة'));
-  set('sup-predict-48',sourceTasks.length?supListHtml(p48.map(t=>({code:t.code,title:supervisorTaskTitle(t),detail:`الاستحقاق: ${getTaskPlannedEndDate(t)} · التقدم: ${getTaskProgress(t)}%`,tag:'48 ساعة'}))):'<div style="color:var(--muted);padding:18px;text-align:center">لا توجد بيانات كافية للتنبؤ</div>');
-  set('sup-predict-72',sourceTasks.length?supListHtml(p72.map(t=>({code:t.code,title:supervisorTaskTitle(t),detail:`الاستحقاق: ${getTaskPlannedEndDate(t)} · التقدم: ${getTaskProgress(t)}%`,tag:'72 ساعة'}))):'<div style="color:var(--muted);padding:18px;text-align:center">لا توجد بيانات كافية للتنبؤ</div>');
-  set('sup-blockers',supListHtml([...openApprovals.map(a=>({badge:'اعتماد',title:a.title||a.approval_id,detail:a.approver||a.owner||'لا توجد بيانات كافية'})),...openDecisions.map(d=>({badge:'قرار',title:d.decision||d.title||d.decision_id,detail:d.decisionOwner||d.owner||'لا توجد بيانات كافية'}))],'لا توجد قرارات أو اعتمادات معطلة'));
-  set('sup-deliverables',supListHtml(sourceTasks.filter(t=>!isTaskCompleted(t)&&!isTaskCancelled(t)).map(t=>({badge:supervisorTaskOwner(t).charAt(0),title:supervisorTaskOwner(t),detail:`${supervisorTaskTitle(t)} · المخرج: ${valueOf(t,WBS_FIELD_ALIASES.operationalDeliverable)||'لا توجد بيانات كافية'}`})),'لا توجد بيانات كافية'));
-  const stale=sourceTasks.filter(t=>!isTaskCompleted(t)&&!isTaskCancelled(t)&&(!getFirstTaskField_(t,'lastUpdate')||daysBetween(riyadhDateKey(getFirstTaskField_(t,'lastUpdate')),today)>2));
-  set('sup-stale',supListHtml(stale.map(t=>({code:t.code,title:supervisorTaskOwner(t),detail:`${supervisorTaskTitle(t)} · آخر تحديث: ${getFirstTaskField_(t,'lastUpdate')||'لا توجد بيانات كافية'}`})),'لا توجد بيانات كافية'));
-  set('sup-variance',supListHtml(overdue.map(t=>({code:t.code,title:supervisorTaskTitle(t),detail:`النهاية المخططة: ${getTaskPlannedEndDate(t)||'لا توجد بيانات كافية'} · النهاية الفعلية: ${getTaskActualEndDate(t)||'لا توجد بيانات كافية'} · الانحراف: ${getTaskDelayDays(t)} يوم`})),'لا يوجد انحراف ظاهر'));
-  set('sup-recommendations',supListHtml([{badge:'PMO',title:'توصيات اليوم التالي',detail:[overdue.length?'متابعة المهام المتأخرة حسب المسؤول.':'لا توجد مهام متأخرة حالياً.',openApprovals.length+openDecisions.length?'إغلاق القرارات والاعتمادات المفتوحة المعطلة.':'لا توجد تعطيلات قرارات أو اعتمادات ظاهرة.',p48.length?'طلب تحديث فوري للمهام المتوقع تأخرها خلال 48 ساعة.':'لا توجد توقعات تأخر خلال 48 ساعة.'].join(' ')}]));
-}
-async function createSupervisorDraftPreview(){
-  const status=document.getElementById('sup-draft-status'), box=document.getElementById('sup-drafts');
-  if(status) status.textContent='جاري إنشاء المعاينة فقط دون إرسال...';
-  try{
-    const res=await postApi(getConfiguredApiUrl(),{action:'supervisor_draft_preview'});
-    const data=await res.json();
-    if(!data.ok) throw new Error(data.error||'preview failed');
-    if(status) status.textContent=`تم إنشاء ${data.drafts.length} مسودة للمعاينة فقط. لم يتم إرسال بريد أو Slack.`;
-    if(box) box.innerHTML=data.drafts.map((d,i)=>`<div class="card" style="margin-top:10px;background:rgba(255,255,255,.025)"><div class="sec-title"><h2>مسودة ${i+1}</h2><span>قابلة للتعديل قبل التأكيد</span></div><input value="${escapeHtml(d.recipient)}" style="width:100%;margin-bottom:8px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--text)"><input value="${escapeHtml(d.subject)}" style="width:100%;margin-bottom:8px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--text)"><textarea rows="6" style="width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--text)">${escapeHtml(d.body)}</textarea><div style="font-size:12px;color:var(--muted);margin-top:8px">المهام المرتبطة: ${escapeHtml((d.linked_tasks||[]).join(', ')||'لا توجد بيانات كافية')}</div><button class="ops-mini-btn" disabled style="margin-top:8px">زر التأكيد اللاحق غير مفعل في هذه الدفعة</button></div>`).join('')||noDataBoxHtml();
-  }catch(e){if(status) status.textContent='تعذر إنشاء المعاينة: '+(e.message||e);}
-}
-
 </script>
 <style>
 :root{
@@ -1348,7 +1302,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
       <div class="sidebar-section-label">التحليلات</div>
       <button class="nav-item" data-page="projectHealth">صحة المشروع</button>
       <button class="nav-item" data-page="executiveBoard">لوحة المدير العام</button>
-      <button class="nav-item" data-page="supervisorDaily">لوحة المشرف اليومية</button>
       <button class="nav-item" data-page="analytics">التحليلات التنفيذية</button>
       <button class="nav-item" data-page="commitmentsHub">الالتزامات</button>
       <button class="nav-item" data-page="smartReminders">التذكير الذكي</button>
@@ -1440,7 +1393,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
           </div>
           <div class="esb-divider"></div>
           <div class="esb-decision" onclick="showPage('actions')" style="cursor:pointer" title="فتح مركز الأولويات">
-            
+
             <span class="esb-decision-text" id="esbDecision">جاري تحليل البيانات...</span>
           </div>
           <div class="esb-sync">
@@ -2772,32 +2725,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;ba
         <div class="card"><div class="sec-title"><h2>سجل الملفات</h2><span>من File Control Register</span></div><div id="file-list" style="margin-top:10px"></div></div>
       </section>
 
-
-
-      <!-- SUPERVISOR DAILY DASHBOARD -->
-      <section class="page" id="supervisorDaily">
-        <div class="page-header"><h1>لوحة المشرف اليومية</h1><p>صفحة تنفيذية خاصة بالمشرف العام أحمد العامودي وPMO من سجلات Google Sheets الرسمية فقط</p></div>
-        <div class="dec-kpi-grid" id="sup-kpis"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-          <div class="card"><div class="sec-title"><h2>ما أُنجز اليوم</h2><span>WBS</span></div><div id="sup-done-today"></div></div>
-          <div class="card"><div class="sec-title"><h2>مهام الغد حسب المسار والمسؤول</h2><span>WBS</span></div><div id="sup-tomorrow"></div></div>
-          <div class="card"><div class="sec-title"><h2>المهام المتأخرة وعدد أيام التأخير</h2><span>WBS</span></div><div id="sup-overdue"></div></div>
-          <div class="card"><div class="sec-title"><h2>متوقع تأخرها خلال 48 ساعة</h2><span>تقدم فعلي غير كافٍ</span></div><div id="sup-predict-48"></div></div>
-          <div class="card"><div class="sec-title"><h2>متوقع تأخرها خلال 72 ساعة</h2><span>تقدم فعلي غير كافٍ</span></div><div id="sup-predict-72"></div></div>
-          <div class="card"><div class="sec-title"><h2>قرارات واعتمادات تعطل التنفيذ</h2><span>Decision Log + Approvals Register</span></div><div id="sup-blockers"></div></div>
-          <div class="card"><div class="sec-title"><h2>المخرجات المطلوب استلامها من كل مسؤول</h2><span>WBS</span></div><div id="sup-deliverables"></div></div>
-          <div class="card"><div class="sec-title"><h2>مسؤولون لم يحدثوا مهامهم</h2><span>WBS / Employee Master عند توفره</span></div><div id="sup-stale"></div></div>
-        </div>
-        <div class="card" style="margin-bottom:14px"><div class="sec-title"><h2>الانحراف بين المخطط والفعلي</h2><span>Planned vs Actual</span></div><div id="sup-variance"></div></div>
-        <div class="card" style="margin-bottom:14px"><div class="sec-title"><h2>توصيات PMO لليوم التالي</h2><span>محسوبة من السجلات الرسمية</span></div><div id="sup-recommendations"></div></div>
-        <div class="card">
-          <div class="sec-title"><h2>مسودات المتابعة والتصعيد</h2><span>معاينة فقط — لا يوجد إرسال فعلي في هذه الدفعة</span></div>
-          <button class="ops-primary-btn" onclick="createSupervisorDraftPreview()">إنشاء مسودات المتابعة والتصعيد</button>
-          <div id="sup-draft-status" style="margin-top:10px;color:var(--muted);font-size:12.5px"></div>
-          <div id="sup-drafts" style="margin-top:12px"></div>
-        </div>
-      </section>
-
       <!-- SETUP PAGE -->
       <section class="page" id="setup">
         <div class="page-header"><h1>الإعدادات</h1><p>إعداد مصدر البيانات</p></div>
@@ -2888,7 +2815,6 @@ const PAGE_RENDERERS={
   pmoAssistant:['renderPmoAssistant'],
   projectHealth:['renderProjectHealth'],
   executiveBoard:['renderExecutiveBoard'],
-  supervisorDaily:['renderSupervisorDaily'],
   commitmentsHub:['renderCommitmentsHub'],
   smartReminders:['renderSmartReminders'],
   fileControl:['renderFileControl'],
@@ -2990,7 +2916,6 @@ function normalizePageList(v){
 function canAccessPage(id){
   if(id==='urgentTasksPage') return canAccessPage('overview');
   const pages=normalizePageList(currentUser.allowed_pages);
-  if(id==='supervisorDaily') return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id)||String(currentUser.role||'').toLowerCase().includes('pmo')||normalizeArabic(currentUser.display_name||currentUser.username||'').includes(normalizeArabic('أحمد العامودي'));
   return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id);
 }
 function applyPermissions(){
@@ -4709,7 +4634,7 @@ function renderTimeline(){
   const months=['يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر'];
   const headEl=document.querySelector('.timeline-head');
   if(headEl){
-    headEl.innerHTML='<div style="padding:8px 12px;font-size:12px;color:var(--muted);font-weight:700">المهمة / الكود</div>'+ 
+    headEl.innerHTML='<div style="padding:8px 12px;font-size:12px;color:var(--muted);font-weight:700">المهمة / الكود</div>'+
       months.map(m=>`<div style="padding:8px;font-size:11px;color:var(--muted);font-weight:700;text-align:center">${m}</div>`).join('');
   }
 
@@ -4977,7 +4902,7 @@ function renderPhases(){
     <div class="sec-title"><h2>معوقات الانتقال</h2><span style="color:${blockers.length?'#ff4d6a':'#10e87a'};font-weight:700;font-size:12px">${blockers.length?blockers.length+' معوقات':'لا معوقات'}</span></div>
     ${blockers.length?`<div style="margin-top:8px">${blockers.map(b=>`<div class="blocker-item" onclick="${b.action}" style="cursor:pointer;border-radius:8px;transition:background .15s;padding:9px 8px;margin:0 -8px" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='transparent'"><div class="blocker-dot" style="background:${b.color}"></div><span style="font-size:12.5px;color:#c4d0f0;line-height:1.45;flex:1">${b.text}<span class="blocker-priority" style="background:${b.color}1a;color:${b.color}">${b.priority}</span></span><span style="font-size:11px;color:var(--muted)">←</span></div>`).join('')}</div>`:`
     <div style="margin-top:20px;text-align:center;padding:16px">
-      
+
       <div style="font-size:13px;font-weight:700;color:#10e87a">لا توجد معوقات</div>
       <div style="font-size:11.5px;color:var(--muted);margin-top:4px">المشروع جاهز للانتقال للمرحلة التالية</div>
     </div>`}

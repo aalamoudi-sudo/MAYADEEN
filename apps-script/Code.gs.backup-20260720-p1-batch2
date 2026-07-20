@@ -70,7 +70,6 @@ const KAG_CONFIG = {
   filesSheetName: 'File Control Register',
   urgentTasksSheetName: 'Urgent Task',
   auditSheetName: 'Audit Log',
-  employeeMasterSheetName: 'Employee Master',
   projectMasterSheetName: 'Project Master',
   projectSettingsSheetName: 'Project Settings',
   codeSequencesSheetName: 'Code Sequences',
@@ -151,11 +150,6 @@ function doPost(e) {
 
     if (payload.action === 'data_sync') {
       return json_(buildDashboardData_(session));
-    }
-
-    if (payload.action === 'supervisor_draft_preview') {
-      requireSupervisorDashboardAccess_(session);
-      return json_(buildSupervisorDraftPreview_(session));
     }
 
 
@@ -1635,76 +1629,6 @@ function buildExecutiveSummary_(rows) {
     '',
     formatTaskList_('أهم البنود الحرجة', critical)
   ].join('\n');
-}
-
-function requireSupervisorDashboardAccess_(session) {
-  const pages = String((session.allowed_pages || []).join ? session.allowed_pages.join(',') : (session.allowed_pages || '')).split(/[,،]/).map(function(x) { return String(x).trim(); }).filter(Boolean);
-  const role = String(session.role || '').toLowerCase();
-  const display = String(session.display_name || session.username || '').trim();
-  const isPmo = role.indexOf('pmo') !== -1 || pages.indexOf('supervisorDaily') !== -1 || pages.indexOf('*') !== -1 || hasFullAccess_(session);
-  const isAhmedAlamoudi = normalizeArabicText_(display).indexOf(normalizeArabicText_('أحمد العامودي')) !== -1;
-  if (isPmo || isAhmedAlamoudi) return;
-  throw new Error('Forbidden: supervisor dashboard permission required');
-}
-
-function normalizeArabicText_(value) {
-  return String(value || '').replace(/[\u064B-\u065F\u0670\u200B-\u200F\uFEFF]/g, '').replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
-}
-
-function buildSupervisorDraftPreview_(session) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  const tasks = getTaskRows_(ss);
-  const today = Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd');
-  const overdue = tasks.filter(function(t) { return isSupervisorOverdueTask_(t, today); });
-  const blocked = getDecisionRows_(ss).concat(getApprovalRows_(ss)).filter(function(r) {
-    const status = normalizeArabicText_(valueOf_(r, ['status','الحالة','approval_status']));
-    return status && ['معتمد','مرفوض','مكتمله','مكتمل','approved','rejected','completed','done'].indexOf(status) === -1;
-  });
-  const byOwner = {};
-  overdue.forEach(function(t) {
-    const owner = valueOf_(t, WBS_FIELD_ALIASES.owner) || 'لا توجد بيانات كافية';
-    if (!byOwner[owner]) byOwner[owner] = [];
-    byOwner[owner].push(t);
-  });
-  const drafts = Object.keys(byOwner).map(function(owner) {
-    const linked = byOwner[owner].map(function(t) { return valueOf_(t, WBS_FIELD_ALIASES.taskId) || ('row_' + t.row_number); });
-    return {
-      recipient: owner,
-      subject: 'مسودة متابعة مهام متأخرة - ' + today,
-      body: 'مسودة قابلة للتعديل فقط، ولم يتم إرسالها.\nيرجى تحديث حالة المهام المتأخرة وإرفاق المخرجات المطلوبة.\nالمهام: ' + linked.join(', '),
-      linked_tasks: linked
-    };
-  });
-  if (blocked.length) {
-    drafts.push({ recipient: 'PMO', subject: 'مسودة تصعيد قرارات واعتمادات معطلة - ' + today, body: 'مسودة قابلة للتعديل فقط، ولم يتم إرسالها.\nتوجد قرارات أو اعتمادات مفتوحة تعطل التنفيذ: ' + blocked.length, linked_tasks: blocked.map(function(r) { return valueOf_(r, ['approval_id','decision_id','linked_wbs_code','id','code']) || ''; }).filter(Boolean) });
-  }
-  appendAuditLog_({
-    action: 'supervisor_draft_preview',
-    operation: 'supervisor_draft_preview',
-    status: 'success',
-    updated_by: session.display_name || session.username,
-    record: 'draft_count=' + drafts.length,
-    reference: drafts.reduce(function(all, d) { return all.concat(d.linked_tasks || []); }, []).join(','),
-    result: 'preview_only_no_email_no_slack',
-    riyadh_time: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
-    draft_count: drafts.length
-  });
-  return { ok: true, message: 'Draft preview only; no email or Slack sent', drafts: drafts };
-}
-
-function isSupervisorOverdueTask_(task, todayKey) {
-  const status = normalizeArabicText_(valueOf_(task, WBS_FIELD_ALIASES.status));
-  if (['مكتمله','مكتمل','completed','done','ملغاه','ملغي','cancelled','canceled'].indexOf(status) !== -1) return false;
-  const end = valueOf_(task, WBS_FIELD_ALIASES.plannedEnd);
-  return end && String(end) < todayKey;
-}
-
-function valueOf_(obj, names) {
-  for (var i = 0; i < names.length; i++) {
-    const key = normalizeHeader_(names[i]);
-    if (obj && obj[key] !== undefined && obj[key] !== null && obj[key] !== '') return obj[key];
-  }
-  return '';
 }
 
 function appendAuditLog_(payload) {
