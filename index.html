@@ -2970,7 +2970,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
 
 <script>
-const EMBEDDED={"rows":[],"pm":[],"generated":""};
 const NO_KPI_DATA_TEXT='لا توجد بيانات كافية لاحتساب المؤشر';
 const OFFICIAL_PATHS=['الضيافة','التشغيل','تجربة الضيوف','المحتوى','اللوجستيات والنقل','التنفيذ','التصميم','البروتوكول والحشود'];
 let officialDataReady=false;
@@ -3448,8 +3447,10 @@ function normalizeRow(raw){
   const priority=String(valueOf(raw,WBS_FIELD_ALIASES.priority)||'').trim();
   const dataSource=String(valueOf(raw,WBS_FIELD_ALIASES.dataSource)||raw._source||'google_sheets').trim();
   const version=valueOf(raw,WBS_FIELD_ALIASES.version);
-  let type = typeRaw || (/^\d+$/.test(code) || /Tasks/i.test(notes) ? 'Milestone' : 'Task');
-  if(type==='معلم') type='Milestone'; if(type==='مهمة') type='Task';
+  let type = typeRaw || 'Task';
+  const typeNorm=normalizeArabic(String(type).toLowerCase());
+  if(['milestone',normalizeArabic('معلم'),normalizeArabic('معلم رئيسي')].includes(typeNorm)) type='Milestone';
+  else type='Task';
   if(!name) return null;
   const source=String(valueOf(raw,['source','_source'])||'google_sheets').trim();
   const record_type=String(valueOf(raw,['record_type'])||'').trim();
@@ -5393,7 +5394,7 @@ async function loadExternal(initial=true){
   const baseUrl=getConfiguredApiUrl();
   const input=document.getElementById('apiUrl'); if(input) input.value=baseUrl;
 
-  // لا تُستخدم localStorage أو EMBEDDED كمصدر نهائي للمؤشرات.
+  // لا تُستخدم localStorage كمصدر نهائي للمؤشرات؛ Google Sheets فقط.
   if(initial){
     rows=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[]; officialDataReady=false;
     setSyncLoadingState();
@@ -5445,11 +5446,17 @@ async function loadExternal(initial=true){
     const normalizedSuppliers=normalizeSupplierRows(data.suppliers_register||data.suppliers||[]);
     const normalizedRiskGovernance=normalizeRiskGovernanceRows(data.risk_governance_register||data.riskGovernanceRegister||data.risk_governance||data.risks_governance||[]);
     employeeMaster=data.employee_master||[]; baselineManagement=data.baseline_management||[]; raciMatrix=data.raci_matrix||[]; employeeWorkload=data.employee_workload||[]; criticalPathAnalysis=data.critical_path||criticalPathAnalysis; dataQualityCenter=data.data_quality||dataQualityCenter;
-    const excludedCodes=new Set((dataQualityCenter.excluded_task_codes||[]).map(x=>String(x).trim()));
+    const syncMeta=data.sync_meta||{};
     if(normalized.length||normalizedRiskGovernance.length||Object.prototype.hasOwnProperty.call(data,'decision_log')){
       if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
       if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
-      rows=normalized.filter(r=>!isTestOrSyntheticRecord_(r)&&!excludedCodes.has(String(r.code||'').trim()));
+      rows=normalized.filter(r=>!isTestOrSyntheticRecord_(r));
+      const pageTaskCount=rows.filter(isTaskRecord_).length;
+      const payloadTaskCount=Number(syncMeta.payload_task_total||normalized.length);
+      const sheetTaskCount=Number(syncMeta.valid_task_count||payloadTaskCount);
+      if(sheetTaskCount!==payloadTaskCount||payloadTaskCount!==pageTaskCount){
+        throw new Error(`Unified data pipeline mismatch: Google Sheet=${sheetTaskCount}, Payload=${payloadTaskCount}, Home=${pageTaskCount}`);
+      }
       officialDataReady=rows.length>0||normalizedRiskGovernance.length>0;
       approvals=normalizedApprovals.filter(r=>!isTestOrSyntheticRecord_(r));
       assignments=normalizedAssignments.filter(r=>!isTestOrSyntheticRecord_(r));
@@ -5488,7 +5495,7 @@ async function loadExternal(initial=true){
       const now=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const stEl=document.getElementById('sheetStatus');
       const stTx=document.getElementById('sheetStatusText');
-      if(stTx) stTx.textContent=`متصل — ${now} · آخر مزامنة · ${rows.length} صف WBS · ${riskGovernanceRegister.length} سجل مخاطر`;
+      if(stTx) stTx.textContent=`متصل — ${now} · آخر مزامنة · ${tasks.length} مهمة WBS · ${riskGovernanceRegister.length} سجل مخاطر`;
       if(stEl){stEl.classList.remove('loading');stEl.classList.add('connected');};
       setLastUpdate('قاعدة البيانات / Google Sheet', new Date());
       syncBackoffMs=30000;

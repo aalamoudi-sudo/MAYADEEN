@@ -18,6 +18,9 @@
  */
 
 
+const SPREADSHEET_ID = '1e6Yw758p5cJYTERQpfmNLtRX_7HupiRfIkvrvNHY4BE';
+const PRIMARY_WBS_SHEET_NAME = 'WBS';
+
 const WBS_FIELD_ALIASES = {
   taskId:['كود المهمة','معرف المهمة','code','WBS Code','Code','الكود','رمز WBS','task_id','id','رقم المهمة'],
   taskName:['اسم المهمة','name','Milestone / Task','Milestone/Task','Task','المهمة','العنوان'],
@@ -49,13 +52,14 @@ const WBS_FIELD_ALIASES = {
   originalStatus:['الحالة الأصلية','original_status','sheet_status'],
   computedStatus:['الحالة المحسوبة','computed_status'],
   lag:['Lag','lag','فترة التأخير','الفاصل'],
-  dataSource:['مصدر البيانات','source','data_source','_source']
+  dataSource:['مصدر البيانات','source','data_source','_source'],
+  type:['type','Type','Row Type','نوع الصف','النوع','record_type','نوع السجل']
 };
 
 const KAG_CONFIG = {
   timezone: 'Asia/Riyadh',
-  sheetId: '1hymTfPLDR7QX1Rq9e3I4OyZJBpmnHNp4SxEUfjXnBGU',
-  defaultTaskSheetNames: ['Tasks', 'WBS', 'Sheet1', 'المهام', 'متابعة الملفات', 'Index'],
+  sheetId: SPREADSHEET_ID,
+  taskSheetName: PRIMARY_WBS_SHEET_NAME,
   approvalsSheetName: 'Approvals Register',
   approvalChainSheetName: 'Approval Chain Register',
   approvalHistorySheetName: 'Digital Approval History',
@@ -102,9 +106,10 @@ function doGet(e) {
 }
 
 function buildDashboardData_(session) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  const rows = getTaskRows_(ss);
-  const taskHeaders = getTaskHeaders_(ss);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const taskRead = readOfficialWbsTasks_(ss);
+  const rows = taskRead.rows;
+  const taskHeaders = taskRead.headers;
   const approvals = getApprovalRows_(ss);
   const approvalChain = getExistingRegisterRows_(ss, KAG_CONFIG.approvalChainSheetName);
   const escalationChain = getExistingRegisterRows_(ss, KAG_CONFIG.escalationChainSheetName);
@@ -151,12 +156,12 @@ function buildDashboardData_(session) {
     critical_path: criticalPath,
     data_quality: dataQuality,
     field_experience: fieldExperience,
-    sync_meta: {
+    sync_meta: Object.assign({}, taskRead.diagnostics, {
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
       risk_rows_read: riskGovernance.length,
       connection_status: 'connected'
-    }
+    })
   };
 }
 
@@ -467,46 +472,108 @@ function isTestOrSyntheticRecord_(row) {
 }
 
 function getTaskHeaders_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
-  const sheet = findTaskSheet_(ss);
-  const values = sheet.getDataRange().getValues();
-  if (!values.length) return [];
-  return values[0].map(function(h) { return normalizeHeader_(h); });
+  return readOfficialWbsTasks_(ss || SpreadsheetApp.openById(SPREADSHEET_ID)).headers;
 }
 
 function getTaskRows_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  return readOfficialWbsTasks_(ss || SpreadsheetApp.openById(SPREADSHEET_ID)).rows;
+}
+
+function readOfficialWbsTasks_(ss) {
+  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = findTaskSheet_(ss);
   const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return [];
-
-  const headers = values[0].map(function(h) { return normalizeHeader_(h); });
-  return values.slice(1).filter(function(row) {
-    return row.some(function(cell) { return String(cell || '').trim() !== ''; });
-  }).map(function(row, index) {
+  const headers = values.length ? values[0].map(function(h) { return normalizeHeader_(h); }) : [];
+  const diagnostics = {
+    spreadsheet_id: SPREADSHEET_ID,
+    sheet_name: sheet.getName(),
+    raw_row_count: Math.max(values.length - 1, 0),
+    non_empty_row_count: 0,
+    valid_task_count: 0,
+    excluded_row_count: 0,
+    exclusion_reasons: {},
+    first_10_task_codes: [],
+    last_10_task_codes: [],
+    payload_task_total: 0,
+    home_task_total: 0
+  };
+  if (values.length < 2) {
+    logDataSyncDiagnostics_(diagnostics);
+    return { rows: [], headers: headers, diagnostics: diagnostics };
+  }
+  const rows = [];
+  values.slice(1).forEach(function(row, index) {
+    const rowNumber = index + 2;
+    const nonEmpty = row.some(function(cell) { return String(cell || '').trim() !== ''; });
+    if (!nonEmpty) return;
+    diagnostics.non_empty_row_count++;
     const item = {};
     headers.forEach(function(header, col) {
       item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
     });
-    item.row_number = index + 2;
+    item.row_number = rowNumber;
     item._source = 'google_sheets';
     item._sheet_name = sheet.getName();
-    return item;
-  }).filter(function(item) { return !isTestOrSyntheticRecord_(item); });
+    const type = normalizeTaskType_(getField_(item, WBS_FIELD_ALIASES.type));
+    const code = String(getField_(item, WBS_FIELD_ALIASES.taskId) || '').trim();
+    const name = String(getField_(item, WBS_FIELD_ALIASES.taskName) || '').trim();
+    let reason = '';
+    if (isTestOrSyntheticRecord_(item)) reason = 'synthetic_or_test_record';
+    else if (!name && !code) reason = 'missing_task_code_and_name';
+    else if (type === 'Milestone') reason = 'milestone_not_task';
+    if (reason) {
+      diagnostics.excluded_row_count++;
+      diagnostics.exclusion_reasons[reason] = (diagnostics.exclusion_reasons[reason] || 0) + 1;
+      return;
+    }
+    rows.push(item);
+  });
+  diagnostics.valid_task_count = rows.length;
+  diagnostics.payload_task_total = rows.length;
+  diagnostics.home_task_total = rows.length;
+  const codes = rows.map(function(item) { return String(getField_(item, WBS_FIELD_ALIASES.taskId) || item.row_number || '').trim(); });
+  diagnostics.first_10_task_codes = codes.slice(0, 10);
+  diagnostics.last_10_task_codes = codes.slice(Math.max(codes.length - 10, 0));
+  validateUnifiedPipeline_(diagnostics, rows.length);
+  logDataSyncDiagnostics_(diagnostics);
+  return { rows: rows, headers: headers, diagnostics: diagnostics };
+}
+
+function normalizeTaskType_(value) {
+  const raw = normalizeHeader_(value);
+  if (!raw) return 'Task';
+  if (['milestone', 'معلم', 'معلم_رئيسي'].indexOf(raw) !== -1) return 'Milestone';
+  return 'Task';
+}
+
+function logDataSyncDiagnostics_(diagnostics) {
+  Logger.log('[data_sync] Spreadsheet ID: ' + diagnostics.spreadsheet_id);
+  Logger.log('[data_sync] Sheet: ' + diagnostics.sheet_name);
+  Logger.log('[data_sync] Raw rows: ' + diagnostics.raw_row_count);
+  Logger.log('[data_sync] Non-empty rows: ' + diagnostics.non_empty_row_count);
+  Logger.log('[data_sync] Valid tasks: ' + diagnostics.valid_task_count);
+  Logger.log('[data_sync] Excluded rows: ' + diagnostics.excluded_row_count);
+  Logger.log('[data_sync] Exclusion reasons: ' + JSON.stringify(diagnostics.exclusion_reasons));
+  Logger.log('[data_sync] First 10 task codes: ' + JSON.stringify(diagnostics.first_10_task_codes));
+  Logger.log('[data_sync] Last 10 task codes: ' + JSON.stringify(diagnostics.last_10_task_codes));
+  Logger.log('[data_sync] Payload task total: ' + diagnostics.payload_task_total);
+  Logger.log('[data_sync] Home task total: ' + diagnostics.home_task_total);
+}
+
+function validateUnifiedPipeline_(diagnostics, payloadCount) {
+  if (diagnostics.valid_task_count !== payloadCount || diagnostics.payload_task_total !== diagnostics.home_task_total) {
+    throw new Error('Unified data pipeline mismatch: ' + JSON.stringify(diagnostics));
+  }
 }
 
 function findTaskSheet_(ss) {
-  const sheets = ss.getSheets();
-  for (var i = 0; i < KAG_CONFIG.defaultTaskSheetNames.length; i++) {
-    const name = KAG_CONFIG.defaultTaskSheetNames[i];
-    const found = sheets.find(function(sheet) { return sheet.getName() === name; });
-    if (found) return found;
-  }
-  return sheets[0];
+  const sheet = ss.getSheetByName(KAG_CONFIG.taskSheetName);
+  if (!sheet) throw new Error('Required WBS sheet not found in Spreadsheet ID ' + SPREADSHEET_ID + ': ' + KAG_CONFIG.taskSheetName);
+  return sheet;
 }
 
 function ensureApprovalSheet_() {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(KAG_CONFIG.approvalsSheetName) || ss.insertSheet(KAG_CONFIG.approvalsSheetName);
   const headers = [
     'approval_id',
@@ -549,7 +616,7 @@ function ensureApprovalSheet_() {
 }
 
 function ensureAssignmentSheet_() {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(KAG_CONFIG.assignmentsSheetName) || ss.insertSheet(KAG_CONFIG.assignmentsSheetName);
   const headers = [
     'assignment_id','wbs_code','title','path','owner','email','deliverable','priority','due_date','drive_link','email_body','status','details','assigned_by','email_sent_at','created_at','updated_at'
@@ -579,7 +646,7 @@ function getWorkloadHeaders_() { return ['employee','email','task_count','overdu
 function getCriticalPathHeaders_() { return ['task_code','task_name','early_start','early_finish','late_start','late_finish','total_float','free_float','is_critical','directly_impacts_opening','dependency_type','lag','data_status']; }
 function getDataQualityHeaders_() { return ['issue_type','task_code','task_name','details','severity','excluded_from_kpi','detected_at']; }
 
-function getEmployeeMasterRows_(ss) { return getExistingRegisterRows_(ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId), KAG_CONFIG.employeeMasterSheetName); }
+function getEmployeeMasterRows_(ss) { return getExistingRegisterRows_(ss || SpreadsheetApp.openById(SPREADSHEET_ID), KAG_CONFIG.employeeMasterSheetName); }
 function normKey_(value) { return String(value || '').trim().toLowerCase(); }
 function taskField_(row, field) { return getField_(row, WBS_FIELD_ALIASES[field] || []); }
 function taskCode_(row) { return String(taskField_(row, 'taskId') || '').trim(); }
@@ -619,7 +686,7 @@ function buildDataQualityCenter_(ss, rows, employees, criticalPath) {
   Object.keys(codes).forEach(function(k){ if(codes[k].length>1) codes[k].forEach(function(r){add('الأكواد المكررة',r,k,'critical');}); }); Object.keys(names).forEach(function(k){ if(names[k].length>1) names[k].forEach(function(r){add('أسماء المهام المكررة',r,k,'medium');}); });
   rows.forEach(function(r){ if(!taskOwner_(r)) add('المهام بدون مسؤول',r,'owner missing'); if(!taskField_(r,'mainPath')) add('المهام بدون مسار',r,'path missing'); if(!taskField_(r,'approvalEntity')) add('المهام بدون معتمد',r,'approver missing'); if(!taskField_(r,'operationalDeliverable')) add('المهام بدون مخرج',r,'deliverable missing'); String(taskField_(r,'predecessor')||'').split(/[,;،]/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(p){ if(!taskCodes[p]) add('الاعتماديات المفقودة',r,p,'critical'); }); if(taskStart_(r)&&taskEnd_(r)&&dayNumber_(taskStart_(r))>dayNumber_(taskEnd_(r))) add('البداية بعد النهاية',r,'start > end','critical'); if(/1900|1970|2099|placeholder|tbd|لاحق/i.test(String(taskField_(r,'plannedStart'))+String(taskField_(r,'plannedEnd')))) add('Placeholder Dates',r,'placeholder date'); if(isCompleteTask_(r)&&!taskField_(r,'evidence')) add('المهام المكتملة بدون دليل',r,'evidence missing'); if(taskProgress_(r)>=100&&!taskField_(r,'actualEnd')) add('المهام 100% بدون تاريخ نهاية فعلي',r,'actual end missing'); if(/قيد التنفيذ|in progress/i.test(String(taskField_(r,'status')))&&taskStart_(r)&&dayNumber_(taskStart_(r))>dayNumber_(Utilities.formatDate(new Date(),KAG_CONFIG.timezone,'yyyy-MM-dd'))) add('المهام قيد التنفيذ قبل تاريخ البداية',r,'status before start'); const email=taskField_(r,'ownerEmail'); if(email && !findEmployee_(idx, taskOwner_(r), email)) add('البريد غير المطابق لـ Employee Master',r,email); });
   if(criticalPath && criticalPath.circular_dependencies) add('الاعتماديات الدائرية',null,'cycle detected','critical');
-  appendAuditLog_({ action:'data_quality_check', operation:'verify', status:'success', result:String(issues.length)+' issues detected', updated_by:'System' }); return { issues:issues, excluded_task_codes:issues.map(function(i){return i.task_code;}).filter(Boolean), summary:{issue_count:issues.length, excluded_from_kpi_count:issues.length} };
+  return { issues:issues, excluded_task_codes:[], summary:{issue_count:issues.length, excluded_from_kpi_count:0} };
 }
 
 function getMeetingHeaders_() {
@@ -907,7 +974,7 @@ function parseBool_(value) {
 }
 
 function getUrgentTaskSheet_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID);
   return ss.getSheetByName(KAG_CONFIG.urgentTasksSheetName);
 }
 
@@ -1028,7 +1095,7 @@ function getFieldExperienceSheetDefinitions_() {
 
 // Manual one-time setup only: run ensureFieldExperienceSheets_ from Apps Script editor when onboarding the Field Experience Center sheets. Do not call from doGet, doPost, or data_sync.
 function ensureFieldExperienceSheets_() {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   getFieldExperienceSheetDefinitions_().forEach(function(def) {
     var created = false;
     var sheet = ss.getSheetByName(def.sheetName);
@@ -1105,7 +1172,7 @@ function readFieldExperienceRows_(ss, sheetName, expectedHeaders, warnings) {
 }
 
 function ensureRegisterSheet_(sheetName, headers) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
@@ -1128,7 +1195,7 @@ function ensureSheetColumns_(sheet, requiredHeaders) {
 }
 
 function getExistingEscalationRows_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID);
   for (var i = 0; i < KAG_CONFIG.escalationRegisterSheetNames.length; i++) {
     const name = KAG_CONFIG.escalationRegisterSheetNames[i];
     const sheet = ss.getSheetByName(name);
@@ -1649,7 +1716,7 @@ function getCodeMigrationReportHeaders_() {
 }
 
 function ensureProjectGovernanceSheets_(payload) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureRegisterSheet_(KAG_CONFIG.projectMasterSheetName, getProjectMasterHeaders_());
   ensureRegisterSheet_(KAG_CONFIG.projectSettingsSheetName, getProjectSettingsHeaders_());
   ensureRegisterSheet_(KAG_CONFIG.codeSequencesSheetName, getCodeSequenceHeaders_());
@@ -1660,12 +1727,12 @@ function ensureProjectGovernanceSheets_(payload) {
 }
 
 function getProjectMasterRows_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID);
   return getExistingRegisterRows_(ss, KAG_CONFIG.projectMasterSheetName);
 }
 
 function getProjectSettingsRows_(ss) {
-  ss = ss || SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID);
   return getExistingRegisterRows_(ss, KAG_CONFIG.projectSettingsSheetName);
 }
 
@@ -1676,7 +1743,7 @@ function requireCanManageProjectConfig_(session) {
 
 function upsertProjectMaster_(payload) {
   if (!payload.project_id || !payload.project_name) throw new Error('project_id and project_name are required');
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureProjectGovernanceSheets_(payload);
   const sheet = ss.getSheetByName(KAG_CONFIG.projectMasterSheetName);
   const headers = getProjectMasterHeaders_();
@@ -1702,7 +1769,7 @@ function upsertProjectMaster_(payload) {
 
 function approveProjectPrefix_(payload) {
   if (!payload.project_id || !payload.project_prefix) throw new Error('project_id and approved project_prefix are required; prefix is never inferred');
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureProjectGovernanceSheets_(payload);
   const sheet = ss.getSheetByName(KAG_CONFIG.projectMasterSheetName);
   const values = sheet.getDataRange().getValues();
@@ -1735,7 +1802,7 @@ function generateProjectCode_(payload) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     ensureProjectGovernanceSheets_(payload);
     const project = readProjectById_(ss, payload.project_id);
     if (!project) throw new Error('Project Master record is required before code generation');
@@ -1778,7 +1845,7 @@ function findExistingGeneratedCode_(ss, code) {
 }
 
 function buildCodeMigrationReport_(payload) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureProjectGovernanceSheets_(payload);
   const sheet = ss.getSheetByName(KAG_CONFIG.codeMigrationReportSheetName);
   const rows = getTaskRows_(ss);
@@ -1862,7 +1929,7 @@ function normalizeArabicText_(value) {
 }
 
 function buildSupervisorDraftPreview_(session) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const tasks = getTaskRows_(ss);
   const today = Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd');
   const overdue = tasks.filter(function(t) { return isSupervisorOverdueTask_(t, today); });
@@ -1918,7 +1985,7 @@ function valueOf_(obj, names) {
 }
 
 function appendAuditLog_(payload) {
-  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(KAG_CONFIG.auditSheetName) || ss.insertSheet(KAG_CONFIG.auditSheetName);
   const headers = ['timestamp', 'date', 'time', 'user', 'operation', 'record', 'previous_value', 'new_value', 'result', 'reference', 'action', 'status', 'raw_json'];
   if (sheet.getLastRow() === 0) {
