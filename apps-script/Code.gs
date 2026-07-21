@@ -106,30 +106,30 @@ function doGet(e) {
 }
 
 function buildDashboardData_(session) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const taskRead = readOfficialWbsTasks_(ss);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const taskRead = readOfficialWbsTasks_(spreadsheet);
   const rows = taskRead.rows;
   const taskHeaders = taskRead.headers;
-  const approvals = getApprovalRows_(ss);
-  const approvalChain = getExistingRegisterRows_(ss, KAG_CONFIG.approvalChainSheetName);
-  const escalationChain = getExistingRegisterRows_(ss, KAG_CONFIG.escalationChainSheetName);
-  const escalations = deduplicateEscalationsById_(getExistingEscalationRows_(ss));
-  const riskGovernance = getExistingRegisterRows_(ss, KAG_CONFIG.riskGovernanceSheetName);
-  const assignments = getAssignmentRows_(ss);
-  const meetings = getExistingRegisterRows_(ss, KAG_CONFIG.meetingsSheetName);
-  const commitments = getExistingRegisterRows_(ss, KAG_CONFIG.commitmentsSheetName);
-  const files = getExistingRegisterRows_(ss, KAG_CONFIG.filesSheetName);
-  const urgentTasks = getUrgentTaskRows_(ss);
-  const decisions = getDecisionRows_(ss);
-  const projectMaster = getProjectMasterRows_(ss);
-  const projectSettings = getProjectSettingsRows_(ss);
-  const employeeMaster = getEmployeeMasterRows_(ss);
-  const baselineManagement = buildBaselineManagement_(ss, rows);
-  const raci = buildRaciMatrix_(ss, rows, employeeMaster);
-  const workload = buildEmployeeWorkload_(ss, rows, employeeMaster);
-  const criticalPath = buildCriticalPathAnalysis_(ss, rows);
-  const dataQuality = buildDataQualityCenter_(ss, rows, employeeMaster, criticalPath);
-  const fieldExperience = buildFieldExperienceData_(ss);
+  const approvals = getApprovalRows_(spreadsheet);
+  const approvalChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName);
+  const escalationChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName);
+  const escalations = deduplicateEscalationsById_(getExistingEscalationRows_(spreadsheet));
+  const riskGovernance = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName);
+  const assignments = getAssignmentRows_(spreadsheet);
+  const meetings = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.meetingsSheetName);
+  const commitments = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.commitmentsSheetName);
+  const files = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.filesSheetName);
+  const urgentTasks = getUrgentTaskRows_(spreadsheet);
+  const decisions = getDecisionRows_(spreadsheet);
+  const projectMaster = getProjectMasterRows_(spreadsheet);
+  const projectSettings = getProjectSettingsRows_(spreadsheet);
+  const employeeMaster = getEmployeeMasterRows_(spreadsheet);
+  const baselineManagement = buildBaselineManagement_(spreadsheet, rows);
+  const raci = buildRaciMatrix_(spreadsheet, rows, employeeMaster);
+  const workload = buildEmployeeWorkload_(spreadsheet, rows, employeeMaster);
+  const criticalPath = buildCriticalPathAnalysis_(spreadsheet, rows);
+  const dataQuality = buildDataQualityCenter_(spreadsheet, rows, employeeMaster, criticalPath);
+  const fieldExperience = buildFieldExperienceData_(spreadsheet);
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -573,8 +573,8 @@ function findTaskSheet_(ss) {
 }
 
 function ensureApprovalSheet_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(KAG_CONFIG.approvalsSheetName) || ss.insertSheet(KAG_CONFIG.approvalsSheetName);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(KAG_CONFIG.approvalsSheetName) || spreadsheet.insertSheet(KAG_CONFIG.approvalsSheetName);
   const headers = [
     'approval_id',
     'linked_wbs_code',
@@ -616,8 +616,8 @@ function ensureApprovalSheet_() {
 }
 
 function ensureAssignmentSheet_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(KAG_CONFIG.assignmentsSheetName) || ss.insertSheet(KAG_CONFIG.assignmentsSheetName);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(KAG_CONFIG.assignmentsSheetName) || spreadsheet.insertSheet(KAG_CONFIG.assignmentsSheetName);
   const headers = [
     'assignment_id','wbs_code','title','path','owner','email','deliverable','priority','due_date','drive_link','email_body','status','details','assigned_by','email_sent_at','created_at','updated_at'
   ];
@@ -1095,12 +1095,12 @@ function getFieldExperienceSheetDefinitions_() {
 
 // Manual one-time setup only: run ensureFieldExperienceSheets_ from Apps Script editor when onboarding the Field Experience Center sheets. Do not call from doGet, doPost, or data_sync.
 function ensureFieldExperienceSheets_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   getFieldExperienceSheetDefinitions_().forEach(function(def) {
     var created = false;
-    var sheet = ss.getSheetByName(def.sheetName);
+    var sheet = spreadsheet.getSheetByName(def.sheetName);
     if (!sheet) {
-      sheet = ss.insertSheet(def.sheetName);
+      sheet = spreadsheet.insertSheet(def.sheetName);
       created = true;
       sheet.getRange(1, 1, 1, def.headers.length).setValues([def.headers]);
       sheet.setFrozenRows(1);
@@ -1172,8 +1172,8 @@ function readFieldExperienceRows_(ss, sheetName, expectedHeaders, warnings) {
 }
 
 function ensureRegisterSheet_(sheetName, headers) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
     sheet.setFrozenRows(1);
@@ -1716,7 +1716,7 @@ function getCodeMigrationReportHeaders_() {
 }
 
 function ensureProjectGovernanceSheets_(payload) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureRegisterSheet_(KAG_CONFIG.projectMasterSheetName, getProjectMasterHeaders_());
   ensureRegisterSheet_(KAG_CONFIG.projectSettingsSheetName, getProjectSettingsHeaders_());
   ensureRegisterSheet_(KAG_CONFIG.codeSequencesSheetName, getCodeSequenceHeaders_());
@@ -1743,9 +1743,9 @@ function requireCanManageProjectConfig_(session) {
 
 function upsertProjectMaster_(payload) {
   if (!payload.project_id || !payload.project_name) throw new Error('project_id and project_name are required');
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureProjectGovernanceSheets_(payload);
-  const sheet = ss.getSheetByName(KAG_CONFIG.projectMasterSheetName);
+  const sheet = spreadsheet.getSheetByName(KAG_CONFIG.projectMasterSheetName);
   const headers = getProjectMasterHeaders_();
   const values = sheet.getDataRange().getValues();
   const id = String(payload.project_id).trim();
@@ -1759,19 +1759,19 @@ function upsertProjectMaster_(payload) {
         sheet.getRange(r + 1, col + 1).setValue(row[col]);
       });
       appendAuditLog_({ action: 'project_master_update', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: id, previous_value: previous, new_value: JSON.stringify(row), result: 'no_email_no_notification' });
-      return readProjectById_(ss, id);
+      return readProjectById_(spreadsheet, id);
     }
   }
   sheet.appendRow(row);
   appendAuditLog_({ action: 'project_master_create', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: id, new_value: JSON.stringify(row), result: 'no_email_no_notification' });
-  return readProjectById_(ss, id);
+  return readProjectById_(spreadsheet, id);
 }
 
 function approveProjectPrefix_(payload) {
   if (!payload.project_id || !payload.project_prefix) throw new Error('project_id and approved project_prefix are required; prefix is never inferred');
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureProjectGovernanceSheets_(payload);
-  const sheet = ss.getSheetByName(KAG_CONFIG.projectMasterSheetName);
+  const sheet = spreadsheet.getSheetByName(KAG_CONFIG.projectMasterSheetName);
   const values = sheet.getDataRange().getValues();
   const id = String(payload.project_id).trim();
   for (var r = 1; r < values.length; r++) {
@@ -1784,7 +1784,7 @@ function approveProjectPrefix_(payload) {
       sheet.getRange(r + 1, 11).setValue(payload.updated_by || payload.username || 'PMO');
       sheet.getRange(r + 1, 12).setValue(new Date());
       appendAuditLog_({ action: 'project_prefix_approve', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: id, previous_value: previous, new_value: payload.project_prefix, result: 'no_email_no_notification' });
-      return readProjectById_(ss, id);
+      return readProjectById_(spreadsheet, id);
     }
   }
   throw new Error('Project not found: ' + id);
@@ -1802,14 +1802,14 @@ function generateProjectCode_(payload) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
     ensureProjectGovernanceSheets_(payload);
-    const project = readProjectById_(ss, payload.project_id);
+    const project = readProjectById_(spreadsheet, payload.project_id);
     if (!project) throw new Error('Project Master record is required before code generation');
     if (project.prefix_status !== KAG_CONFIG.approvedPrefixStatus || !project.project_prefix) throw new Error('Project prefix is not approved; code generation is blocked');
     const datePart = payload.code_date ? Utilities.formatDate(new Date(payload.code_date), project.timezone || KAG_CONFIG.timezone, 'yyyyMMdd') : Utilities.formatDate(new Date(), project.timezone || KAG_CONFIG.timezone, 'yyyyMMdd');
     const sequenceKey = [project.project_id, entityType, payload.wbs_code || 'NA', payload.path_code || 'NA', payload.version || 'NA', datePart].join('|');
-    const seqSheet = ss.getSheetByName(KAG_CONFIG.codeSequencesSheetName);
+    const seqSheet = spreadsheet.getSheetByName(KAG_CONFIG.codeSequencesSheetName);
     const values = seqSheet.getDataRange().getValues();
     var next = 1;
     var targetRow = 0;
@@ -1822,7 +1822,7 @@ function generateProjectCode_(payload) {
     }
     const seq = String(next).padStart(4, '0');
     const code = [project.project_prefix, entityType.toUpperCase(), payload.wbs_code || '', payload.path_code || '', payload.version || '', datePart, seq].filter(Boolean).join('-');
-    if (findExistingGeneratedCode_(ss, code)) throw new Error('Generated code collision detected; no code written');
+    if (findExistingGeneratedCode_(spreadsheet, code)) throw new Error('Generated code collision detected; no code written');
     if (targetRow) {
       seqSheet.getRange(targetRow, 4).setValue(next);
       seqSheet.getRange(targetRow, 5).setValue(new Date());
@@ -1830,7 +1830,7 @@ function generateProjectCode_(payload) {
     } else {
       seqSheet.appendRow([project.project_id, entityType, sequenceKey, next, new Date(), payload.updated_by || payload.username || '']);
     }
-    ss.getSheetByName(KAG_CONFIG.codeRegistrySheetName).appendRow([code, project.project_id, entityType, payload.wbs_code || '', payload.path_code || '', payload.version || '', datePart, next, new Date(), payload.updated_by || payload.username || '', payload.action || 'generate_project_code', payload.notes || '']);
+    spreadsheet.getSheetByName(KAG_CONFIG.codeRegistrySheetName).appendRow([code, project.project_id, entityType, payload.wbs_code || '', payload.path_code || '', payload.version || '', datePart, next, new Date(), payload.updated_by || payload.username || '', payload.action || 'generate_project_code', payload.notes || '']);
     appendAuditLog_({ action: 'generate_project_code', operation: 'write', status: 'success', updated_by: payload.updated_by || payload.username || '', record: code, new_value: code, result: 'no_email_no_notification' });
     return { generated_code: code, project_id: project.project_id, entity_type: entityType, sequence: next };
   } finally {
@@ -1845,10 +1845,10 @@ function findExistingGeneratedCode_(ss, code) {
 }
 
 function buildCodeMigrationReport_(payload) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureProjectGovernanceSheets_(payload);
-  const sheet = ss.getSheetByName(KAG_CONFIG.codeMigrationReportSheetName);
-  const rows = getTaskRows_(ss);
+  const sheet = spreadsheet.getSheetByName(KAG_CONFIG.codeMigrationReportSheetName);
+  const rows = getTaskRows_(spreadsheet);
   const now = new Date();
   const report = rows.map(function(row) {
     const existingCode = getField_(row, WBS_FIELD_ALIASES.taskId);
@@ -1929,11 +1929,11 @@ function normalizeArabicText_(value) {
 }
 
 function buildSupervisorDraftPreview_(session) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const tasks = getTaskRows_(ss);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const tasks = getTaskRows_(spreadsheet);
   const today = Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd');
   const overdue = tasks.filter(function(t) { return isSupervisorOverdueTask_(t, today); });
-  const blocked = getDecisionRows_(ss).concat(getApprovalRows_(ss)).filter(function(r) {
+  const blocked = getDecisionRows_(spreadsheet).concat(getApprovalRows_(spreadsheet)).filter(function(r) {
     const status = normalizeArabicText_(valueOf_(r, ['status','الحالة','approval_status']));
     return status && ['معتمد','مرفوض','مكتمله','مكتمل','approved','rejected','completed','done'].indexOf(status) === -1;
   });
@@ -1985,8 +1985,8 @@ function valueOf_(obj, names) {
 }
 
 function appendAuditLog_(payload) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(KAG_CONFIG.auditSheetName) || ss.insertSheet(KAG_CONFIG.auditSheetName);
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = spreadsheet.getSheetByName(KAG_CONFIG.auditSheetName) || spreadsheet.insertSheet(KAG_CONFIG.auditSheetName);
   const headers = ['timestamp', 'date', 'time', 'user', 'operation', 'record', 'previous_value', 'new_value', 'result', 'reference', 'action', 'status', 'raw_json'];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
