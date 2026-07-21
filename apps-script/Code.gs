@@ -101,7 +101,7 @@ function doGet(e) {
     const session = requireSession_((e && e.parameter) || {});
     return json_(buildDashboardData_(session));
   } catch (err) {
-    return json_({ ok: false, error: publicError_(err) });
+    return json_({ ok: false, success: false, message: publicError_(err), error: publicError_(err), data: null });
   }
 }
 
@@ -182,6 +182,34 @@ function doPost(e) {
     if (payload.action === 'get_event_sites') {
       requireFieldExperiencePermission_(session, 'read');
       return json_({ ok: true, event_sites: getEventSitesData_(), permissions: getFieldExperiencePermissions_(session) });
+    }
+
+    if (payload.action === 'get_content_matrix') {
+      requireContentMatrixPermission_(session, 'read');
+      return json_(contentMatrixResponse_('تم تحميل مصفوفة المحتوى', { items: getContentMatrixData_(), event_sites: getEventSiteLinkOptions_(), permissions: getContentMatrixPermissions_(session), review_statuses: getContentMatrixReviewStatuses_(), approval_statuses: getContentMatrixApprovalStatuses_() }));
+    }
+
+    if (payload.action === 'get_content_item_details') {
+      requireContentMatrixPermission_(session, 'read');
+      return json_(contentMatrixResponse_('تم تحميل تفاصيل المحتوى', getContentItemDetails_(payload)));
+    }
+
+    if (payload.action === 'create_content_item') {
+      requireContentMatrixPermission_(session, 'create');
+      const item = createContentItem_(withActor_(payload, session), session);
+      return json_(contentMatrixResponse_('تم إنشاء مادة المحتوى', { item: item, items: getContentMatrixData_() }));
+    }
+
+    if (payload.action === 'update_content_item') {
+      requireContentMatrixPermission_(session, 'update');
+      const item = updateContentItem_(withActor_(payload, session), session);
+      return json_(contentMatrixResponse_('تم تحديث مادة المحتوى', { item: item, items: getContentMatrixData_() }));
+    }
+
+    if (payload.action === 'delete_content_item') {
+      requireContentMatrixPermission_(session, 'delete');
+      const item = deleteContentItem_(withActor_(payload, session), session);
+      return json_(contentMatrixResponse_('تم حذف مادة المحتوى حذفًا ناعمًا', { item: item, items: getContentMatrixData_() }));
     }
 
     if (payload.action === 'create_event_site') {
@@ -290,7 +318,7 @@ function doPost(e) {
 
     return json_({ ok: false, error: 'Unsupported action' });
   } catch (err) {
-    return json_({ ok: false, error: publicError_(err) });
+    return json_({ ok: false, success: false, message: publicError_(err), error: publicError_(err), data: null });
   }
 }
 
@@ -1108,7 +1136,7 @@ function getFileHeaders_() {
 function getFieldExperienceSheetDefinitions_() {
   return [
     { key: 'event_sites', sheetName: KAG_CONFIG.eventSitesSheetName, headers: ['site_id','site_code','garden_name','zone_number','site_name','activation_name','track_id','latitude','longitude','exact_location','area_sqm','capacity','site_image_file_id','layout_file_id','model_3d_file_id','activation_content_summary','installation_method','dismantling_method','electricity_requirement','electrical_load','internet_requirement','lighting_requirement','guest_route','entry_points','exit_points','nearest_emergency_exit','site_owner','vendor_ref','bad_weather_alternative_plan','site_approval_status','content_approval_status','operational_status','criticality','created_at','created_by','updated_at','updated_by','audit_ref'] },
-    { key: 'content_matrix', sheetName: KAG_CONFIG.contentMatrixSheetName, headers: ['content_id','content_code','site_id','activation_name','scenario_type','content_type','content_title','content_description','duration','writing_owner','design_owner','execution_owner','current_version_number','review_status','approval_status','usage_rights','content_source','final_presentation_file_id','operation_manual_file_id','notes','created_at','created_by','updated_at','updated_by'] },
+    { key: 'content_matrix', sheetName: KAG_CONFIG.contentMatrixSheetName, headers: getContentMatrixHeaders_() },
     { key: 'content_versions', sheetName: KAG_CONFIG.contentVersionsSheetName, headers: ['version_id','content_id','version_number','scenario_type','content_type','duration','writing_owner','design_owner','execution_owner','review_status','approval_status','usage_rights','content_source','final_presentation_file_id','operation_manual_file_id','change_summary','submitted_at','reviewed_at','approved_at','approved_by','created_at','created_by','updated_at','updated_by'] },
     { key: 'guest_journey', sheetName: KAG_CONFIG.guestJourneySheetName, headers: ['journey_id','guest_category','invitation_status','attendance_confirmation','arrival_point','parking_plan','transportation_plan','reception_plan','movement_route','seating_area','hospitality_plan','entitled_gift','gift_handover_protocol','departure_plan','primary_owner','alternate_owner','privacy_requirements','protocol_requirements','alternative_plan','evidence_id','approval_id','status','created_at','created_by','updated_at','updated_by'] }
   ];
@@ -1192,6 +1220,43 @@ function readFieldExperienceRows_(ss, sheetName, expectedHeaders, warnings) {
   });
 }
 
+
+
+function getContentMatrixHeaders_() {
+  return ['content_id','content_name','content_type','linked_site_id','linked_site_name','main_scenario','alternative_scenario_1','alternative_scenario_2','national_identity','mapping_3d','introductory_video','mayor_speech','screens_content','scripts_text','voice_over','music','translation','language','material_duration','writing_owner','design_owner','execution_owner','version_number','review_status','approval_status','usage_rights','content_source','final_presentation_file','operation_guide','notes','created_by','created_at','updated_by','updated_at','is_deleted'];
+}
+function getContentMatrixWritableFields_() { return getContentMatrixHeaders_().filter(function(h){ return ['content_id','created_by','created_at','updated_by','updated_at','is_deleted'].indexOf(h) === -1; }); }
+function getContentMatrixReviewStatuses_() { return ['لم تبدأ','قيد الإعداد','قيد المراجعة','يحتاج تعديل','مكتمل']; }
+function getContentMatrixApprovalStatuses_() { return ['غير مرفوع','بانتظار الاعتماد','معتمد','مرفوض']; }
+function contentMatrixResponse_(message, data) { return { ok: true, success: true, message: message || '', data: data || null }; }
+function getContentMatrixPermissions_(session) { return { read: canContentMatrix_(session,'read'), create: canContentMatrix_(session,'create'), update: canContentMatrix_(session,'update'), delete: canContentMatrix_(session,'delete') }; }
+function canContentMatrix_(session, op) {
+  if (hasFullAccess_(session)) return true;
+  const pages = normalizeAllowedPages_(session);
+  if (op === 'read') return pages.indexOf('fieldExperienceCenter') !== -1 || pages.indexOf('*') !== -1;
+  return pages.indexOf('field_experience_content_' + op) !== -1 || pages.indexOf('*') !== -1 || canFieldExperience_(session, op);
+}
+function requireContentMatrixPermission_(session, op) { if (!canContentMatrix_(session, op)) throw new Error('Forbidden: content matrix ' + op + ' permission required'); }
+function ensureContentMatrixSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(KAG_CONFIG.contentMatrixSheetName);
+  if (!sheet) { sheet = ss.insertSheet(KAG_CONFIG.contentMatrixSheetName); sheet.getRange(1, 1, 1, getContentMatrixHeaders_().length).setValues([getContentMatrixHeaders_()]); sheet.setFrozenRows(1); sheet.getRange(1,1,1,getContentMatrixHeaders_().length).setFontWeight('bold'); }
+  else addMissingFieldExperienceHeaders_(sheet, getContentMatrixHeaders_());
+  return sheet;
+}
+function contentMatrixHeaderMap_(sheet) { const headers = sheet.getRange(1,1,1,Math.max(1,sheet.getLastColumn())).getValues()[0].map(function(h){return String(h||'').trim();}); const map={}; headers.forEach(function(h,i){if(h) map[h]=i+1;}); return {headers:headers,map:map}; }
+function contentMatrixRowsWithHeaders_(sheet, hi) { const lastRow=sheet.getLastRow(); if(lastRow<2) return []; return sheet.getRange(2,1,lastRow-1,hi.headers.length).getValues().map(function(row,i){ const item={rowNumber:i+2}; hi.headers.forEach(function(h,c){ if(h) item[h]=normalizeCell_(row[c]); }); return item; }); }
+function getContentMatrixData_() { const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); return contentMatrixRowsWithHeaders_(sheet,hi).filter(function(r){return !parseBool_(r.is_deleted)&&Object.keys(r).some(function(k){return k==='rowNumber'?false:String(r[k]||'').trim()!=='';});}); }
+function getContentItemDetails_(payload) { const id=String(payload.content_id||'').trim(); if(!id) throw new Error('Missing content_id'); const rec=getContentMatrixData_().find(function(r){return String(r.content_id||'')===id;}); if(!rec) throw new Error('Content item not found'); return rec; }
+function sanitizeContentText_(v) { return String(v===undefined||v===null?'':v).replace(/<[^>]*>|javascript:|script/gi,'').replace(/\s+/g,' ').trim(); }
+function validateContentUrl_(v, field) { const s=String(v||'').trim(); if(!s) return; if(!/^https?:\/\/[^\s<>'"]+$/i.test(s)) throw new Error('Invalid URL for '+field); }
+function cleanContentPayload_(payload) { const out={}; getContentMatrixWritableFields_().forEach(function(f){ out[f]=sanitizeContentText_(payload[f]); }); ['content_name','content_type','main_scenario','version_number','review_status','approval_status'].forEach(function(f){ if(!out[f]) throw new Error('Missing required field: '+f); }); validateEnum_(out.review_status, getContentMatrixReviewStatuses_(), 'review_status'); validateEnum_(out.approval_status, getContentMatrixApprovalStatuses_(), 'approval_status'); ['introductory_video','mapping_3d','final_presentation_file','operation_guide','content_source'].forEach(function(f){ validateContentUrl_(out[f], f); }); const siteId=out.linked_site_id; if(siteId){ const site=getEventSiteLinkOptions_().find(function(s){return String(s.linked_site_id)===String(siteId);}); if(site) out.linked_site_name=site.linked_site_name; } else { out.linked_site_name=''; } return out; }
+function findDuplicateContentItem_(rows, name, version, excludeId) { const n=String(name||'').toLowerCase(); const v=String(version||'').toLowerCase(); return rows.some(function(r){ return String(r.content_name||'').toLowerCase()===n && String(r.version_number||'').toLowerCase()===v && String(r.content_id||'')!==String(excludeId||'') && !parseBool_(r.is_deleted); }); }
+function createContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const data=cleanContentPayload_(payload); const rows=contentMatrixRowsWithHeaders_(sheet,hi); if(findDuplicateContentItem_(rows,data.content_name,data.version_number,'')) throw new Error('يوجد محتوى بنفس الاسم ورقم الإصدار'); const now=new Date(); const id='CONTENT-'+Utilities.getUuid(); const actor=session.display_name||session.username; const rec=Object.assign({},data,{content_id:id,created_by:actor,created_at:now,updated_by:actor,updated_at:now,is_deleted:false}); sheet.appendRow(hi.headers.map(function(h){return rec[h]!==undefined?rec[h]:'';})); appendContentMatrixAudit_('CREATE_CONTENT_ITEM',session,id,{},rec); return rec; } finally{ lock.releaseLock(); } }
+function updateContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.content_id||'').trim(); if(!id) throw new Error('Missing content_id'); const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const rows=contentMatrixRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.content_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Content item not found'); const data=cleanContentPayload_(payload); if(findDuplicateContentItem_(rows,data.content_name,data.version_number,id)) throw new Error('يوجد محتوى بنفس الاسم ورقم الإصدار'); const oldValues={}; getContentMatrixWritableFields_().forEach(function(f){ if(!hi.map[f]) return; oldValues[f]=current[f]||''; sheet.getRange(current.rowNumber,hi.map[f]).setValue(data[f]); }); const now=new Date(); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const rec=Object.assign({},current,data,{updated_at:now,updated_by:session.display_name||session.username}); appendContentMatrixAudit_('UPDATE_CONTENT_ITEM',session,id,oldValues,data); return rec; } finally{ lock.releaseLock(); } }
+function deleteContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.content_id||'').trim(); if(!id) throw new Error('Missing content_id'); const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const rows=contentMatrixRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.content_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Content item not found'); const now=new Date(); if(hi.map.is_deleted) sheet.getRange(current.rowNumber,hi.map.is_deleted).setValue(true); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const next={is_deleted:true,updated_at:now,updated_by:session.display_name||session.username}; appendContentMatrixAudit_('DELETE_CONTENT_ITEM',session,id,current,next); return Object.assign({},current,next); } finally{ lock.releaseLock(); } }
+function getEventSiteLinkOptions_() { return getEventSitesData_().map(function(s){ return { linked_site_id: s.site_id || '', linked_site_name: s.site_name || s.activation_name || s.site_code || '' }; }).filter(function(s){return s.linked_site_id;}); }
+function appendContentMatrixAudit_(action, session, contentId, oldValues, newValues) { appendAuditLog_({ user: session.username, updated_by: session.display_name||session.username, action: action, operation: action, record: contentId, entity_type: 'Content Matrix', entity_id: contentId, timestamp: new Date(), previous_value: JSON.stringify(oldValues||{}), new_value: JSON.stringify(newValues||{}), result: 'success', reference: 'Content Matrix' }); }
 
 function getEventSiteHeaders_() {
   return ['site_id','site_code','garden_name','zone_number','site_name','activation_name','track_id','latitude','longitude','exact_location','area_sqm','capacity','site_image_file_id','layout_file_id','model_3d_file_id','activation_content_summary','installation_method','dismantling_method','electricity_requirement','electrical_load','internet_requirement','lighting_requirement','guest_route','entry_points','exit_points','nearest_emergency_exit','site_owner','vendor_ref','bad_weather_alternative_plan','site_approval_status','content_approval_status','operational_status','criticality','created_at','created_by','updated_at','updated_by','audit_ref'];
