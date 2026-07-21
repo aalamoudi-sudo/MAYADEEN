@@ -81,6 +81,10 @@ const KAG_CONFIG = {
   codeSequencesSheetName: 'Code Sequences',
   codeRegistrySheetName: 'Code Registry',
   codeMigrationReportSheetName: 'Code Migration Report',
+  eventSitesSheetName: 'Event Sites',
+  contentMatrixSheetName: 'Content Matrix',
+  contentVersionsSheetName: 'Content Versions',
+  guestJourneySheetName: 'Guest Journey',
   defaultProjectStatus: 'بانتظار اعتماد PMO',
   approvedPrefixStatus: 'معتمد',
   codeEntityTypes: ['path', 'task', 'deliverable', 'file', 'version', 'approval', 'decision', 'risk', 'assignment', 'escalation', 'meeting_minutes', 'change_order'],
@@ -120,6 +124,7 @@ function buildDashboardData_(session) {
   const workload = buildEmployeeWorkload_(ss, rows, employeeMaster);
   const criticalPath = buildCriticalPathAnalysis_(ss, rows);
   const dataQuality = buildDataQualityCenter_(ss, rows, employeeMaster, criticalPath);
+  const fieldExperience = buildFieldExperienceData_(ss);
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -145,6 +150,7 @@ function buildDashboardData_(session) {
     employee_workload: workload,
     critical_path: criticalPath,
     data_quality: dataQuality,
+    field_experience: fieldExperience,
     sync_meta: {
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
@@ -1008,6 +1014,94 @@ function getCommitmentHeaders_() {
 
 function getFileHeaders_() {
   return ['file_id', 'name', 'owner', 'version', 'link', 'approval_status', 'updated_at', 'notes'];
+}
+
+
+function getFieldExperienceSheetDefinitions_() {
+  return [
+    { key: 'event_sites', sheetName: KAG_CONFIG.eventSitesSheetName, headers: ['site_id','site_code','garden_name','zone_number','site_name','activation_name','track_id','latitude','longitude','exact_location','area_sqm','capacity','site_image_file_id','layout_file_id','model_3d_file_id','activation_content_summary','installation_method','dismantling_method','electricity_requirement','electrical_load','internet_requirement','lighting_requirement','guest_route','entry_points','exit_points','nearest_emergency_exit','site_owner','vendor_ref','bad_weather_alternative_plan','site_approval_status','content_approval_status','operational_status','criticality','created_at','created_by','updated_at','updated_by','audit_ref'] },
+    { key: 'content_matrix', sheetName: KAG_CONFIG.contentMatrixSheetName, headers: ['content_id','content_code','site_id','activation_name','scenario_type','content_type','content_title','content_description','duration','writing_owner','design_owner','execution_owner','current_version_number','review_status','approval_status','usage_rights','content_source','final_presentation_file_id','operation_manual_file_id','notes','created_at','created_by','updated_at','updated_by'] },
+    { key: 'content_versions', sheetName: KAG_CONFIG.contentVersionsSheetName, headers: ['version_id','content_id','version_number','scenario_type','content_type','duration','writing_owner','design_owner','execution_owner','review_status','approval_status','usage_rights','content_source','final_presentation_file_id','operation_manual_file_id','change_summary','submitted_at','reviewed_at','approved_at','approved_by','created_at','created_by','updated_at','updated_by'] },
+    { key: 'guest_journey', sheetName: KAG_CONFIG.guestJourneySheetName, headers: ['journey_id','guest_category','invitation_status','attendance_confirmation','arrival_point','parking_plan','transportation_plan','reception_plan','movement_route','seating_area','hospitality_plan','entitled_gift','gift_handover_protocol','departure_plan','primary_owner','alternate_owner','privacy_requirements','protocol_requirements','alternative_plan','evidence_id','approval_id','status','created_at','created_by','updated_at','updated_by'] }
+  ];
+}
+
+// Manual one-time setup only: run ensureFieldExperienceSheets_ from Apps Script editor when onboarding the Field Experience Center sheets. Do not call from doGet, doPost, or data_sync.
+function ensureFieldExperienceSheets_() {
+  const ss = SpreadsheetApp.openById(KAG_CONFIG.sheetId);
+  getFieldExperienceSheetDefinitions_().forEach(function(def) {
+    var created = false;
+    var sheet = ss.getSheetByName(def.sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(def.sheetName);
+      created = true;
+      sheet.getRange(1, 1, 1, def.headers.length).setValues([def.headers]);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, def.headers.length).setFontWeight('bold');
+      if (!sheet.getFilter()) sheet.getRange(1, 1, 1, def.headers.length).createFilter();
+      def.headers.forEach(function(header, index) {
+        if (['created_at','updated_at','submitted_at','reviewed_at','approved_at'].indexOf(header) !== -1) {
+          sheet.getRange(2, index + 1, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('yyyy-mm-dd hh:mm');
+        }
+      });
+    } else {
+      addMissingFieldExperienceHeaders_(sheet, def.headers);
+    }
+    Logger.log((created ? 'Created' : 'Verified') + ' field experience sheet: ' + def.sheetName);
+  });
+}
+
+function addMissingFieldExperienceHeaders_(sheet, requiredHeaders) {
+  const lastColumn = Math.max(1, sheet.getLastColumn());
+  const existingRaw = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  const existing = existingRaw.map(function(h) { return String(h || '').trim(); });
+  requiredHeaders.forEach(function(header) {
+    if (existing.indexOf(header) === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+      existing.push(header);
+    }
+  });
+}
+
+function getEventSitesRows_(ss, warnings) { return readFieldExperienceRows_(ss, KAG_CONFIG.eventSitesSheetName, getFieldExperienceSheetDefinitions_()[0].headers, warnings); }
+function getContentMatrixRows_(ss, warnings) { return readFieldExperienceRows_(ss, KAG_CONFIG.contentMatrixSheetName, getFieldExperienceSheetDefinitions_()[1].headers, warnings); }
+function getContentVersionsRows_(ss, warnings) { return readFieldExperienceRows_(ss, KAG_CONFIG.contentVersionsSheetName, getFieldExperienceSheetDefinitions_()[2].headers, warnings); }
+function getGuestJourneyRows_(ss, warnings) { return readFieldExperienceRows_(ss, KAG_CONFIG.guestJourneySheetName, getFieldExperienceSheetDefinitions_()[3].headers, warnings); }
+
+function buildFieldExperienceData_(ss) {
+  const warnings = [];
+  return {
+    event_sites: getEventSitesRows_(ss, warnings),
+    content_matrix: getContentMatrixRows_(ss, warnings),
+    content_versions: getContentVersionsRows_(ss, warnings),
+    guest_journey: getGuestJourneyRows_(ss, warnings),
+    warnings: warnings
+  };
+}
+
+function readFieldExperienceRows_(ss, sheetName, expectedHeaders, warnings) {
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) { warnings.push(sheetName + ' sheet is missing.'); return []; }
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const seen = {};
+  const headers = values[0].map(function(h, col) {
+    const header = String(h || '').trim();
+    if (header && seen[header]) { warnings.push(sheetName + ' has duplicate header: ' + header); return ''; }
+    if (header) seen[header] = true;
+    return header;
+  });
+  expectedHeaders.forEach(function(header) { if (headers.indexOf(header) === -1) warnings.push(sheetName + ' missing header: ' + header); });
+  return values.slice(1).filter(function(row) {
+    return row.some(function(cell) { return String(cell || '').trim() !== ''; });
+  }).map(function(row, index) {
+    const item = {};
+    headers.forEach(function(header, col) { if (header) item[header] = normalizeCell_(row[col]); });
+    item.row_number = index + 2;
+    item._source = 'google_sheets';
+    item._sheet_name = sheetName;
+    return item;
+  });
 }
 
 function ensureRegisterSheet_(sheetName, headers) {
