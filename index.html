@@ -1429,6 +1429,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <button class="nav-item" data-page="procurementCenter" title="مركز المشتريات" aria-label="فتح صفحة مركز المشتريات"><span class="nav-icon" aria-hidden="true">◌</span><span class="nav-text">مركز المشتريات</span></button>
       <button class="nav-item" data-page="permitsCenter" title="مركز التصاريح" aria-label="فتح صفحة مركز التصاريح"><span class="nav-icon" aria-hidden="true">▣</span><span class="nav-text">مركز التصاريح</span></button>
       <button class="nav-item" data-page="changeOrdersCenter" title="أوامر التغيير" aria-label="فتح صفحة أوامر التغيير"><span class="nav-icon" aria-hidden="true">↻</span><span class="nav-text">أوامر التغيير</span></button>
+      <button class="nav-item" data-page="fieldExperienceCenter" title="مركز المواقع والتجربة والمحتوى" aria-label="فتح صفحة مركز المواقع والتجربة والمحتوى"><span class="nav-icon" aria-hidden="true">⌖</span><span class="nav-text">مركز المواقع والتجربة والمحتوى</span></button>
       <button class="nav-item" data-page="automationCenter" title="الأتمتة والسجل" aria-label="فتح صفحة الأتمتة والسجل"><span class="nav-icon" aria-hidden="true">⇧</span><span class="nav-text">الأتمتة والسجل</span></button>
       <button class="nav-item" data-page="escalationsCenter" title="مركز التصعيدات" aria-label="فتح صفحة مركز التصعيدات"><span class="nav-icon" aria-hidden="true">☷</span><span class="nav-text">مركز التصعيدات</span></button>
       <button class="nav-item" data-page="commandControlCenter" title="مركز التحكم والسيطرة" aria-label="فتح صفحة مركز التحكم والسيطرة"><span class="nav-icon" aria-hidden="true">◎</span><span class="nav-text">مركز التحكم والسيطرة</span></button>
@@ -2314,6 +2315,28 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       </section>
 
       <!-- AUTOMATION CENTER -->
+
+      <section class="page" id="fieldExperienceCenter">
+        <div class="page-header"><h1>مركز المواقع والتجربة والمحتوى</h1><p>إدارة تبويب المواقع والتفعيلات من Google Sheets (Event Sites) عند فتح الصفحة فقط.</p></div>
+        <div class="tabs"><button class="tab active">المواقع والتفعيلات</button></div>
+        <div class="card">
+          <div class="sec-title"><h2>المواقع والتفعيلات</h2><button id="fes-add-btn" class="primary-btn" onclick="openEventSiteForm()" style="display:none">إضافة موقع جديد</button></div>
+          <div class="kpi-row" id="fes-kpis"></div>
+          <div class="filters-grid" style="margin-top:12px">
+            <input id="fes-search" placeholder="بحث فوري..." oninput="renderEventSitesTable()"/>
+            <select id="fes-filter-garden_name" onchange="renderEventSitesTable()"><option value="">كل الحدائق</option></select>
+            <select id="fes-filter-zone_number" onchange="renderEventSitesTable()"><option value="">كل المناطق</option></select>
+            <select id="fes-filter-vendor_ref" onchange="renderEventSitesTable()"><option value="">كل الموردين</option></select>
+            <select id="fes-filter-operational_status" onchange="renderEventSitesTable()"><option value="">كل الحالات التشغيلية</option></select>
+            <select id="fes-filter-site_approval_status" onchange="renderEventSitesTable()"><option value="">كل اعتماد الموقع</option></select>
+            <select id="fes-filter-content_approval_status" onchange="renderEventSitesTable()"><option value="">كل اعتماد المحتوى</option></select>
+            <select id="fes-filter-criticality" onchange="renderEventSitesTable()"><option value="">كل درجات الأهمية</option></select>
+          </div>
+          <div id="fes-status" style="color:var(--muted);font-size:12px;margin-top:10px">لم يتم تحميل بيانات المواقع بعد.</div>
+          <div style="overflow:auto;margin-top:12px"><table><thead><tr><th>كود الموقع</th><th>اسم الموقع</th><th>الحديقة</th><th>المنطقة</th><th>التفعيلة</th><th>المالك</th><th>المورد</th><th>الحالة التشغيلية</th><th>اعتماد الموقع</th><th>اعتماد المحتوى</th><th>الأهمية</th><th>الإجراءات</th></tr></thead><tbody id="fes-table"></tbody></table></div>
+        </div>
+      </section>
+
       <section class="page" id="automationCenter">
         <div class="page-header">
           <h1>الأتمتة والسجل</h1>
@@ -2976,6 +2999,7 @@ let officialDataReady=false;
 let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
 let employeeMaster=[]; let baselineManagement=[]; let raciMatrix=[]; let employeeWorkload=[]; let criticalPathAnalysis={ok:false,tasks:[],message:'لا توجد بيانات كافية لاحتساب المسار الحرج'}; let dataQualityCenter={issues:[],excluded_task_codes:[],summary:{}};
+let eventSites=[]; let eventSitePermissions={read:false,create:false,update:false,delete:false}; let eventSitesLoaded=false; let eventSitesLoading=false;
 let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords=[]; let issuesIncidents=[]; let vendorViolations=[]; let decisionLogRecords=[]; let suppliersRegister=[]; let riskGovernanceRegister=[];
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
 let taskDateFilter='all';
@@ -3009,6 +3033,7 @@ const PAGE_RENDERERS={
   procurementCenter:['renderProcurementCenter'],
   permitsCenter:['renderPermitsCenter'],
   changeOrdersCenter:['renderChangeOrdersCenter'],
+  fieldExperienceCenter:['renderFieldExperienceCenter'],
   automationCenter:['renderAutomationCenter'],
   escalationsCenter:['renderEscalationsCenter'],
   commandControlCenter:['renderCommandControlCenter'],
@@ -3048,6 +3073,22 @@ function renderPageIfNeeded(id,force=false){
   renderers.forEach(fn=>{if(typeof window[fn]==='function') window[fn]();});
   pageRenderState[id]={rendered:true,dataVersion:dashboardDataVersion};
 }
+
+const EVENT_SITE_LABELS={operational_status:{'Not Started':'لم يبدأ','In Progress':'قيد التنفيذ','Ready':'جاهز','Blocked':'محجوب','Completed':'مكتمل','Cancelled':'ملغي'},site_approval_status:{Draft:'مسودة','Under Review':'قيد المراجعة',Approved:'معتمد',Rejected:'مرفوض','Needs Update':'يحتاج تحديث'},content_approval_status:{'Not Started':'لم يبدأ','Under Review':'قيد المراجعة',Approved:'معتمد',Rejected:'مرفوض','Needs Update':'يحتاج تحديث'},criticality:{Low:'منخفضة',Medium:'متوسطة',High:'عالية',Critical:'حرجة'},electricity_requirement:{'Not Required':'غير مطلوب',Required:'مطلوب',TBD:'يحدد لاحقًا'},internet_requirement:{'Not Required':'غير مطلوب',Required:'مطلوب',TBD:'يحدد لاحقًا'},lighting_requirement:{'Not Required':'غير مطلوب',Required:'مطلوب',TBD:'يحدد لاحقًا'}};
+const EVENT_SITE_FIELDS=['site_code','garden_name','zone_number','site_name','activation_name','track_id','exact_location','area_sqm','capacity','latitude','longitude','site_image_file_id','layout_file_id','model_3d_file_id','activation_content_summary','installation_method','dismantling_method','electricity_requirement','electrical_load','internet_requirement','lighting_requirement','guest_route','entry_points','exit_points','nearest_emergency_exit','bad_weather_alternative_plan','site_owner','vendor_ref','site_approval_status','content_approval_status','operational_status','criticality'];
+function eventSiteCan(op){return currentUser.access_level==='full'||normalizePageList(currentUser.allowed_pages).includes('*')||normalizePageList(currentUser.allowed_pages).includes(op==='read'?'fieldExperienceCenter':'field_experience_sites_'+op)||!!eventSitePermissions[op];}
+async function renderFieldExperienceCenter(){try{const root=document.getElementById('fieldExperienceCenter'); if(!root) return; const add=document.getElementById('fes-add-btn'); if(add) add.style.display=eventSiteCan('create')?'':'none'; if(!eventSitesLoaded&&!eventSitesLoading) await loadEventSites(); else renderEventSitesTable();}catch(e){const st=document.getElementById('fes-status'); if(st) st.textContent='تعذر تحميل المركز: '+sanitizeUserError(e,'خطأ في مركز المواقع'); console.error(e);}}
+async function loadEventSites(){const st=document.getElementById('fes-status'); try{eventSitesLoading=true; if(st) st.textContent='جاري تحميل Event Sites...'; const res=await withTimeout(postApi(getConfiguredApiUrl(),{action:'get_event_sites'}),20000,'get_event_sites timeout'); if(!res.ok) throw new Error('HTTP '+res.status); const data=await res.json(); if(!data.ok) throw new Error(data.error||'failed'); eventSites=Array.isArray(data.event_sites)?data.event_sites:[]; eventSitePermissions=data.permissions||eventSitePermissions; eventSitesLoaded=true; fillEventSiteFilters(); renderEventSitesTable();}finally{eventSitesLoading=false;}}
+function fillEventSiteFilters(){['garden_name','zone_number','vendor_ref','operational_status','site_approval_status','content_approval_status','criticality'].forEach(f=>{const el=document.getElementById('fes-filter-'+f); if(!el) return; const first=el.options[0]?.textContent||'الكل'; const vals=[...new Set(eventSites.map(x=>x[f]).filter(Boolean))].sort(); el.innerHTML='<option value="">'+escapeHtml(first)+'</option>'+vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml((EVENT_SITE_LABELS[f]&&EVENT_SITE_LABELS[f][v])||v)}</option>`).join('');});}
+function filteredEventSites(){const q=normalizeArabic(document.getElementById('fes-search')?.value||''); return eventSites.filter(r=>{const text=normalizeArabic(Object.values(r).join(' ')); if(q&&!text.includes(q)) return false; return ['garden_name','zone_number','vendor_ref','operational_status','site_approval_status','content_approval_status','criticality'].every(f=>{const v=document.getElementById('fes-filter-'+f)?.value||''; return !v||String(r[f]||'')===v;});});}
+function renderEventSitesTable(){const rows=filteredEventSites(); const k=document.getElementById('fes-kpis'); if(k){const all=eventSites; const cards=[['إجمالي المواقع',all.length],['الجاهزة',all.filter(x=>x.operational_status==='Ready').length],['قيد التنفيذ',all.filter(x=>x.operational_status==='In Progress').length],['المحجوبة',all.filter(x=>x.operational_status==='Blocked').length],['الحرجة',all.filter(x=>x.criticality==='Critical').length]]; k.innerHTML=cards.map(c=>`<div class="kpi-card"><span>${escapeHtml(c[0])}</span><b>${c[1]}</b></div>`).join('');} const st=document.getElementById('fes-status'); if(st) st.textContent=`${rows.length} سجل ظاهر من ${eventSites.length}`; const body=document.getElementById('fes-table'); if(!body) return; body.innerHTML=rows.map(r=>`<tr><td>${escapeHtml(r.site_code)}</td><td>${escapeHtml(r.site_name)}</td><td>${escapeHtml(r.garden_name)}</td><td>${escapeHtml(r.zone_number)}</td><td>${escapeHtml(r.activation_name||'-')}</td><td>${escapeHtml(r.site_owner)}</td><td>${escapeHtml(r.vendor_ref||'-')}</td><td>${escapeHtml(EVENT_SITE_LABELS.operational_status[r.operational_status]||r.operational_status||'-')}</td><td>${escapeHtml(EVENT_SITE_LABELS.site_approval_status[r.site_approval_status]||r.site_approval_status||'-')}</td><td>${escapeHtml(EVENT_SITE_LABELS.content_approval_status[r.content_approval_status]||r.content_approval_status||'-')}</td><td>${escapeHtml(EVENT_SITE_LABELS.criticality[r.criticality]||r.criticality||'-')}</td><td><button onclick='viewEventSite(${JSON.stringify(r.site_id)})'>عرض</button> ${eventSiteCan('update')?`<button onclick='openEventSiteForm(${JSON.stringify(r.site_id)})'>تعديل</button>`:''} ${eventSiteCan('delete')?`<button onclick='deleteEventSite(${JSON.stringify(r.site_id)})'>حذف</button>`:''}</td></tr>`).join('')||'<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:20px">لا توجد مواقع</td></tr>';}
+function eventSiteOptions(field,value){const opts=EVENT_SITE_LABELS[field]; if(!opts) return ''; return Object.keys(opts).map(v=>`<option value="${v}" ${v===value?'selected':''}>${opts[v]}</option>`).join('');}
+function openEventSiteForm(siteId=''){const rec=eventSites.find(x=>x.site_id===siteId)||{}; const isEdit=!!siteId; const fields=EVENT_SITE_FIELDS.map(f=>{const req=['site_code','garden_name','zone_number','site_name','site_owner','operational_status'].includes(f)?' required':''; if(EVENT_SITE_LABELS[f]) return `<label>${f}<select name="${f}"${req}><option value=""></option>${eventSiteOptions(f,rec[f]||'')}</select></label>`; return `<label>${f}<input name="${f}" value="${escapeHtml(rec[f]||'')}"${req}></label>`;}).join(''); const m=document.getElementById('modalContent'); if(!m) return; m.innerHTML=`<h2>${isEdit?'تعديل موقع':'إضافة موقع جديد'}</h2><form id="fes-form" class="detailGrid">${fields}</form><div style="margin-top:14px;display:flex;gap:8px"><button class="primary-btn" onclick="saveEventSite('${escapeHtml(siteId)}')">حفظ</button><button onclick="closeModal()">إلغاء</button></div>`; document.getElementById('modal')?.classList.add('active');}
+function readEventSiteForm(){const form=document.getElementById('fes-form'); const data={}; if(!form) return data; EVENT_SITE_FIELDS.forEach(f=>{data[f]=(form.elements[f]?.value||'').replace(/<[^>]*>|javascript:|script/gi,'').trim().replace(/\s+/g,' ');}); return data;}
+async function saveEventSite(siteId){try{const payload=readEventSiteForm(); payload.action=siteId?'update_event_site':'create_event_site'; if(siteId) payload.site_id=siteId; const res=await postApi(getConfiguredApiUrl(),payload); const data=await res.json(); if(!data.ok) throw new Error(data.error||'save failed'); eventSites=data.event_sites||[]; closeModal(); fillEventSiteFilters(); renderEventSitesTable();}catch(e){alert(sanitizeUserError(e,'تعذر حفظ الموقع'));}}
+function viewEventSite(siteId){const r=eventSites.find(x=>x.site_id===siteId); const m=document.getElementById('modalContent'); if(!r||!m) return; m.innerHTML=`<h2>${escapeHtml(r.site_name||r.site_code)}</h2><div class="detailGrid">${EVENT_SITE_FIELDS.map(f=>`<div><small>${escapeHtml(f)}</small><b>${escapeHtml((EVENT_SITE_LABELS[f]&&EVENT_SITE_LABELS[f][r[f]])||r[f]||'-')}</b></div>`).join('')}</div>`; document.getElementById('modal')?.classList.add('active');}
+async function deleteEventSite(siteId){if(!confirm('تأكيد الحذف الناعم؟')) return; try{const res=await postApi(getConfiguredApiUrl(),{action:'delete_event_site',site_id:siteId}); const data=await res.json(); if(!data.ok) throw new Error(data.error||'delete failed'); eventSites=data.event_sites||[]; fillEventSiteFilters(); renderEventSitesTable();}catch(e){alert(sanitizeUserError(e,'تعذر حذف الموقع'));}}
+
 function renderOverview(){
   loginPerfCounters.mainRenders++;
   console.info(`⏱️ [LoginPerf] renderOverview count: ${loginPerfCounters.mainRenders}`);

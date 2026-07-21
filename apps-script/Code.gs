@@ -129,7 +129,6 @@ function buildDashboardData_(session) {
   const workload = buildEmployeeWorkload_(spreadsheet, rows, employeeMaster);
   const criticalPath = buildCriticalPathAnalysis_(spreadsheet, rows);
   const dataQuality = buildDataQualityCenter_(spreadsheet, rows, employeeMaster, criticalPath);
-  const fieldExperience = buildFieldExperienceData_(spreadsheet);
   return {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -155,7 +154,6 @@ function buildDashboardData_(session) {
     employee_workload: workload,
     critical_path: criticalPath,
     data_quality: dataQuality,
-    field_experience: fieldExperience,
     sync_meta: Object.assign({}, taskRead.diagnostics, {
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
@@ -179,6 +177,29 @@ function doPost(e) {
 
     if (payload.action === 'data_sync') {
       return json_(buildDashboardData_(session));
+    }
+
+    if (payload.action === 'get_event_sites') {
+      requireFieldExperiencePermission_(session, 'read');
+      return json_({ ok: true, event_sites: getEventSitesData_(), permissions: getFieldExperiencePermissions_(session) });
+    }
+
+    if (payload.action === 'create_event_site') {
+      requireFieldExperiencePermission_(session, 'create');
+      const site = createEventSite_(withActor_(payload, session), session);
+      return json_({ ok: true, event_site: site, event_sites: getEventSitesData_() });
+    }
+
+    if (payload.action === 'update_event_site') {
+      requireFieldExperiencePermission_(session, 'update');
+      const site = updateEventSite_(withActor_(payload, session), session);
+      return json_({ ok: true, event_site: site, event_sites: getEventSitesData_() });
+    }
+
+    if (payload.action === 'delete_event_site') {
+      requireFieldExperiencePermission_(session, 'delete');
+      const site = deleteEventSite_(withActor_(payload, session), session);
+      return json_({ ok: true, event_site: site, event_sites: getEventSitesData_() });
     }
 
     if (payload.action === 'supervisor_draft_preview') {
@@ -1169,6 +1190,186 @@ function readFieldExperienceRows_(ss, sheetName, expectedHeaders, warnings) {
     item._sheet_name = sheetName;
     return item;
   });
+}
+
+
+function getEventSiteHeaders_() {
+  return ['site_id','site_code','garden_name','zone_number','site_name','activation_name','track_id','latitude','longitude','exact_location','area_sqm','capacity','site_image_file_id','layout_file_id','model_3d_file_id','activation_content_summary','installation_method','dismantling_method','electricity_requirement','electrical_load','internet_requirement','lighting_requirement','guest_route','entry_points','exit_points','nearest_emergency_exit','site_owner','vendor_ref','bad_weather_alternative_plan','site_approval_status','content_approval_status','operational_status','criticality','created_at','created_by','updated_at','updated_by','audit_ref'];
+}
+
+function getEventSiteWritableFields_() {
+  return ['site_code','garden_name','zone_number','site_name','activation_name','track_id','latitude','longitude','exact_location','area_sqm','capacity','site_image_file_id','layout_file_id','model_3d_file_id','activation_content_summary','installation_method','dismantling_method','electricity_requirement','electrical_load','internet_requirement','lighting_requirement','guest_route','entry_points','exit_points','nearest_emergency_exit','site_owner','vendor_ref','bad_weather_alternative_plan','site_approval_status','content_approval_status','operational_status','criticality'];
+}
+
+function getFieldExperiencePermissions_(session) {
+  return {
+    read: canFieldExperience_(session, 'read'),
+    create: canFieldExperience_(session, 'create'),
+    update: canFieldExperience_(session, 'update'),
+    delete: canFieldExperience_(session, 'delete')
+  };
+}
+
+function canFieldExperience_(session, op) {
+  if (hasFullAccess_(session)) return true;
+  const pages = normalizeAllowedPages_(session);
+  if (op === 'read') return pages.indexOf('fieldExperienceCenter') !== -1 || pages.indexOf('*') !== -1;
+  return pages.indexOf('field_experience_sites_' + op) !== -1 || pages.indexOf('*') !== -1;
+}
+
+function requireFieldExperiencePermission_(session, op) {
+  if (canFieldExperience_(session, op)) return;
+  throw new Error('Forbidden: field experience ' + op + ' permission required');
+}
+
+function getEventSitesData_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(KAG_CONFIG.eventSitesSheetName);
+  if (!sheet) return [];
+  const lastRow = sheet.getLastRow();
+  const lastColumn = sheet.getLastColumn();
+  if (lastRow < 2 || lastColumn < 1) return [];
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function(h) { return String(h || '').trim(); });
+  const values = sheet.getRange(2, 1, lastRow - 1, lastColumn).getValues();
+  return values.filter(function(row) {
+    if (!row.some(function(cell) { return String(cell || '').trim() !== ''; })) return false;
+    const deletedIndex = headers.indexOf('is_deleted');
+    return deletedIndex === -1 || !parseBool_(row[deletedIndex]);
+  }).map(function(row, index) {
+    const item = {};
+    headers.forEach(function(header, col) { if (header) item[header] = normalizeCell_(row[col]); });
+    item.row_number = index + 2;
+    return item;
+  });
+}
+
+function ensureEventSitesSoftDeleteColumns_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(KAG_CONFIG.eventSitesSheetName);
+  if (!sheet) throw new Error('Event Sites sheet not found');
+  addMissingFieldExperienceHeaders_(sheet, ['is_deleted','deleted_at','deleted_by']);
+  return sheet;
+}
+
+function getEventSitesSheetForWrite_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(KAG_CONFIG.eventSitesSheetName);
+  if (!sheet) throw new Error('Event Sites sheet not found');
+  return sheet;
+}
+
+function eventSiteHeaderMap_(sheet) {
+  const lastColumn = sheet.getLastColumn();
+  const headers = lastColumn ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function(h) { return String(h || '').trim(); }) : [];
+  const map = {};
+  headers.forEach(function(h, i) { if (h) map[h] = i + 1; });
+  return { headers: headers, map: map };
+}
+
+function cleanEventSitePayload_(payload, isCreate) {
+  const allowed = getEventSiteWritableFields_();
+  const out = {};
+  allowed.forEach(function(field) {
+    var v = payload[field];
+    if (v === undefined || v === null) v = '';
+    if (typeof v === 'string') v = v.replace(/<[^>]*>|javascript:|script/gi, '').replace(/\s+/g, ' ').trim();
+    out[field] = v;
+  });
+  ['site_code','garden_name','zone_number','site_name','site_owner','operational_status'].forEach(function(field) { if (!String(out[field] || '').trim()) throw new Error('Missing required field: ' + field); });
+  validateEnum_(out.operational_status, ['Not Started','In Progress','Ready','Blocked','Completed','Cancelled'], 'operational_status');
+  validateEnum_(out.site_approval_status, ['','Draft','Under Review','Approved','Rejected','Needs Update'], 'site_approval_status');
+  validateEnum_(out.content_approval_status, ['','Not Started','Under Review','Approved','Rejected','Needs Update'], 'content_approval_status');
+  validateEnum_(out.criticality, ['','Low','Medium','High','Critical'], 'criticality');
+  validateEnum_(out.electricity_requirement, ['','Not Required','Required','TBD'], 'electricity_requirement');
+  validateEnum_(out.internet_requirement, ['','Not Required','Required','TBD'], 'internet_requirement');
+  validateEnum_(out.lighting_requirement, ['','Not Required','Required','TBD'], 'lighting_requirement');
+  validateNumberRange_(out.latitude, -90, 90, 'latitude');
+  validateNumberRange_(out.longitude, -180, 180, 'longitude');
+  validateNonNegativeNumber_(out.area_sqm, 'area_sqm');
+  validateNonNegativeInteger_(out.capacity, 'capacity');
+  return out;
+}
+function validateEnum_(value, allowed, field) { if (allowed.indexOf(String(value || '')) === -1) throw new Error('Invalid value for ' + field); }
+function validateNumberRange_(value, min, max, field) { if (value === '') return; const n = Number(value); if (!isFinite(n) || n < min || n > max) throw new Error('Invalid value for ' + field); }
+function validateNonNegativeNumber_(value, field) { if (value === '') return; const n = Number(value); if (!isFinite(n) || n < 0) throw new Error('Invalid value for ' + field); }
+function validateNonNegativeInteger_(value, field) { if (value === '') return; const n = Number(value); if (!isFinite(n) || n < 0 || Math.floor(n) !== n) throw new Error('Invalid value for ' + field); }
+
+function eventSiteRowsWithHeaders_(sheet, headerInfo) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const values = sheet.getRange(2, 1, lastRow - 1, headerInfo.headers.length).getValues();
+  return values.map(function(row, i) {
+    const item = { rowNumber: i + 2, row: row };
+    headerInfo.headers.forEach(function(h, c) { if (h) item[h] = normalizeCell_(row[c]); });
+    return item;
+  });
+}
+
+function findDuplicateEventSiteCode_(rows, code, excludeId) {
+  const wanted = String(code || '').trim().toLowerCase();
+  return rows.some(function(r) { return String(r.site_code || '').trim().toLowerCase() === wanted && String(r.site_id || '') !== String(excludeId || '') && !parseBool_(r.is_deleted); });
+}
+
+function createEventSite_(payload, session) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sheet = getEventSitesSheetForWrite_();
+    const hi = eventSiteHeaderMap_(sheet);
+    const data = cleanEventSitePayload_(payload, true);
+    const rows = eventSiteRowsWithHeaders_(sheet, hi);
+    if (findDuplicateEventSiteCode_(rows, data.site_code, '')) throw new Error('Duplicate site_code');
+    const now = new Date();
+    const siteId = 'SITE-' + Utilities.getUuid();
+    const row = hi.headers.map(function(h) { return data[h] !== undefined ? data[h] : ''; });
+    if (hi.map.site_id) row[hi.map.site_id - 1] = siteId;
+    if (hi.map.created_at) row[hi.map.created_at - 1] = now;
+    if (hi.map.created_by) row[hi.map.created_by - 1] = session.display_name || session.username;
+    if (hi.map.updated_at) row[hi.map.updated_at - 1] = now;
+    if (hi.map.updated_by) row[hi.map.updated_by - 1] = session.display_name || session.username;
+    sheet.appendRow(row);
+    const rec = Object.assign({}, data, { site_id: siteId, created_at: now, created_by: session.display_name || session.username, updated_at: now, updated_by: session.display_name || session.username });
+    appendEventSiteAudit_('CREATE_EVENT_SITE', session, siteId, {}, rec);
+    return rec;
+  } finally { lock.releaseLock(); }
+}
+
+function updateEventSite_(payload, session) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const siteId = String(payload.site_id || '').trim(); if (!siteId) throw new Error('Missing site_id');
+    const sheet = getEventSitesSheetForWrite_(); const hi = eventSiteHeaderMap_(sheet);
+    const rows = eventSiteRowsWithHeaders_(sheet, hi); const current = rows.find(function(r) { return String(r.site_id || '') === siteId && !parseBool_(r.is_deleted); });
+    if (!current) throw new Error('Event site not found');
+    const data = cleanEventSitePayload_(payload, false);
+    if (findDuplicateEventSiteCode_(rows, data.site_code, siteId)) throw new Error('Duplicate site_code');
+    const oldValues = {}; const newValues = {};
+    getEventSiteWritableFields_().forEach(function(f) { if (!hi.map[f]) return; oldValues[f] = current[f] || ''; newValues[f] = data[f]; sheet.getRange(current.rowNumber, hi.map[f]).setValue(data[f]); });
+    const now = new Date();
+    if (hi.map.updated_at) sheet.getRange(current.rowNumber, hi.map.updated_at).setValue(now);
+    if (hi.map.updated_by) sheet.getRange(current.rowNumber, hi.map.updated_by).setValue(session.display_name || session.username);
+    appendEventSiteAudit_('UPDATE_EVENT_SITE', session, siteId, oldValues, newValues);
+    return Object.assign({}, current, newValues, { updated_at: now, updated_by: session.display_name || session.username });
+  } finally { lock.releaseLock(); }
+}
+
+function deleteEventSite_(payload, session) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const siteId = String(payload.site_id || '').trim(); if (!siteId) throw new Error('Missing site_id');
+    const sheet = ensureEventSitesSoftDeleteColumns_(); const hi = eventSiteHeaderMap_(sheet);
+    const rows = eventSiteRowsWithHeaders_(sheet, hi); const current = rows.find(function(r) { return String(r.site_id || '') === siteId && !parseBool_(r.is_deleted); });
+    if (!current) throw new Error('Event site not found');
+    const now = new Date();
+    sheet.getRange(current.rowNumber, hi.map.is_deleted).setValue(true);
+    sheet.getRange(current.rowNumber, hi.map.deleted_at).setValue(now);
+    sheet.getRange(current.rowNumber, hi.map.deleted_by).setValue(session.display_name || session.username);
+    appendEventSiteAudit_('DELETE_EVENT_SITE', session, siteId, current, { is_deleted: true, deleted_at: now, deleted_by: session.display_name || session.username });
+    return { site_id: siteId, is_deleted: true };
+  } finally { lock.releaseLock(); }
+}
+
+function appendEventSiteAudit_(action, session, siteId, oldValues, newValues) {
+  appendAuditLog_({ user: session.username, updated_by: session.display_name || session.username, action: action, operation: action, record: siteId, entity_type: 'Event Site', entity_id: siteId, timestamp: new Date(), old_values: oldValues, new_values: newValues, source: 'Dashboard', previous_value: JSON.stringify(oldValues || {}), new_value: JSON.stringify(newValues || {}), result: 'success' });
 }
 
 function ensureRegisterSheet_(sheetName, headers) {
