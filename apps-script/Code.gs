@@ -68,6 +68,7 @@ const KAG_CONFIG = {
   approvalHistorySheetName: 'Digital Approval History',
   escalationChainSheetName: 'Escalation Chain Register',
   escalationRegisterSheetNames: ['Escalations Log', 'Escalation Register', 'Escalations Register'],
+  taskEscalationsSheetName: 'Task Escalations',
   riskGovernanceSheetName: 'Risk Governance Register',
   decisionLogSheetName: 'Decision Log',
   usersSheetName: 'User Access Matrix',
@@ -331,6 +332,11 @@ function doPost(e) {
       sendSlack_('اختبار ربط Slack مع لوحة KAG تم بنجاح.');
       appendAuditLog_({ action: 'slack_test', status: 'sent', updated_by: session.display_name || session.username });
       return json_({ ok: true, message: 'Slack test sent' });
+    }
+
+    if (payload.action === 'escalate_overdue_task') {
+      const item = escalateOverdueTask_(payload, session);
+      return json_({ ok: true, message: 'تم تنفيذ التصعيد.', escalation: item });
     }
 
     if (payload.action === 'daily_update') {
@@ -1575,6 +1581,95 @@ function deleteEventSite_(payload, session) {
 
 function appendEventSiteAudit_(action, session, siteId, oldValues, newValues) {
   appendAuditLog_({ user: session.username, updated_by: session.display_name || session.username, action: action, operation: action, record: siteId, entity_type: 'Event Site', entity_id: siteId, timestamp: new Date(), old_values: oldValues, new_values: newValues, source: 'Dashboard', previous_value: JSON.stringify(oldValues || {}), new_value: JSON.stringify(newValues || {}), result: 'success' });
+}
+
+
+function getTaskEscalationHeaders_() {
+  return ['Escalation ID', 'Task ID', 'Task Name', 'Current Owner', 'Escalated By', 'Escalated To', 'Escalation Date', 'Reason', 'Status', 'Created At'];
+}
+
+function isOverdueTaskEscalationUser_(session) {
+  const username = String((session && session.username) || '').trim().toLowerCase();
+  return ['ahmad.amoudi', 'atheer'].indexOf(username) !== -1;
+}
+
+function requireOverdueTaskEscalationUser_(session) {
+  if (isOverdueTaskEscalationUser_(session)) return;
+  throw new Error('ليس لديك صلاحية تنفيذ التصعيد.');
+}
+
+function isTaskOverdueForEscalation_(task) {
+  const status = String(getField_(task, WBS_FIELD_ALIASES.status) || getField_(task, WBS_FIELD_ALIASES.computedStatus) || '').toLowerCase();
+  if (status.match(/مكتمل|completed|done|closed/)) return false;
+  if (status.match(/متأخر|متاخر|overdue|late|delayed/)) return true;
+  const dueRaw = getField_(task, WBS_FIELD_ALIASES.plannedEnd);
+  if (!dueRaw) return false;
+  const due = new Date(dueRaw);
+  if (isNaN(due.getTime())) return false;
+  const todayKey = Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd');
+  const dueKey = Utilities.formatDate(due, KAG_CONFIG.timezone, 'yyyy-MM-dd');
+  return dueKey < todayKey;
+}
+
+function findOfficialTaskForEscalation_(taskId) {
+  const wanted = String(taskId || '').trim();
+  if (!wanted) throw new Error('Missing task_id');
+  const taskRead = readOfficialWbsTasks_(SpreadsheetApp.openById(SPREADSHEET_ID));
+  const task = taskRead.rows.find(function(row) {
+    return String(getField_(row, WBS_FIELD_ALIASES.taskId) || row.row_number || '').trim() === wanted;
+  });
+  if (!task) throw new Error('Task not found');
+  return task;
+}
+
+function sendOverdueTaskEscalationEmail_(item) {
+  const to = 'A.alobed@mayadeen.sa';
+  if (!to) return;
+  const body = [
+    'السلام عليكم عبدالعزيز العبيد،',
+    '',
+    'تم تصعيد مهمة متأخرة إليكم من منصة Mayadeen Project Command Center:',
+    '',
+    'اسم المهمة: ' + (item.task_name || '-'),
+    'رقم المهمة: ' + (item.task_id || '-'),
+    'المسؤول الحالي: ' + (item.current_owner || '-'),
+    'تاريخ الاستحقاق: ' + (item.due_date || '-'),
+    'قام بالتصعيد: ' + (item.escalated_by || '-'),
+    '',
+    'مع التحية'
+  ].join('\n');
+  MailApp.sendEmail({ to: to, subject: '[Mayadeen] تصعيد مهمة متأخرة: ' + (item.task_id || ''), body: body, name: 'Mayadeen Command Center' });
+}
+
+function escalateOverdueTask_(payload, session) {
+  requireOverdueTaskEscalationUser_(session);
+  const task = findOfficialTaskForEscalation_(payload.task_id || payload.taskId);
+  if (!isTaskOverdueForEscalation_(task)) throw new Error('لا يمكن تصعيد مهمة غير متأخرة.');
+  const sheet = ensureRegisterSheet_(KAG_CONFIG.taskEscalationsSheetName, getTaskEscalationHeaders_());
+  const now = new Date();
+  const escalationId = 'TES-' + Utilities.getUuid();
+  const taskId = String(getField_(task, WBS_FIELD_ALIASES.taskId) || '').trim();
+  const taskName = String(getField_(task, WBS_FIELD_ALIASES.taskName) || '').trim();
+  const currentOwner = String(getField_(task, WBS_FIELD_ALIASES.owner) || '').trim();
+  const actor = session.display_name || session.username;
+  const item = {
+    escalation_id: escalationId,
+    task_id: taskId,
+    task_name: taskName,
+    current_owner: currentOwner,
+    escalated_by: actor,
+    escalated_to: 'عبدالعزيز العبيد',
+    escalated_to_username: 'abdulaziz.obaid',
+    escalation_date: Utilities.formatDate(now, KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
+    reason: 'تصعيد مهمة متأخرة إلى عبدالعزيز العبيد',
+    status: 'Open',
+    created_at: now,
+    due_date: getField_(task, WBS_FIELD_ALIASES.plannedEnd) || ''
+  };
+  sheet.appendRow([item.escalation_id, item.task_id, item.task_name, item.current_owner, item.escalated_by, item.escalated_to, item.escalation_date, item.reason, item.status, item.created_at]);
+  appendAuditLog_({ action: 'ESCALATE_OVERDUE_TASK', operation: 'escalate', record: item.task_id, title: item.task_name, updated_by: actor, escalated_to: item.escalated_to, reference: item.escalation_id, status: 'success' });
+  try { sendOverdueTaskEscalationEmail_(item); } catch (mailErr) { Logger.log('Overdue task escalation email skipped/failed: ' + mailErr); }
+  return item;
 }
 
 function ensureRegisterSheet_(sheetName, headers) {

@@ -1700,7 +1700,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
-              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرسمي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th>الحالة الأصلية</th><th>الحالة المحسوبة</th><th>نسبة الإنجاز</th><th>دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th>
+              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرسمي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th>الحالة الأصلية</th><th>الحالة المحسوبة</th><th>نسبة الإنجاز</th><th>دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th><th id="taskEscalationHeader" style="display:none">التصعيد</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -3092,6 +3092,8 @@ const ALLOWED_API_HOSTS=['script.google.com','script.googleusercontent.com'];
 let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
 const EXECUTIVE_BOARD_ACCESS_DENIED='ليس لديك صلاحية للوصول إلى لوحة المدير العام';
 const EXECUTIVE_BOARD_ALLOWED_USERNAMES=['atheer','ahmad.amoudi','abdulaziz.obaid','abdulrahman.ceo'];
+const OVERDUE_TASK_ESCALATION_ALLOWED_USERNAMES=['ahmad.amoudi','atheer'];
+const OVERDUE_TASK_ESCALATION_TARGET={username:'abdulaziz.obaid',displayName:'عبدالعزيز العبيد'};
 let sessionToken='';
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
@@ -5558,7 +5560,6 @@ function openDetail(code){
   <div><small>الحالة (من الشيت)</small><b>${escapeHtml(r.status||'—')}</b></div>
   <div><small>ملاحظات</small><b>${escapeHtml(r.notes||'-')}</b></div>
 </div>
-<div style="margin-top:14px;display:flex;justify-content:flex-start"><button class="escalate-btn" onclick="openEscalationModal('task',${JSON.stringify(r.code)})">تصعيد</button></div>
 ${ownershipHtml(own)}
 ${depHtml}`; document.getElementById('modal').classList.add('active');}
 function openPhase(p){const arr=tasks.filter(t=>t.phase===p); document.getElementById('drawerContent').innerHTML=`<h2>مرحلة ${escapeHtml(p)}</h2><p class="heroText">عدد المهام: ${arr.length}</p><table><thead><tr><th>الكود</th><th>المهمة</th><th>المسؤول</th><th>النهاية</th></tr></thead><tbody>${arr.map(r=>`<tr onclick='openDetail(${JSON.stringify(r.code)})'><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.owner||'-')}</td><td>${fmt(r.end)}</td></tr>`).join('')}</tbody></table>`; document.getElementById('drawer').classList.add('active');}
@@ -5840,6 +5841,13 @@ function globalSearchFn(q){
 }
 
 /* ══ FILTERS (new IDs) ══ */
+function canEscalateOverdueTask(){
+  return OVERDUE_TASK_ESCALATION_ALLOWED_USERNAMES.includes(String(currentUser?.username||'').trim().toLowerCase());
+}
+function isOverdueTasksView(){
+  return getActivePageId()==='tasks' && (document.getElementById('filterStatus')?.value||'')==='متأخرة';
+}
+
 function applyFilters(){
   const q=(document.getElementById('searchTask')||{value:''}).value.toLowerCase();
   const ph=(document.getElementById('filterPhase')||{value:''}).value;
@@ -5883,22 +5891,40 @@ function applyFilters(){
     badge.textContent = data.length===totalTasks && !q && !ph && !ow && !st && (!ty || ty==='Task')
       ? `${totalTasks} مهمة من ملف WBS`
       : `${data.length} معروضة من أصل ${totalTasks} مهمة`;
+    const actionHeader=document.getElementById('taskEscalationHeader');
+    if(actionHeader) actionHeader.style.display=(canEscalateOverdueTask()&&isOverdueTasksView())?'':'none';
   }
 
   const tbody=document.querySelector('#taskTable tbody');
   if(!tbody) return;
   if(!data.length){
     const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا.':'لا توجد مهام مطابقة لمعايير البحث الحالية';
-    tbody.innerHTML=`<tr><td colspan="25" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="26" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>{
     const s=classifyStatus(r);
     const sc=s==='مكتملة'?'green':s==='قيد التنفيذ'?'blue':s==='متأخرة'?'red':s==='لم تبدأ'?'gray':'';
+    const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&s==='متأخرة';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td>${escapeHtml(r.progress||'-')}</td><td>${r.evidence?`<a href="${escapeHtml(r.evidence)}" target="_blank" rel="noopener">دليل</a>`:'-'}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td>
+      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td>${escapeHtml(r.progress||'-')}</td><td>${r.evidence?`<a href="${escapeHtml(r.evidence)}" target="_blank" rel="noopener">دليل</a>`:'-'}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn" onclick="event.stopPropagation();confirmOverdueTaskEscalation(${JSON.stringify(r.code)})">تصعيد</button></td>
     </tr>`;
   }).join('');
+}
+
+
+async function confirmOverdueTaskEscalation(taskId){
+  const task=tasks.find(t=>String(t.code)===String(taskId));
+  if(!task||classifyStatus(task)!=='متأخرة'||!canEscalateOverdueTask()||!isOverdueTasksView()) return;
+  if(!confirm('هل تريد تصعيد هذه المهمة إلى عبدالعزيز العبيد؟')) return;
+  try{
+    const res=await postApi(getConfiguredApiUrl(),{action:'escalate_overdue_task',task_id:task.code});
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.message||data.error||'failed');
+    alert('تم تنفيذ التصعيد إلى عبدالعزيز العبيد.');
+  }catch(e){
+    alert(sanitizeUserError(e,'تعذر تنفيذ التصعيد'));
+  }
 }
 
 /* ══ FILL FILTERS ══ */
