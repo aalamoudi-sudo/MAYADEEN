@@ -46,7 +46,7 @@ const WBS_FIELD_ALIASES = {
   lastUpdate:['last_update','updated','آخر تحديث','تاريخ التحديث'],
   priority:['priority','الأولوية'],
   risk:['risk','المخاطر','blocker','المعوقات'],
-  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
+  executionOwner:['مسؤول المسار','path_owner','track_owner','workstream_owner','جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
   followUpOwner:['مسؤول المتابعة','follow_up_owner','متابعة بواسطة'],
   taskType:['نوع المهمة','task_type','نوع العمل'],
   originalStatus:['الحالة الأصلية','original_status','sheet_status'],

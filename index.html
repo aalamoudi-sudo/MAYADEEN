@@ -4743,12 +4743,27 @@ function requestEscalationDecision(id){
 function classify(r){const st=d(r.start), en=d(r.end); if(!st||!en)return 'غير محدد'; if(isBeforeDay(en,TODAY))return 'انتهت الفترة'; if(!isBeforeDay(TODAY,st)&&!isBeforeDay(en,TODAY))return 'نشطة الآن'; return 'قادمة';}
 function normalizeArabic(s){
   return String(s||'')
-    .replace(/[\u064B-\u065F\u0670\u200B-\u200F\uFEFF]/g,'') // إزالة التشكيل والمسافات الخفية
-    .replace(/[إأآا]/g,'ا')
+    .normalize('NFKC')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g,'') // إزالة التشكيل والتطويل
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g,'') // إزالة المسافات والاتجاهات الخفية
+    .replace(/[إأآٱا]/g,'ا')
+    .replace(/ؤ/g,'و')
+    .replace(/ئ/g,'ي')
     .replace(/ى/g,'ي')
     .replace(/ة/g,'ه')
-    .replace(/\s+/g,' ')
-    .trim();
+    .replace(/[\s\u00A0]+/g,' ')
+    .trim()
+    .toLowerCase();
+}
+function taskOwnerFilterValues(task){
+  return [task?.executionOwner, task?.owner]
+    .map(v=>String(v||'').trim())
+    .filter(Boolean);
+}
+function taskMatchesOwnerFilter(task, selectedOwner){
+  if(!selectedOwner) return true;
+  const wanted=normalizeArabic(selectedOwner);
+  return taskOwnerFilterValues(task).some(v=>normalizeArabic(v)===wanted);
 }
 const TASK_STATUS_VALUES=['مكتملة','متأخرة','قيد التنفيذ','لم تبدأ','ملغاة','غير مكتملة البيانات'];
 const WBS_FIELD_ALIASES={
@@ -4776,7 +4791,7 @@ const WBS_FIELD_ALIASES={
   lastUpdate:['last_update','updated','آخر تحديث','تاريخ التحديث'],
   priority:['priority','الأولوية'],
   risk:['risk','المخاطر','blocker','المعوقات'],
-  executionOwner:['جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
+  executionOwner:['مسؤول المسار','path_owner','track_owner','workstream_owner','جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
   followUpOwner:['مسؤول المتابعة','follow_up_owner','متابعة بواسطة'],
   taskType:['نوع المهمة','task_type','نوع العمل'],
   originalStatus:['الحالة الأصلية','original_status','sheet_status'],
@@ -5884,14 +5899,11 @@ function applyFilters(){
   const todayKey=riyadhTodayKey();
   const tomorrowKey=addDaysToDateKey(todayKey,1);
   const dataBeforeDateFilter=base.filter(r=>{
-    const name=String(r.name||'').toLowerCase();
-    const code=String(r.code||'').toLowerCase();
-    const owner=String(r.owner||'').toLowerCase();
     const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
     if(q && !haystack.includes(q)) return false;
     if(ph&&r.phase!==ph) return false;
     if(path&&r.mainPath!==path) return false;
-    if(ow&&r.owner!==ow) return false;
+    if(!taskMatchesOwnerFilter(r,ow)) return false;
     if(st&&classifyStatus(r)!==st) return false;
     return true;
   });
@@ -6017,7 +6029,7 @@ async function submitOverdueTaskEscalation(taskId){
 /* ══ FILL FILTERS ══ */
 function fillFilters(){
   const phases=[...new Set(rows.map(r=>r.phase).filter(Boolean))].sort();
-  const owners=[...new Set(rows.map(r=>r.owner).filter(Boolean))].sort();
+  const owners=[...new Map(rows.flatMap(taskOwnerFilterValues).map(name=>[normalizeArabic(name),name])).values()].sort((a,b)=>a.localeCompare(b,'ar'));
   const officialUsed=OFFICIAL_PATHS.filter(path=>rows.some(r=>r.mainPath===path));
   const pSel=document.getElementById('filterPhase');
   const pathSel=document.getElementById('filterPath');
@@ -6425,8 +6437,19 @@ function renderMilestonesPage(){
 }
 function renderOwnersPage(){
   const el=document.getElementById('ownersList'); if(!el) return;
-  const owners=topEntries(countBy(tasks,'owner'),200).filter(([k])=>k&&k!=='غير محدد');
-  el.innerHTML=owners.map(([name,count])=>`<div class="owner-card" onclick="showOwnerTasks(${JSON.stringify(name)})"><b>${escapeHtml(name)}</b><span>${count} مهمة مرتبطة</span></div>`).join('');
+  const ownerCounts={};
+  tasks.forEach(t=>{
+    const seen=new Set();
+    taskOwnerFilterValues(t).forEach(name=>{
+      const key=normalizeArabic(name);
+      if(!key||seen.has(key)) return;
+      seen.add(key);
+      if(!ownerCounts[key]) ownerCounts[key]={name,count:0};
+      ownerCounts[key].count++;
+    });
+  });
+  const owners=Object.values(ownerCounts).filter(o=>o.name&&o.name!=='غير محدد').sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ar')).slice(0,200);
+  el.innerHTML=owners.map(({name,count})=>`<div class="owner-card" onclick="showOwnerTasks(${JSON.stringify(name)})"><b>${escapeHtml(name)}</b><span>${count} مهمة مرتبطة</span></div>`).join('');
 }
 function showOwnerTasks(name){
   showPage('tasks');
