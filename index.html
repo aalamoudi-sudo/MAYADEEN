@@ -3090,6 +3090,8 @@ const TODAY=riyadhTodayDate();
 const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzU75D5PcKWp3b19H8E8Gp9jJO_obD_qFHUqAl5g73fVdLccnmAg1HS57ukit_9dOLk/exec';
 const ALLOWED_API_HOSTS=['script.google.com','script.googleusercontent.com'];
 let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
+const EXECUTIVE_BOARD_ACCESS_DENIED='ليس لديك صلاحية للوصول إلى لوحة المدير العام';
+const EXECUTIVE_BOARD_ALLOWED_USERNAMES=['atheer','ahmad.amoudi','abdulaziz.obaid','abdulrahman.ceo'];
 let sessionToken='';
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
@@ -3354,8 +3356,13 @@ function normalizePageList(v){
   if(Array.isArray(v)) return v.map(x=>String(x).trim()).filter(Boolean);
   return String(v||'').split(/[,،]/).map(x=>x.trim()).filter(Boolean);
 }
+function isExecutiveBoardAllowedUser(user=currentUser){
+  const username=String(user&&user.username||'').trim().toLowerCase();
+  return EXECUTIVE_BOARD_ALLOWED_USERNAMES.includes(username);
+}
 function canAccessPage(id){
   if(id==='urgentTasksPage') return canAccessPage('overview');
+  if(id==='executiveBoard') return isExecutiveBoardAllowedUser();
   const pages=normalizePageList(currentUser.allowed_pages);
   if(id==='supervisorDaily') return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id)||String(currentUser.role||'').toLowerCase().includes('pmo')||normalizeArabic(currentUser.display_name||currentUser.username||'').includes(normalizeArabic('أحمد العامودي'));
   return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id);
@@ -3364,7 +3371,7 @@ function applyPermissions(){
   const pages=normalizePageList(currentUser.allowed_pages);
   document.querySelectorAll('.sidebar-nav .nav-item').forEach(btn=>{
     const id=btn.dataset.page;
-    const allowed=currentUser.access_level==='full'||pages.includes('*')||pages.includes(id);
+    const allowed=canAccessPage(id);
     btn.style.display=allowed?'':'none';
   });
   const nameEl=document.getElementById('userName');
@@ -3512,7 +3519,7 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 function showPage(id){
   if(!document.getElementById(id)) id='overview';
-  if(!canAccessPage(id)){alert('ليست لديك صلاحية فتح هذه الصفحة.');return;}
+  if(!canAccessPage(id)){alert(id==='executiveBoard'?EXECUTIVE_BOARD_ACCESS_DENIED:'ليست لديك صلاحية فتح هذه الصفحة.');return;}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   syncNavToPage(id);
@@ -7592,6 +7599,10 @@ function buildHealthSummaryText(h,status){
   return `تأثرت الدرجة الحالية بسبب: ${parts.join('، ')}. معالجة هذي البنود ستعمل على رفع درجة صحة المشروع.`;
 }
 function renderExecutiveBoard(){
+  if(!isExecutiveBoardAllowedUser()){
+    ['exec-kpis','exec-risks','exec-decisions','exec-asks'].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML=`<div style="color:var(--muted);padding:18px;text-align:center">${EXECUTIVE_BOARD_ACCESS_DENIED}</div>`;});
+    return;
+  }
   const h=projectHealthScore();
   const esc=buildEscalationItems();
   const k=document.getElementById('exec-kpis');
