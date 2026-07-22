@@ -56,6 +56,9 @@ const WBS_FIELD_ALIASES = {
   type:['type','Type','Row Type','نوع الصف','النوع','record_type','نوع السجل']
 };
 
+const EXECUTIVE_BOARD_ACCESS_DENIED = 'ليس لديك صلاحية للوصول إلى لوحة المدير العام';
+const EXECUTIVE_BOARD_ALLOWED_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid', 'abdulrahman.ceo'];
+
 const KAG_CONFIG = {
   timezone: 'Asia/Riyadh',
   sheetId: SPREADSHEET_ID,
@@ -99,7 +102,9 @@ const KAG_CONFIG = {
 
 function doGet(e) {
   try {
-    const session = requireSession_((e && e.parameter) || {});
+    const params = (e && e.parameter) || {};
+    const session = requireSession_(params);
+    requireExecutiveBoardRequestAccess_(session, params);
     return json_(buildDashboardData_(session));
   } catch (err) {
     return json_({ ok: false, success: false, message: publicError_(err), error: publicError_(err), data: null });
@@ -177,7 +182,12 @@ function doPost(e) {
     const session = requireSession_(payload);
 
     if (payload.action === 'data_sync') {
+      requireExecutiveBoardRequestAccess_(session, payload);
       return json_(buildDashboardData_(session));
+    }
+
+    if (String(payload.page_id || payload.page || payload.target_page || '').trim() === 'executiveBoard') {
+      requireExecutiveBoardAccess_(session);
     }
 
     if (payload.action === 'get_event_sites') {
@@ -858,11 +868,13 @@ function ensureUserAccessSheet_() {
 function getDefaultUsers_() {
   const all = '*';
   const execPages = 'overview,executiveBoard,projectHealth,escalationHub,risksMgmt,approvals,decisions,analytics,fileControl';
-  const pmPages = 'overview,tasks,phases,timeline,risksMgmt,decisions,approvals,assignments,actions,escalationHub,meetingsHub,pmoAssistant,projectHealth,executiveBoard,commitmentsHub,smartReminders,fileControl,analytics';
+  const pmPages = 'overview,tasks,phases,timeline,risksMgmt,decisions,approvals,assignments,actions,escalationHub,meetingsHub,pmoAssistant,projectHealth,commitmentsHub,smartReminders,fileControl,analytics';
   const eventPages = 'overview,tasks,phases,timeline,assignments,actions,escalationHub,meetingsHub,projectHealth,commitmentsHub,fileControl';
   const coordinatorPages = 'overview,tasks,phases,timeline,decisions,approvals,assignments,actions,escalationHub,meetingsHub,pmoAssistant,commitmentsHub,smartReminders,fileControl';
   const workstreamPages = 'overview,tasks,phases,timeline,approvals,assignments,meetingsHub,commitmentsHub,fileControl,actions';
   return [
+    { username: 'abdulrahman.ceo', display_name: 'عبدالرحمن جار الله', email: '', role: 'الرئيس التنفيذي', access_level: 'executive', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
+    { username: 'atheer', display_name: 'أثير الثبيتي', email: '', role: 'admin', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
     { username: 'ahmad.amoudi', display_name: 'أحمد العامودي', email: 'a.alamoudi@mayadeen.sa', role: 'PMO', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
     { username: 'abdulaziz.obaid', display_name: 'عبدالعزيز العبيد', email: 'A.alobed@mayadeen.sa', role: 'مشرف عام داخلي', access_level: 'executive', path_scope: 'executive', allowed_pages: execPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
     { username: 'ahmad.muhaysin', display_name: 'أحمد المحيسن', email: '', role: 'مدير المشروع', access_level: 'manager', path_scope: 'all_delivery', allowed_pages: pmPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
@@ -961,9 +973,29 @@ function normalizeAllowedPages_(session) {
 }
 
 function requirePageAccess_(session, pageId) {
+  if (pageId === 'executiveBoard') {
+    requireExecutiveBoardAccess_(session);
+    return;
+  }
   const pages = normalizeAllowedPages_(session);
   if (hasFullAccess_(session) || pages.indexOf('*') !== -1 || pages.indexOf(pageId) !== -1) return;
   throw new Error('Forbidden: page permission required for ' + pageId);
+}
+
+function isExecutiveBoardAllowedUser_(session) {
+  const username = String((session && session.username) || '').trim().toLowerCase();
+  return EXECUTIVE_BOARD_ALLOWED_USERNAMES.indexOf(username) !== -1;
+}
+
+function requireExecutiveBoardAccess_(session) {
+  if (isExecutiveBoardAllowedUser_(session)) return;
+  throw new Error(EXECUTIVE_BOARD_ACCESS_DENIED);
+}
+
+function requireExecutiveBoardRequestAccess_(session, payload) {
+  const requestedPage = String((payload && (payload.page_id || payload.page || payload.target_page)) || '').trim();
+  const requestedAction = String((payload && (payload.executive_action || payload.executiveBoardAction)) || '').trim();
+  if (requestedPage === 'executiveBoard' || requestedAction) requireExecutiveBoardAccess_(session);
 }
 
 function requireCanWriteEntity_(session, entity) {
