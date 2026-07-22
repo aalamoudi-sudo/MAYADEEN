@@ -1635,6 +1635,8 @@ function sendOverdueTaskEscalationEmail_(item) {
     'المسؤول الحالي: ' + (item.current_owner || '-'),
     'تاريخ الاستحقاق: ' + (item.due_date || '-'),
     'قام بالتصعيد: ' + (item.escalated_by || '-'),
+    'سبب التصعيد: ' + (item.reason || '-'),
+    item.notes ? ('ملاحظات إضافية: ' + item.notes) : '',
     '',
     'مع التحية'
   ].join('\n');
@@ -1661,7 +1663,8 @@ function escalateOverdueTask_(payload, session) {
     escalated_to: 'عبدالعزيز العبيد',
     escalated_to_username: 'abdulaziz.obaid',
     escalation_date: Utilities.formatDate(now, KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
-    reason: 'تصعيد مهمة متأخرة إلى عبدالعزيز العبيد',
+    reason: String(payload.reason || '').trim() || 'تصعيد مهمة متأخرة إلى عبدالعزيز العبيد',
+    notes: String(payload.notes || '').trim(),
     status: 'Open',
     created_at: now,
     due_date: getField_(task, WBS_FIELD_ALIASES.plannedEnd) || ''

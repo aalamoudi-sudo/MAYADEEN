@@ -745,6 +745,26 @@ select option{background:#0f1220}
   cursor:pointer;transition:var(--tr);font-size:13px;
 }
 .modal-close:hover{background:rgba(124,92,255,.20);color:#fff}
+
+.escalation-preview-modal{direction:rtl;max-height:calc(100vh - 72px);overflow:auto;scrollbar-width:thin}
+.escalation-preview-modal h2{margin:0 0 14px;color:#eef1ff;font-size:20px;font-weight:900}
+.escalation-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.escalation-preview-cell{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:11px 12px;min-width:0}
+.escalation-preview-cell small{display:block;color:var(--muted);font-size:11px;font-weight:800;margin-bottom:5px}
+.escalation-preview-cell b{display:block;color:#d8e4ff;font-size:13px;line-height:1.6;word-break:break-word}
+.escalation-preview-form{display:grid;gap:10px;margin-top:12px}
+.escalation-preview-form label{display:grid;gap:6px;color:#c4d0f0;font-size:12px;font-weight:800}
+.escalation-preview-form textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-family:inherit;outline:none;resize:vertical}
+.escalation-preview-form textarea:focus{border-color:rgba(124,92,255,.55);box-shadow:0 0 0 3px rgba(124,92,255,.12)}
+.escalation-preview-error{display:none;background:rgba(255,77,106,.10);border:1px solid rgba(255,77,106,.35);color:#ffb3bf;border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.7;margin-top:12px}
+.escalation-preview-error.active{display:block}
+.escalation-preview-actions{position:sticky;bottom:-24px;background:linear-gradient(180deg,rgba(10,14,29,.84),rgba(10,14,29,.98));padding:12px 0 0;margin-top:14px;display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap}
+.escalation-preview-actions button{border-radius:10px;padding:10px 14px;font-family:inherit;font-weight:900;cursor:pointer;transition:var(--tr)}
+.escalation-cancel-btn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:#d0d8f0}
+.escalation-submit-btn{border:0;background:linear-gradient(135deg,#ff4d6a,#ff8c42);color:#fff;min-width:150px}
+.escalation-submit-btn:disabled{opacity:.65;cursor:not-allowed;transform:none}
+.app-toast{position:fixed;z-index:120;left:24px;bottom:24px;max-width:min(420px,calc(100vw - 48px));border-radius:14px;padding:13px 16px;background:rgba(16,232,122,.12);border:1px solid rgba(16,232,122,.35);color:#c8ffdf;font-size:13px;font-weight:800;box-shadow:var(--shadow)}
+@media(max-width:700px){.escalation-preview-grid{grid-template-columns:1fr}.escalation-preview-modal{margin:24px auto;width:min(620px,94vw);padding:18px}.escalation-preview-actions{bottom:-18px}.app-toast{left:12px;right:12px;bottom:12px;max-width:none}}
 .detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px}
 .detail-grid div{
   background:rgba(255,255,255,.04);border:1px solid var(--line);
@@ -5563,7 +5583,7 @@ function openDetail(code){
 ${ownershipHtml(own)}
 ${depHtml}`; document.getElementById('modal').classList.add('active');}
 function openPhase(p){const arr=tasks.filter(t=>t.phase===p); document.getElementById('drawerContent').innerHTML=`<h2>مرحلة ${escapeHtml(p)}</h2><p class="heroText">عدد المهام: ${arr.length}</p><table><thead><tr><th>الكود</th><th>المهمة</th><th>المسؤول</th><th>النهاية</th></tr></thead><tbody>${arr.map(r=>`<tr onclick='openDetail(${JSON.stringify(r.code)})'><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.owner||'-')}</td><td>${fmt(r.end)}</td></tr>`).join('')}</tbody></table>`; document.getElementById('drawer').classList.add('active');}
-function closeModal(){document.getElementById('modal').classList.remove('active')} function closeDrawer(){document.getElementById('drawer').classList.remove('active')}
+function closeModal(){document.getElementById('modal').classList.remove('active');document.getElementById('modal')?.querySelector('.modal-box')?.classList.remove('escalation-preview-modal')} function closeDrawer(){document.getElementById('drawer').classList.remove('active')}
 function getConfiguredApiUrl(){
   // Staging uses the configured Google Apps Script URL only; no LocalStorage تعويض عرضي is used for dashboard data.
   const v=(DEFAULT_API_URL||'').trim();
@@ -5913,17 +5933,84 @@ function applyFilters(){
 }
 
 
-async function confirmOverdueTaskEscalation(taskId){
+function currentOverdueEscalationActorName(){
+  const username=String(currentUser?.username||'').trim().toLowerCase();
+  if(username==='ahmad.amoudi') return 'أحمد العامودي';
+  if(username==='atheer') return 'أثير';
+  return currentUser?.display_name||currentUser?.username||'-';
+}
+function setOverdueEscalationModalError(message){
+  const el=document.getElementById('overdue-escalation-error');
+  if(!el) return;
+  el.textContent=message||'';
+  el.classList.toggle('active',!!message);
+}
+function showAppToast(message){
+  const old=document.getElementById('app-toast');
+  if(old) old.remove();
+  const toast=document.createElement('div');
+  toast.id='app-toast';
+  toast.className='app-toast';
+  toast.setAttribute('role','status');
+  toast.textContent=message;
+  document.body.appendChild(toast);
+  window.setTimeout(()=>toast.remove(),4500);
+}
+function confirmOverdueTaskEscalation(taskId){
   const task=tasks.find(t=>String(t.code)===String(taskId));
   if(!task||classifyStatus(task)!=='متأخرة'||!canEscalateOverdueTask()||!isOverdueTasksView()) return;
-  if(!confirm('هل تريد تصعيد هذه المهمة إلى عبدالعزيز العبيد؟')) return;
+  const modal=document.getElementById('modal');
+  const content=document.getElementById('modalContent');
+  const box=modal?.querySelector('.modal-box');
+  if(!modal||!content||!box) return;
+  const fields=[
+    ['كود المهمة',task.code||'-'],['اسم المهمة',task.name||'-'],['المسؤول الحالي',task.owner||'-'],
+    ['المسار الرئيسي',task.mainPath||'-'],['المرحلة',task.phase||'-'],['تاريخ النهاية المخططة',fmt(task.end)||'-'],
+    ['تاريخ النهاية الفعلية',fmt(task.actualEnd)||'-'],['عدد أيام التأخير',`${getTaskDelayDays(task)} يوم`],
+    ['الحالة الحالية',classifyStatus(task)||'-'],['نسبة الإنجاز',task.progress||`${getTaskProgress(task)}%`],
+    ['التصعيد بواسطة',currentOverdueEscalationActorName()],['التصعيد إلى',OVERDUE_TASK_ESCALATION_TARGET.displayName]
+  ];
+  content.innerHTML=`
+    <h2>معاينة التصعيد</h2>
+    <div class="note">هذه معاينة فقط. لن يتم إنشاء سجل أو إرسال بريد أو تعديل بيانات المهمة إلا بعد الضغط على زر تأكيد التصعيد.</div>
+    <div class="escalation-preview-grid">${fields.map(([k,v])=>`<div class="escalation-preview-cell"><small>${escapeHtml(k)}</small><b>${escapeHtml(v)}</b></div>`).join('')}</div>
+    <div class="escalation-preview-form">
+      <label>سبب التصعيد *<textarea id="overdue-escalation-reason" rows="3" required placeholder="اكتب سبب التصعيد"></textarea></label>
+      <label>ملاحظات إضافية<textarea id="overdue-escalation-notes" rows="3" placeholder="ملاحظات اختيارية"></textarea></label>
+    </div>
+    <div id="overdue-escalation-error" class="escalation-preview-error" role="alert"></div>
+    <div class="escalation-preview-actions">
+      <button type="button" class="escalation-cancel-btn" onclick="closeModal()">إلغاء</button>
+      <button type="button" id="overdue-escalation-submit" class="escalation-submit-btn" onclick="submitOverdueTaskEscalation(${JSON.stringify(task.code)})">تأكيد التصعيد</button>
+    </div>`;
+  box.classList.add('escalation-preview-modal');
+  modal.classList.add('active');
+  document.getElementById('overdue-escalation-reason')?.focus();
+}
+async function submitOverdueTaskEscalation(taskId){
+  const submitBtn=document.getElementById('overdue-escalation-submit');
+  if(!submitBtn||submitBtn.disabled) return;
+  const reason=(document.getElementById('overdue-escalation-reason')?.value||'').trim();
+  const notes=(document.getElementById('overdue-escalation-notes')?.value||'').trim();
+  const username=String(currentUser?.username||'').trim().toLowerCase();
+  const task=tasks.find(t=>String(t.code)===String(taskId));
+  setOverdueEscalationModalError('');
+  if(!reason){ setOverdueEscalationModalError('سبب التصعيد إلزامي.'); return; }
+  if(!OVERDUE_TASK_ESCALATION_ALLOWED_USERNAMES.includes(username)){ setOverdueEscalationModalError('المستخدم الحالي غير مخول بتصعيد المهام المتأخرة.'); return; }
+  if(!task||classifyStatus(task)!=='متأخرة'){ setOverdueEscalationModalError('لا يمكن التصعيد لأن المهمة لم تعد متأخرة.'); return; }
+  submitBtn.disabled=true;
+  submitBtn.textContent='جارٍ إرسال التصعيد...';
   try{
-    const res=await postApi(getConfiguredApiUrl(),{action:'escalate_overdue_task',task_id:task.code});
+    const res=await postApi(getConfiguredApiUrl(),{action:'escalate_overdue_task',task_id:task.code,reason,notes,escalated_to:OVERDUE_TASK_ESCALATION_TARGET.username});
     const data=await res.json();
     if(!data.ok) throw new Error(data.message||data.error||'failed');
-    alert('تم تنفيذ التصعيد إلى عبدالعزيز العبيد.');
+    closeModal();
+    showAppToast('تم تصعيد المهمة إلى عبدالعزيز العبيد.');
+    applyFilters();
   }catch(e){
-    alert(sanitizeUserError(e,'تعذر تنفيذ التصعيد'));
+    submitBtn.disabled=false;
+    submitBtn.textContent='تأكيد التصعيد';
+    setOverdueEscalationModalError(sanitizeUserError(e,'تعذر تنفيذ التصعيد'));
   }
 }
 
