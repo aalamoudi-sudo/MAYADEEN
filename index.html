@@ -269,7 +269,6 @@ button,input,select{font-family:inherit}
   border-radius:14px;margin-bottom:18px;
   position:relative;overflow:hidden;
 }
-.esb-status-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0;padding:0 10px}
 .exec-status-bar::before{
   content:"";position:absolute;top:0;left:0;right:0;height:2px;
   background:linear-gradient(90deg,transparent,var(--esb-accent,var(--brand)),transparent);
@@ -277,9 +276,6 @@ button,input,select{font-family:inherit}
 .esb-status{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .esb-dot{width:9px;height:9px;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0}
 .esb-label{font-size:12px;font-weight:700;letter-spacing:.3px}
-.esb-status-copy{display:flex;flex-direction:column;align-items:center;gap:2px}
-.esb-status-copy small{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.3px;white-space:nowrap}
-.esb-info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.07);color:var(--muted);font-size:11px;font-weight:800;cursor:help;flex-shrink:0}
 .esb-divider{width:1px;height:28px;background:rgba(255,255,255,.08);flex-shrink:0}
 .esb-metric{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding:0 10px;cursor:pointer;transition:var(--tr)}
 .esb-metric:hover{opacity:.8}
@@ -1560,15 +1556,9 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
         <!-- EXECUTIVE STATUS BAR -->
         <div class="exec-status-bar" id="execStatusBar">
-          <div class="esb-status-wrap">
-            <div class="esb-status">
-              <span class="esb-dot" id="esbDot" style="background:#f5b800"></span>
-              <span class="esb-status-copy">
-                <span class="esb-label" id="esbStatusLabel" style="color:#f5b800">جاري التحميل...</span>
-                <small>الحالة التنفيذية</small>
-              </span>
-            </div>
-            <button type="button" class="esb-info" id="esbStatusExplanation" title="يتم احتساب الحالة بعد اكتمال مزامنة Google Sheets فقط" aria-label="تفاصيل الحالة التنفيذية">i</button>
+          <div class="esb-status">
+            <span class="esb-dot" id="esbDot" style="background:#f5b800"></span>
+            <span class="esb-label" id="esbStatusLabel" style="color:#f5b800">جاري التحميل...</span>
           </div>
           <div class="esb-divider"></div>
           <div class="esb-metric" onclick="showPage('analytics')" title="فتح التحليلات التنفيذية">
@@ -1584,6 +1574,17 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <div class="esb-metric" onclick="showPage('timeline')" title="فتح الجدول الزمني">
             <b id="esbDaysLeft" style="color:#00d4ff">--</b>
             <small>يوم للافتتاح</small>
+          </div>
+          <div class="esb-divider"></div>
+          <div class="esb-decision" onclick="showPage('actions')" style="cursor:pointer" title="فتح مركز الأولويات">
+
+            <span class="esb-decision-text" id="esbDecision">جاري تحليل البيانات...</span>
+          </div>
+          <div class="esb-sync">
+            <span></span>
+            <span>آخر مزامنة: <b id="esbSyncTime">--</b></span>
+            <span style="color:rgba(255,255,255,.2)">|</span>
+            <span><b id="esbSource">WBS</b></span>
           </div>
         </div>
         <!-- hidden elements kept for JS compatibility -->
@@ -6271,35 +6272,6 @@ function plannedProgressPct(){
   return Math.round(((TODAY-start)/(end-start))*100);
 }
 
-/* القاعدة التنفيذية المعروضة في الرئيسية. لا توجد أوزان مخفية: الجاهزية هي نسبة
-   المهام المكتملة، ثم تطبق شروط الحالة الحالية بالترتيب الموثق أدناه. اللون
-   مأخوذ دائماً من نطاق الجاهزية نفسه حتى لا تعرض البطاقة إشارتين متعارضتين. */
-function openingReadinessModel(){
-  if(!isOfficialKpiReady()) return null;
-  const total=tasks.length;
-  const completed=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
-  const overdue=tasks.filter(t=>classifyStatus(t)==='متأخرة').length;
-  const readiness=total?Math.round(completed/total*100):0;
-  const planned=plannedProgressPct();
-  const variance=readiness-planned;
-  const criticalRisks=getRiskMetrics().critical;
-  const daysLeft=Math.max(0,daysBetween(riyadhTodayKey(),'2026-11-01'));
-  const upcomingMilestones=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY)&&daysBetween(riyadhTodayKey(),m.end)<=30).length;
-  const band=readiness>=70
-    ?{name:'أخضر',color:'#10e87a'}
-    :readiness>=40?{name:'أصفر',color:'#f5b800'}:{name:'أحمر',color:'#ff4d6a'};
-  let label;
-  if(overdue>20) label='يحتاج تدخل عاجل';
-  else if(overdue>5||variance<-10) label='يحتاج متابعة';
-  else if(readiness>=80) label='يسير وفق الخطة';
-  else label='◎ قيد التنفيذ';
-  const factors=[`جاهزية ${readiness}% (${completed} مكتملة من ${total})`,`وجود ${overdue} مهمة متأخرة`];
-  if(criticalRisks) factors.push(`${criticalRisks} مخاطر حرجة`);
-  else factors.push('0 مخاطر حرجة');
-  const reason=`الحالة ناتجة عن ${factors.join(' و')}؛ الانحراف عن المخطط ${variance>=0?'+':''}${variance}%، والمتبقي ${daysLeft} يوم، والمعالم خلال 30 يوماً: ${upcomingMilestones}.`;
-  return {total,completed,overdue,readiness,planned,variance,criticalRisks,daysLeft,upcomingMilestones,band,label,reason};
-}
-
 /* بطاقة الالتزام بالجدول الزمني (Planned vs Actual) — منطق موحّد لكلا نسختيها
    (الصفحة الرئيسية وصفحة الجدول الزمني) بناءً على نفس بيانات WBS الحية. */
 function renderScheduleCard(rowsId, diffId){
@@ -6409,16 +6381,6 @@ function renderSchedulePressure(rowsId, statusId){
 }
 
 function renderExecutiveAdditions(){
-  const openingModel=openingReadinessModel();
-  if(!openingModel){
-    const label=document.getElementById('esbStatusLabel');
-    const explanation=document.getElementById('esbStatusExplanation');
-    const readiness=document.getElementById('esbReadiness');
-    if(label) label.textContent=NO_KPI_DATA_TEXT;
-    if(explanation) explanation.title='لا تُستخدم قيمة ثابتة أو مخزنة عند تعذر مزامنة Google Sheets.';
-    if(readiness) readiness.textContent='--';
-    return;
-  }
   const statusCount=countBy(tasks,classifyStatus);
   const late=statusCount['متأخرة']||0;
   const done=statusCount['مكتملة']||0;
@@ -6438,18 +6400,18 @@ function renderExecutiveAdditions(){
 
   /* ── 1. EXECUTIVE STATUS BAR ── */
   const esbBar=document.getElementById('execStatusBar');
-  const statusLabel=openingModel.label;
-  const statusColor=openingModel.band.color;
-  const statusAccent=statusColor==='#ff4d6a'?'255,77,106':statusColor==='#f5b800'?'245,184,0':'16,232,122';
+  let statusLabel,statusColor,statusAccent;
+  if(late>20){statusLabel='يحتاج تدخل عاجل';statusColor='#ff4d6a';statusAccent='255,77,106';}
+  else if(late>5||diff<-10){statusLabel='يحتاج متابعة';statusColor='#f5b800';statusAccent='245,184,0';}
+  else if(actual>=80){statusLabel='يسير وفق الخطة';statusColor='#10e87a';statusAccent='16,232,122';}
+  else{statusLabel='◎ قيد التنفيذ';statusColor='#3b82f6';statusAccent='59,130,246';}
   if(esbBar) esbBar.style.setProperty('--esb-accent',`rgb(${statusAccent})`);
   const dotEl=document.getElementById('esbDot');
   const lblEl=document.getElementById('esbStatusLabel');
   if(dotEl) dotEl.style.background=statusColor;
   if(lblEl){lblEl.textContent=statusLabel;lblEl.style.color=statusColor;}
-  const explanationEl=document.getElementById('esbStatusExplanation');
-  if(explanationEl) explanationEl.title=openingModel.reason;
   const readEl=document.getElementById('esbReadiness');
-  if(readEl){readEl.textContent=openingModel.readiness+'%';readEl.style.color=openingModel.band.color;readEl.title=`${openingModel.completed} مهمة مكتملة من ${openingModel.total} مهمة رسمية من Google Sheets`}
+  if(readEl){readEl.textContent=actual+'%';readEl.style.color=actual>=70?'#10e87a':actual>=40?'#f5b800':'#ff4d6a';}
   const lateEl=document.getElementById('esbLate');
   if(lateEl){lateEl.textContent=criticalRisks;lateEl.style.color=criticalRisks>10?'#ff4d6a':criticalRisks>3?'#f5b800':'#10e87a';}
   const daysElESB=document.getElementById('esbDaysLeft');
