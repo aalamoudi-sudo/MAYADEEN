@@ -514,7 +514,7 @@ button,input,select{font-family:inherit}
 .sec-title a{font-size:var(--fs-small);color:var(--brand2);cursor:pointer;font-weight:600}
 
 /* ══ PMBOK HEALTH ══ */
-.health-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-gap-md);margin-bottom:16px}
+.health-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--sp-gap-md);margin-bottom:16px}
 .health-card{
   background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:16px 14px;
@@ -676,7 +676,7 @@ input:focus,select:focus{
 select option{background:#0f1220}
 
 /* ══ PHASE CARDS ══ */
-.phase-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.phase-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 .phase-card{
   background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:18px;
@@ -1103,7 +1103,7 @@ select option{background:#0f1220}
 /* ══ EXECUTIVE PROJECT PHASES ══ */
 #phases .phase-grid{
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
   gap:12px;
   align-items:stretch;
 }
@@ -3095,6 +3095,9 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
 <script>
 const NO_KPI_DATA_TEXT='لا توجد بيانات كافية لاحتساب المؤشر';
+const PROJECT_PHASE_ORDER=['البدء','التخطيط','التنفيذ','المراقبة والتحكم','الإغلاق'];
+const PROJECT_PHASE_UNSPECIFIED='غير محدد';
+const PROJECT_PHASE_COLORS={'البدء':'#10e87a','التخطيط':'#00d4ff','التنفيذ':'#7c5cff','المراقبة والتحكم':'#3b82f6','الإغلاق':'#f5b800'};
 const OFFICIAL_PATHS=['الضيافة','التشغيل','تجربة الضيوف','المحتوى','اللوجستيات والنقل','التنفيذ','التصميم','البروتوكول والحشود'];
 let officialDataReady=false;
 let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
@@ -3660,7 +3663,8 @@ function normalizeRow(raw){
   const typeRaw=String(valueOf(raw,['type','Type','Row Type','نوع الصف','النوع'])||'').trim();
   const code=String(valueOf(raw,WBS_FIELD_ALIASES.taskId)||'').trim();
   const name=String(valueOf(raw,WBS_FIELD_ALIASES.taskName)||'').trim();
-  const phase=String(valueOf(raw,WBS_FIELD_ALIASES.phase)||'').trim();
+  const rawPhase=String(valueOf(raw,WBS_FIELD_ALIASES.phase)||'').trim();
+  const phase=normalizeProjectPhase(rawPhase);
   const mainPath=String(valueOf(raw,WBS_FIELD_ALIASES.mainPath)||'').trim();
   const owner=String(valueOf(raw,WBS_FIELD_ALIASES.owner)||'').trim();
   const ownerEmail=String(valueOf(raw,WBS_FIELD_ALIASES.ownerEmail)||'').trim();
@@ -3697,7 +3701,7 @@ function normalizeRow(raw){
   const source=String(valueOf(raw,['source','_source'])||'google_sheets').trim();
   const record_type=String(valueOf(raw,['record_type'])||'').trim();
   const is_test=String(valueOf(raw,['is_test'])||'').trim();
-  const normalized={type,code,name,phase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,followUpOwner,taskType,originalStatus,lag,lastUpdate,priority,dataSource,evidence,version,notes,sheet_status:originalStatus||status,status:originalStatus||status,source:dataSource||source,record_type,is_test,_source:raw._source||dataSource||source,raw};
+  const normalized={type,code,name,phase,rawPhase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,followUpOwner,taskType,originalStatus,lag,lastUpdate,priority,dataSource,evidence,version,notes,sheet_status:originalStatus||status,status:originalStatus||status,source:dataSource||source,record_type,is_test,_source:raw._source||dataSource||source,raw};
   normalized.computed_status=computeTaskStatus(normalized);
   normalized.delay_days=getTaskDelayDays(normalized);
   return normalized;
@@ -4762,6 +4766,18 @@ function normalizeArabic(s){
     .trim()
     .toLowerCase();
 }
+function normalizeProjectPhase(value){
+  const key=normalizeArabic(String(value??'').replace(/&/g,' and ').replace(/\band\b/gi,' and '));
+  if(!key) return PROJECT_PHASE_UNSPECIFIED;
+  const aliases={
+    'البدء':'البدء','بدء':'البدء','مرحله البدء':'البدء','initiation':'البدء','initiating':'البدء','start':'البدء',
+    'التخطيط':'التخطيط','مرحله التخطيط':'التخطيط','planning':'التخطيط','plan':'التخطيط',
+    'التنفيذ':'التنفيذ','مرحله التنفيذ':'التنفيذ','execution':'التنفيذ','executing':'التنفيذ','implementation':'التنفيذ',
+    'المراقبه والتحكم':'المراقبة والتحكم','المراقبه و التحكم':'المراقبة والتحكم','المراقبه':'المراقبة والتحكم','التحكم':'المراقبة والتحكم','المتابعه والتحكم':'المراقبة والتحكم','الرصد والتحكم':'المراقبة والتحكم','monitoring and control':'المراقبة والتحكم','monitoring and controlling':'المراقبة والتحكم','monitoring':'المراقبة والتحكم','control':'المراقبة والتحكم',
+    'الاغلاق':'الإغلاق','مرحله الاغلاق':'الإغلاق','closing':'الإغلاق','closure':'الإغلاق','closeout':'الإغلاق'
+  };
+  return aliases[key]||PROJECT_PHASE_UNSPECIFIED;
+}
 function taskOwnerFilterValues(task){
   return [task?.executionOwner, task?.owner]
     .map(v=>String(v||'').trim())
@@ -4777,7 +4793,7 @@ const WBS_FIELD_ALIASES={
   taskId:['كود المهمة','معرف المهمة','code','WBS Code','Code','الكود','رمز WBS','task_id','id','رقم المهمة'],
   taskName:['اسم المهمة','name','Milestone / Task','Milestone/Task','Task','المهمة','العنوان'],
   mainPath:['المسار الرسمي','المسار الرئيسي','main_path','path','المسار'],
-  phase:['المرحلة','phase','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK'],
+  phase:['المرحلة','مرحلة المشروع','المراحل','phase','project_phase','stage','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK'],
   owner:['الموظف المسؤول','اسم المسؤول','owner','Assigned To','AssignedTo','المسؤول','مسند إلى','responsible','المالك'],
   ownerEmail:['البريد الإلكتروني للمسؤول','owner_email','responsible_email','email','البريد الإلكتروني','بريد المسؤول'],
   plannedStart:['تاريخ البداية الأساسي','تاريخ البدء المخطط','planned_start','start_date','planned_start_date','baseline_start','baseline_start_date','start','Start Date','Planned Start Date','Baseline Start Date','تاريخ البدء','تاريخ البداية','تاريخ بدء المهمة','البداية'],
@@ -5113,8 +5129,7 @@ function renderKpis(){
 }
 function renderHealth(){
   if(!isOfficialKpiReady()){const el=document.getElementById('health'); if(el) el.innerHTML=noDataBoxHtml(); return;}
-  const pmbokPhases=['البدء','التخطيط','التنفيذ','الإغلاق'];
-  const items = pmbokPhases.map(phase=>{
+  const items = PROJECT_PHASE_ORDER.map(phase=>{
     const phaseTasks=tasks.filter(t=>t.phase===phase);
     const total=phaseTasks.length;
     if(!total) return null;
@@ -5309,9 +5324,9 @@ function renderTasks(){
   applyFilters();
 }
 function renderPhases(){
-  const phases=['البدء','التخطيط','التنفيذ','الإغلاق'];
-  const orderLabel={'البدء':'01','التخطيط':'02','التنفيذ':'03','الإغلاق':'04'};
-  const colorMap={'البدء':'green','التخطيط':'cyan','التنفيذ':'brand','الإغلاق':'yellow'};
+  const phases=PROJECT_PHASE_ORDER;
+  const orderLabel=Object.fromEntries(phases.map((p,i)=>[p,String(i+1).padStart(2,'0')]));
+  const colorMap={'البدء':'green','التخطيط':'cyan','التنفيذ':'brand','المراقبة والتحكم':'blue','الإغلاق':'yellow'};
 
   const phaseStats=phases.map(p=>{
     const arr=tasks.filter(t=>t.phase===p);
@@ -5320,8 +5335,9 @@ function renderPhases(){
     const inprog=arr.filter(t=>classifyStatus(t)==='قيد التنفيذ').length;
     const notStarted=arr.filter(t=>classifyStatus(t)==='لم تبدأ').length;
     const pct=arr.length?Math.round(done/arr.length*100):0;
-    const ends=arr.map(t=>d(t.end)).filter(Boolean).sort((a,b)=>b-a);
-    const starts=arr.map(t=>d(t.start)).filter(Boolean).sort((a,b)=>a-b);
+    const ends=arr.map(t=>d(t.actualEnd||t.end)).filter(Boolean).sort((a,b)=>b-a);
+    const starts=arr.map(t=>d(t.actualStart||t.start)).filter(Boolean).sort((a,b)=>a-b);
+    const firstDate=starts[0]?fmt(dateToKey_(starts[0])):'-';
     const lastDate=ends[0]?fmt(dateToKey_(ends[0])):'-';
     const owners=[...new Set(arr.map(t=>t.owner).filter(Boolean))];
     const isNotStarted=!arr.length||(notStarted===arr.length&&done===0&&late===0&&inprog===0);
@@ -5330,7 +5346,7 @@ function renderPhases(){
     else if(isNotStarted){status='لم تبدأ';statusClass='gray';}
     else if(late>0){status='تحتاج متابعة';statusClass='yellow';}
     else if(inprog>0||pct>0){status='قيد التنفيذ';statusClass='blue';}
-    return {phase:p,total:arr.length,done,late,inprog,notStarted,pct,lastDate,owners,status,statusClass,color:isNotStarted?'muted':(colorMap[p]||'brand'),isNotStarted};
+    return {phase:p,total:arr.length,done,late,inprog,notStarted,pct,firstDate,lastDate,owners,status,statusClass,color:isNotStarted?'muted':(colorMap[p]||'brand'),isNotStarted};
   });
 
   /* Determine current active phase (moved earlier so phase cards can highlight it) */
@@ -5345,12 +5361,11 @@ function renderPhases(){
     <div class="card phaseCard executive-phase ${i.isNotStarted?'phase-not-started':''} ${i.phase===active.phase?'phase-current-active':''}" onclick='openPhase(${JSON.stringify(i.phase)})'>
       <div class="phase-topline"><span class="phase-order">${orderLabel[i.phase]}</span><span class="pill ${i.statusClass}">${i.status}</span></div>
       <h3>${i.phase}</h3>
-      <div class="phase-progress-head"><b style="color:var(--${i.color})">${i.pct}%</b><small>نسبة الإنجاز</small></div>
+      <div class="phase-progress-head"><b style="color:var(--${i.color})">${i.total?i.pct+'%':NO_KPI_DATA_TEXT}</b><small>نسبة الإنجاز</small></div>
       <div class="phase-progress"><span style="width:${Math.max(i.pct,i.isNotStarted?0:3)}%;background:${i.isNotStarted?'rgba(148,163,184,.55)':`var(--${i.color})`}"></span></div>
       <div class="phase-metrics">
-        <div><b>${i.done}</b><small>مكتملة</small></div>
-        <div><b>${i.total}</b><small>إجمالي المهام</small></div>
-        <div><b>${i.lastDate}</b><small>آخر موعد</small></div>
+        <div><b>${i.total}</b><small>المهام</small></div><div><b>${i.done}</b><small>مكتملة</small></div><div><b>${i.inprog}</b><small>قيد التنفيذ</small></div>
+        <div><b>${i.late}</b><small>متأخرة</small></div><div><b>${i.firstDate}</b><small>البداية</small></div><div><b>${i.lastDate}</b><small>النهاية</small></div>
       </div>
     </div>`).join('');
 
@@ -5556,14 +5571,14 @@ function updateExecSummary(){
   const qualEl = document.getElementById('es-quality');
   const qualItem = document.getElementById('es-quality-item');
   if(qualEl && qualItem){
-    const pmbokDone = ['البدء','التخطيط','التنفيذ','الإغلاق'].filter(ph=>{
+    const pmbokDone = PROJECT_PHASE_ORDER.filter(ph=>{
       const pt=tasks.filter(t=>t.phase===ph);
       if(!pt.length) return false;
       return pt.every(t=>classifyStatus(t)==='مكتملة');
     }).length;
-    qualEl.textContent = pmbokDone + '/4 مراحل';
+    qualEl.textContent = pmbokDone + '/'+PROJECT_PHASE_ORDER.length+' مراحل';
     qualItem.classList.remove('green-status','yellow-status','red-status','blue-status');
-    if(pmbokDone>=3) qualItem.classList.add('green-status');
+    if(pmbokDone>=PROJECT_PHASE_ORDER.length-1) qualItem.classList.add('green-status');
     else if(pmbokDone>=1) qualItem.classList.add('yellow-status');
     else qualItem.classList.add('blue-status');
   }
@@ -6053,13 +6068,13 @@ async function submitOverdueTaskEscalation(taskId){
 
 /* ══ FILL FILTERS ══ */
 function fillFilters(){
-  const phases=[...new Set(rows.map(r=>r.phase).filter(Boolean))].sort();
+  const phases=[...PROJECT_PHASE_ORDER,PROJECT_PHASE_UNSPECIFIED];
   const owners=[...new Map(rows.flatMap(taskOwnerFilterValues).map(name=>[normalizeArabic(name),name])).values()].sort((a,b)=>a.localeCompare(b,'ar'));
   const officialUsed=OFFICIAL_PATHS.filter(path=>rows.some(r=>r.mainPath===path));
   const pSel=document.getElementById('filterPhase');
   const pathSel=document.getElementById('filterPath');
   const oSel=document.getElementById('filterOwner');
-  if(pSel) pSel.innerHTML='<option value="">كل المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
+  if(pSel) pSel.innerHTML='<option value="">جميع المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
   if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}" ${officialUsed.includes(path)?'':'disabled'}>${escapeHtml(path)}</option>`).join('');
   if(oSel) oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(o=>`<option>${o}</option>`).join('');
 }
@@ -6074,8 +6089,8 @@ function renderDonutChart(){
   if(!ctx.offsetParent && ctx.getBoundingClientRect().width===0) {
     setTimeout(renderDonutChart, 150); return;
   }
-  const phases=['التخطيط','التنفيذ','الإغلاق','البدء'];
-  const colors=['#7c5cff','#3b82f6','#10e87a','#f5b800'];
+  const phases=PROJECT_PHASE_ORDER;
+  const colors=phases.map(p=>PROJECT_PHASE_COLORS[p]);
   const counts=phases.map(p=>tasks.filter(t=>t.phase===p).length);
   const total=counts.reduce((a,b)=>a+b,0);
   document.getElementById('donutTotal').textContent=total;
@@ -6092,7 +6107,7 @@ function renderDonutChart(){
       cutout:'70%',
       plugins:{legend:{display:false},tooltip:{rtl:true,
         backgroundColor:'rgba(15,18,35,.95)',borderColor:'rgba(124,92,255,.3)',borderWidth:1,padding:10,bodyFont:{size:12,weight:'bold'},
-        callbacks:{label:c=>`  ${c.label}: ${c.parsed} (${Math.round(c.parsed/total*100)}%)`}
+        callbacks:{label:c=>`  ${c.label}: ${c.parsed} (${total?Math.round(c.parsed/total*100):0}%)`}
       }}
     }
   });
@@ -6102,7 +6117,7 @@ function renderDonutChart(){
       <span class="legend-dot" style="background:${colors[i]}"></span>
       <span class="legend-label">${p}</span>
       <span class="legend-num" style="color:${colors[i]}">${counts[i]}</span>
-      <span class="legend-pct-sub">${Math.round(counts[i]/total*100)}%</span>
+      <span class="legend-pct-sub">${total?Math.round(counts[i]/total*100):0}%</span>
     </div>`).join('');
 }
 
@@ -6773,8 +6788,8 @@ function renderAnalytics(){
   }
 
   /* ── 5. PHASE CONTRIBUTION TO OVERALL COMPLETION ── */
-  const phases=['البدء','التخطيط','التنفيذ','الإغلاق'];
-  const phaseColors={'البدء':'#10e87a','التخطيط':'#00d4ff','التنفيذ':'#7c5cff','الإغلاق':'#f5b800'};
+  const phases=PROJECT_PHASE_ORDER;
+  const phaseColors=PROJECT_PHASE_COLORS;
   const totalDone=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
   const pcEl=document.getElementById('an-phaseContribution');
   if(pcEl){
@@ -9035,7 +9050,8 @@ function reportSourceMeta(scope){
     scope:scope||'نطاق المشروع الرسمي'
   };
 }
-function reportTaskRow(t){return {الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:t.phase||'',الحالة:classifyStatus(t),الاستحقاق:t.end||'',الدليل:t.evidence||''};}
+function phaseOrderIndex(phase){const i=PROJECT_PHASE_ORDER.indexOf(normalizeProjectPhase(phase));return i<0?PROJECT_PHASE_ORDER.length:i;}
+function reportTaskRow(t){return {الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:normalizeProjectPhase(t.phase),الحالة:classifyStatus(t),الاستحقاق:t.end||'',الدليل:t.evidence||''};}
 function buildBatch4ReportSections(type){
   const today=riyadhTodayKey(), tomorrow=addDaysToDateKey(today,1);
   const baseTasks=tasks||[];
@@ -9045,12 +9061,12 @@ function buildBatch4ReportSections(type){
     pmoDaily:{title:'التقرير اليومي لـ PMO',scope:'اليوم الحالي / PMO',rows:baseTasks.filter(t=>[today,tomorrow].includes(String(t.end||'').slice(0,10))||classifyStatus(t)==='متأخرة').map(reportTaskRow)},
     tomorrowTasks:{title:'تقرير مهام الغد',scope:'مهام مستحقة غداً',rows:baseTasks.filter(t=>String(t.end||'').slice(0,10)===tomorrow).map(reportTaskRow)},
     overdueTasks:{title:'تقرير المهام المتأخرة',scope:'كل المهام غير المكتملة بعد تاريخ الاستحقاق',rows:baseTasks.filter(t=>classifyStatus(t)==='متأخرة').map(reportTaskRow)},
-    criticalPath:{title:'تقرير المسار الحرج',scope:'Critical Path Analysis من Google Sheets',rows:(criticalPathAnalysis.tasks||[]).map(t=>({الكود:t.task_code||t.code||'',المهمة:t.task_name||t.name||'',حرج:t.is_critical?'نعم':'لا','Total Float':t.total_float??'',المسار:t.path||'',المرحلة:t.phase||''}))},
+    criticalPath:{title:'تقرير المسار الحرج',scope:'Critical Path Analysis من Google Sheets',rows:(criticalPathAnalysis.tasks||[]).map(t=>({الكود:t.task_code||t.code||'',المهمة:t.task_name||t.name||'',حرج:t.is_critical?'نعم':'لا','Total Float':t.total_float??'',المسار:t.path||'',المرحلة:normalizeProjectPhase(t.phase)})).sort((a,b)=>phaseOrderIndex(a.المرحلة)-phaseOrderIndex(b.المرحلة))},
     decisionsApprovals:{title:'تقرير القرارات والاعتمادات',scope:'Decision Log + Approvals Register',rows:[...decisionLogRecords.map(d=>({النوع:'قرار',العنوان:d.title||d.decision||'',المسؤول:d.owner||d.decisionOwner||'',الحالة:d.status||'',الاعتماد:d.approval||''})),...approvalsData.map(a=>({النوع:'اعتماد',العنوان:a.title||'',المسؤول:a.owner||a.approver||'',الحالة:a.status||'',الاعتماد:a.reference||a.id||''}))]},
     risks:{title:'تقرير المخاطر',scope:'Risk Governance Register',rows:riskGovernanceRegister.map(r=>({الخطر:r.title||r.risk||'',المسؤول:r.owner||'',الشدة:r.severity||r.level||'',الحالة:r.status||'',المسار:r.path||''}))},
     escalations:{title:'تقرير التصعيدات',scope:'Escalation Records',rows:activeEsc.map(e=>({المستوى:e.level||'',العنوان:e.itemTitle||e.title||'',إلى:e.to||'',الحالة:e.status||'',القرار:e.decisionNeeded||''}))},
     weeklyAchievement:{title:'تقرير الإنجاز الأسبوعي',scope:'آخر 7 أيام',rows:baseTasks.filter(t=>classifyStatus(t)==='مكتملة').slice(0,100).map(reportTaskRow)},
-    deliverablesEvidence:{title:'تقرير المخرجات والأدلة',scope:'Operational Deliverables + Evidence Center',rows:baseTasks.filter(t=>t.operationalDeliverable||t.evidence).map(reportTaskRow).concat(evidenceRecords.map(e=>({الكود:e.linkedId||'',المهمة:e.title||'',المسؤول:e.uploadedBy||'',المسار:e.linkedType||'',المرحلة:'Evidence',الحالة:e.fileType||'',الاستحقاق:e.uploadedAt||'',الدليل:e.fileUrl||e.notes||''})))},
+    deliverablesEvidence:{title:'تقرير المخرجات والأدلة',scope:'Operational Deliverables + Evidence Center',rows:baseTasks.filter(t=>t.operationalDeliverable||t.evidence).map(reportTaskRow).concat(evidenceRecords.map(e=>({الكود:e.linkedId||'',المهمة:e.title||'',المسؤول:e.uploadedBy||'',المسار:e.linkedType||'',المرحلة:PROJECT_PHASE_UNSPECIFIED,الحالة:e.fileType||'',الاستحقاق:e.uploadedAt||'',الدليل:e.fileUrl||e.notes||''})))},
     baselineChanges:{title:'تقرير تغييرات Baseline',scope:'Baseline Management + Version History',rows:[...(baselineManagement||[]),...versionHistoryRecords].map(v=>({الكود:v.task_code||v.code||v.recordId||'',المهمة:v.task_name||v.title||'',Revision:v.revision||v.version||'',التغيير:v.change_reason||v.reason||v.notes||'',التاريخ:v.updated_at||v.createdAt||v.date||'',المنفذ:v.updated_by||v.changedBy||''}))}
   };
   return sections[type]||null;
@@ -9072,6 +9088,11 @@ function buildReportData(type='daily'){
   const openViolations=vendorViolations.filter(v=>!['مغلق','مغلقة'].includes(v.status)).length;
   const openApprovals=(window._approvalsData||approvals||[]).filter(a=>!['معتمد','مرفوض'].includes(a.status)).length;
   const batch4=buildBatch4ReportSections(type);
+  const phaseRows=PROJECT_PHASE_ORDER.map(phase=>{
+    const phaseTasks=tasks.filter(t=>t.phase===phase);
+    const done=phaseTasks.filter(t=>classifyStatus(t)==='مكتملة').length;
+    return {المرحلة:phase,'إجمالي المهام':phaseTasks.length,'المهام المكتملة':done,'نسبة الإنجاز':phaseTasks.length?Math.round(done/phaseTasks.length*100)+'%':NO_KPI_DATA_TEXT};
+  });
   const title=batch4?batch4.title:(type==='weekly'?'التقرير الأسبوعي':type==='executive'?'التقرير التنفيذي':'التقرير اليومي');
   const generatedAt=new Date();
   const meta=reportSourceMeta(batch4?batch4.scope:'نطاق المشروع الرسمي');
@@ -9083,7 +9104,7 @@ function buildReportData(type='daily'){
     generatedBy:meta.preparedBy,
     version:reportVersionTag(),
     meta,
-    detailRows:batch4?batch4.rows:[],
+    detailRows:batch4?batch4.rows:phaseRows,
     kpis:[
       {label:'نسبة الإنجاز',value:completionPct===null?NO_KPI_DATA_TEXT:completionPct+'%',color:'#10e87a'},
       {label:'إجمالي المهام',value:noData?NO_KPI_DATA_TEXT:totalTasks,color:'#7c5cff'},

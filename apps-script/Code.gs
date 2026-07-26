@@ -25,7 +25,7 @@ const WBS_FIELD_ALIASES = {
   taskId:['كود المهمة','معرف المهمة','code','WBS Code','Code','الكود','رمز WBS','task_id','id','رقم المهمة'],
   taskName:['اسم المهمة','name','Milestone / Task','Milestone/Task','Task','المهمة','العنوان'],
   mainPath:['المسار الرسمي','المسار الرئيسي','main_path','path','المسار'],
-  phase:['المرحلة','phase','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK'],
+  phase:['المرحلة','مرحلة المشروع','المراحل','phase','project_phase','stage','PMBOK','مرحلة المهمة حسب PMBOK','مرحلة PMBOK'],
   owner:['الموظف المسؤول','اسم المسؤول','owner','Assigned To','AssignedTo','المسؤول','مسند إلى','responsible','المالك'],
   ownerEmail:['البريد الإلكتروني للمسؤول','owner_email','responsible_email','email','البريد الإلكتروني','بريد المسؤول'],
   plannedStart:['تاريخ البداية الأساسي','تاريخ البدء المخطط','planned_start','start_date','planned_start_date','baseline_start','baseline_start_date','start','Start Date','Planned Start Date','Baseline Start Date','تاريخ البدء','تاريخ البداية','تاريخ بدء المهمة','البداية'],
