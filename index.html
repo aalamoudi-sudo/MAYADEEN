@@ -3123,6 +3123,7 @@ const OVERDUE_TASK_ESCALATION_TARGET={username:'abdulaziz.obaid',displayName:'ع
 let sessionToken='';
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
+let syncRequestSequence=0;
 const loginPerfCounters={authLoginRequests:0,dataSyncRequests:0,mainRenders:0};
 let syncBackoffMs=30000;
 let lastUpdateTime=null;
@@ -3324,7 +3325,7 @@ function setSyncLoadingState(){
 }
 function showSyncRetryState(){
   const stTx=document.getElementById('sheetStatusText');
-  if(stTx) stTx.innerHTML='تعذر تحديث بيانات المشروع. حاول مرة أخرى. <button class="ops-mini-btn" onclick="manualRefreshNow()">إعادة المحاولة</button>';
+  if(stTx) stTx.innerHTML='تعذر مزامنة البيانات مع Google Sheets. لم يتم عرض بيانات بديلة. <button class="ops-mini-btn" onclick="manualRefreshNow()">إعادة المحاولة</button>';
 }
 function ensureChartJS(){
   return new Promise(function(resolve){
@@ -3662,7 +3663,7 @@ function valueOf(obj,names){
 function normalizeRow(raw){
   const typeRaw=String(valueOf(raw,['type','Type','Row Type','نوع الصف','النوع'])||'').trim();
   const code=String(valueOf(raw,WBS_FIELD_ALIASES.taskId)||'').trim();
-  const name=String(valueOf(raw,WBS_FIELD_ALIASES.taskName)||'').trim();
+  const name=String(valueOf(raw,WBS_FIELD_ALIASES.taskName)||code).trim();
   const rawPhase=String(valueOf(raw,WBS_FIELD_ALIASES.phase)||'').trim();
   const phase=normalizeProjectPhase(rawPhase);
   const mainPath=String(valueOf(raw,WBS_FIELD_ALIASES.mainPath)||'').trim();
@@ -3708,7 +3709,7 @@ function normalizeRow(raw){
 }
 function normalizeRows(data){
   const arr = Array.isArray(data) ? data : (data.rows||data.tasks||[]);
-  return arr.filter(r=>!isTestOrSyntheticRecord_(r)).map(normalizeRow).filter(Boolean).filter(r=>!isTestOrSyntheticRecord_(r));
+  return arr.map(normalizeRow).filter(Boolean).filter(isOfficialWbsRecord_);
 }
 
 function normalizeRiskGovernanceRows(data){
@@ -5679,6 +5680,7 @@ async function manualRefreshNow(){
 async function loadExternal(initial=true){
   if(syncRequestInFlight) return syncRequestInFlight;
   if(!initial&&Date.now()<nextSyncAllowedAt) return false;
+  const requestSequence=++syncRequestSequence;
   syncRequestInFlight=(async()=>{
   const baseUrl=getConfiguredApiUrl();
   const input=document.getElementById('apiUrl'); if(input) input.value=baseUrl;
@@ -5710,6 +5712,7 @@ async function loadExternal(initial=true){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json();
     if(!data.ok) throw new Error(data.error||'sync failed');
+    if(requestSequence!==syncRequestSequence) return false;
     const normalized=normalizeRows(data);
     console.log(`⏱️ [Sync] عدد المهام المستلمة من الشيت: ${normalized.length}`);
     if(Array.isArray(data.task_headers)) console.table(data.task_headers.map((header,index)=>({index:index+1,normalized_header:header})));
@@ -5736,17 +5739,17 @@ async function loadExternal(initial=true){
     const normalizedRiskGovernance=normalizeRiskGovernanceRows(data.risk_governance_register||data.riskGovernanceRegister||data.risk_governance||data.risks_governance||[]);
     employeeMaster=data.employee_master||[]; baselineManagement=data.baseline_management||[]; raciMatrix=data.raci_matrix||[]; employeeWorkload=data.employee_workload||[]; criticalPathAnalysis=data.critical_path||criticalPathAnalysis; dataQualityCenter=data.data_quality||dataQualityCenter;
     const syncMeta=data.sync_meta||{};
-    if(normalized.length||normalizedRiskGovernance.length||Object.prototype.hasOwnProperty.call(data,'decision_log')){
+    if(Array.isArray(data.rows)){
       if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
       if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
-      rows=normalized.filter(r=>!isTestOrSyntheticRecord_(r));
+      rows=normalized;
       const pageTaskCount=rows.filter(isTaskRecord_).length;
       const payloadTaskCount=Number(syncMeta.payload_task_total||normalized.length);
       const sheetTaskCount=Number(syncMeta.valid_task_count||payloadTaskCount);
       if(sheetTaskCount!==payloadTaskCount||payloadTaskCount!==pageTaskCount){
         throw new Error(`Unified data pipeline mismatch: Google Sheet=${sheetTaskCount}, Payload=${payloadTaskCount}, Home=${pageTaskCount}`);
       }
-      officialDataReady=rows.length>0||normalizedRiskGovernance.length>0;
+      officialDataReady=true;
       approvals=normalizedApprovals.filter(r=>!isTestOrSyntheticRecord_(r));
       assignments=normalizedAssignments.filter(r=>!isTestOrSyntheticRecord_(r));
       meetings=normalizedMeetings.filter(r=>!isTestOrSyntheticRecord_(r));
@@ -5803,12 +5806,17 @@ async function loadExternal(initial=true){
   }catch(e){
     console.warn('Google Sheet fetch failed:',e);
     // فشل الاتصال بالـGoogle Sheet: نعرض حالة خطأ واضحة، ولا نستخدم cache أو بيانات مدمجة لحساب المؤشرات.
+    rows=[]; tasks=[]; milestones=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[];
+    procurementRequests=[]; permitsRegister=[]; changeOrders=[]; auditLog=[]; escalationRecords=[]; evidenceRecords=[]; approvalHistoryRecords=[];
+    versionHistoryRecords=[]; issuesIncidents=[]; suppliersRegister=[]; vendorViolations=[]; decisionLogRecords=[]; riskGovernanceRegister=[];
+    employeeMaster=[]; baselineManagement=[]; raciMatrix=[]; employeeWorkload=[]; criticalPathAnalysis={ok:false,tasks:[],message:NO_KPI_DATA_TEXT};
+    dataQualityCenter={issues:[],excluded_task_codes:[],summary:{}}; officialDataReady=false; dashboardDataVersion++; initData();
     const stElE=document.getElementById('sheetStatus');
     const stTxE=document.getElementById('sheetStatusText');
     const reason=(e&&e.message)?e.message:'خطأ غير معروف';
     syncBackoffMs=Math.min(syncBackoffMs*2,300000);
     nextSyncAllowedAt=Date.now()+syncBackoffMs;
-    if(stTxE) stTxE.textContent=`تعذر مزامنة بيانات المشروع — ${sanitizeUserError(e,reason)} — إعادة المحاولة خلال ${Math.round(syncBackoffMs/1000)}ث`;
+    if(stTxE) stTxE.textContent='تعذر مزامنة البيانات مع Google Sheets. لم يتم عرض بيانات بديلة.';
     if(stElE){stElE.classList.remove('loading');stElE.classList.remove('connected');stElE.classList.add('error');}
     if(isSessionExpiredError(e)){returnToLoginForExpiredSession(); return false;}
     showSyncRetryState();
@@ -9483,9 +9491,17 @@ function renderImportExportCenter(){
 
 const BACKUP_STORAGE_KEY='mayadeen_backup_manager_v1';
 let lastRollbackSnapshot=null;
-function backupPayload(){return {rows,approvals,decisionLogRecords,riskGovernanceRegister,escalationRecords,evidenceRecords,versionHistoryRecords,baselineManagement,dashboardDataVersion,createdAt:new Date().toISOString()};}
-function readBackupLog(){try{return JSON.parse(localStorage.getItem(BACKUP_STORAGE_KEY)||'[]');}catch(e){return [];}}
-function writeBackupLog(log){localStorage.setItem(BACKUP_STORAGE_KEY,JSON.stringify(log.slice(0,25)));}
+// لا تحفظ بيانات Google Sheets في المتصفح. يحتفظ السجل ببيانات وصفية فقط ولا يمكنه أن يصبح مصدر عرض بديل.
+function backupPayload(){return {dashboardDataVersion,createdAt:new Date().toISOString(),source:'google_sheets_metadata_only'};}
+function readBackupLog(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(BACKUP_STORAGE_KEY)||'[]');
+    const metadata=(Array.isArray(parsed)?parsed:[]).map(x=>({type:x.type,createdAt:x.createdAt,createdAtText:x.createdAtText,actor:x.actor,reason:x.reason,dataVersion:x.dataVersion}));
+    localStorage.setItem(BACKUP_STORAGE_KEY,JSON.stringify(metadata.slice(0,25)));
+    return metadata;
+  }catch(e){return [];}
+}
+function writeBackupLog(log){localStorage.setItem(BACKUP_STORAGE_KEY,JSON.stringify(log.slice(0,25).map(({payload,...metadata})=>metadata)));}
 function createBackupSnapshot(reason='نسخة يدوية'){
   const actor=currentUser.display_name||currentUser.username||'مستخدم غير معروف';
   const item={type:'Backup',createdAt:new Date().toISOString(),createdAtText:new Date().toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),actor,reason,dataVersion:'DV-'+dashboardDataVersion,payload:backupPayload()};
@@ -9493,20 +9509,12 @@ function createBackupSnapshot(reason='نسخة يدوية'){
   const st=document.getElementById('backup-status'); if(st) st.textContent='تم إنشاء نسخة احتياطية للقراءة فقط من بيانات Google Sheets الحالية.';
 }
 function restoreLatestBackup(){
-  const log=readBackupLog(); const latest=log.find(x=>x.type==='Backup'); const st=document.getElementById('backup-status');
-  if(!latest){if(st) st.textContent='لا توجد نسخة احتياطية للاستعادة.';return;}
-  const reason=(document.getElementById('backup-restore-reason')?.value||'استعادة آخر نسخة').trim();
-  lastRollbackSnapshot=backupPayload();
-  Object.assign(window,latest.payload||{});
-  rows=latest.payload.rows||rows; approvals=latest.payload.approvals||approvals; decisionLogRecords=latest.payload.decisionLogRecords||decisionLogRecords; riskGovernanceRegister=latest.payload.riskGovernanceRegister||riskGovernanceRegister; escalationRecords=latest.payload.escalationRecords||escalationRecords; evidenceRecords=latest.payload.evidenceRecords||evidenceRecords; versionHistoryRecords=latest.payload.versionHistoryRecords||versionHistoryRecords; baselineManagement=latest.payload.baselineManagement||baselineManagement;
-  initData();
-  log.unshift({type:'Restore',createdAt:new Date().toISOString(),createdAtText:new Date().toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),actor:currentUser.display_name||currentUser.username||'مستخدم غير معروف',reason,dataVersion:latest.dataVersion}); writeBackupLog(log); renderBackupManager();
-  if(st) st.textContent='تمت الاستعادة محلياً من Backup مع توثيق السبب والمنفذ.';
+  const st=document.getElementById('backup-status');
+  if(st) st.textContent='الاستعادة المحلية معطلة: Google Sheets هو مصدر الحقيقة الوحيد. استخدم تحديث البيانات.';
 }
 function rollbackLatestRestore(){
-  const st=document.getElementById('backup-status'); if(!lastRollbackSnapshot){if(st) st.textContent='لا توجد عملية Restore قابلة للـ Rollback.';return;}
-  rows=lastRollbackSnapshot.rows||rows; approvals=lastRollbackSnapshot.approvals||approvals; decisionLogRecords=lastRollbackSnapshot.decisionLogRecords||decisionLogRecords; riskGovernanceRegister=lastRollbackSnapshot.riskGovernanceRegister||riskGovernanceRegister; escalationRecords=lastRollbackSnapshot.escalationRecords||escalationRecords; evidenceRecords=lastRollbackSnapshot.evidenceRecords||evidenceRecords; versionHistoryRecords=lastRollbackSnapshot.versionHistoryRecords||versionHistoryRecords; baselineManagement=lastRollbackSnapshot.baselineManagement||baselineManagement;
-  initData(); const log=readBackupLog(); log.unshift({type:'Rollback',createdAt:new Date().toISOString(),createdAtText:new Date().toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),actor:currentUser.display_name||currentUser.username||'مستخدم غير معروف',reason:'Rollback آخر استعادة',dataVersion:'DV-'+dashboardDataVersion}); writeBackupLog(log); lastRollbackSnapshot=null; renderBackupManager(); if(st) st.textContent='تم تنفيذ Rollback محلياً.';
+  const st=document.getElementById('backup-status');
+  if(st) st.textContent='لا يوجد Rollback محلي لبيانات الداشبورد. أعد المزامنة من Google Sheets.';
 }
 function renderBackupManager(){const b=document.getElementById('backup-log-body'); if(!b) return; const log=readBackupLog(); b.innerHTML=log.length?log.map(x=>`<tr><td>${escapeHtml(x.type)}</td><td>${escapeHtml(x.createdAtText||x.createdAt)}</td><td>${escapeHtml(x.actor)}</td><td>${escapeHtml(x.reason)}</td><td>${escapeHtml(x.dataVersion)}</td></tr>`).join(''):`<tr><td colspan="5">لا توجد بيانات كافية</td></tr>`;}
 
