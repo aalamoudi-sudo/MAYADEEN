@@ -113,6 +113,8 @@ function doGet(e) {
 }
 
 function buildDashboardData_(session) {
+  const syncStartedAt = new Date();
+  const syncVersion = Utilities.getUuid();
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   const taskRead = readOfficialWbsTasks_(spreadsheet);
   const rows = taskRead.rows;
@@ -136,7 +138,7 @@ function buildDashboardData_(session) {
   const workload = buildEmployeeWorkload_(spreadsheet, rows, employeeMaster);
   const criticalPath = buildCriticalPathAnalysis_(spreadsheet, rows);
   const dataQuality = buildDataQualityCenter_(spreadsheet, rows, employeeMaster, criticalPath);
-  return {
+  const response = {
     ok: true,
     generated_at: new Date().toISOString(),
     user: session ? safeUser_(session) : null,
@@ -162,12 +164,20 @@ function buildDashboardData_(session) {
     critical_path: criticalPath,
     data_quality: dataQuality,
     sync_meta: Object.assign({}, taskRead.diagnostics, {
+      sync_version: syncVersion,
+      sync_started_at: syncStartedAt.toISOString(),
+      sync_finished_at: new Date().toISOString(),
+      duration_ms: new Date().getTime() - syncStartedAt.getTime(),
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
       risk_rows_read: riskGovernance.length,
       connection_status: 'connected'
     })
   };
+  Logger.log('[data_sync] version=' + syncVersion + ' sheet=' + taskRead.diagnostics.sheet_name +
+    ' raw=' + taskRead.diagnostics.raw_row_count + ' filtered=' + taskRead.diagnostics.valid_task_count +
+    ' sent=' + rows.length + ' duration_ms=' + response.sync_meta.duration_ms);
+  return response;
 }
 
 function doPost(e) {
@@ -633,8 +643,7 @@ function readOfficialWbsTasks_(ss) {
     const code = String(getField_(item, WBS_FIELD_ALIASES.taskId) || '').trim();
     const name = String(getField_(item, WBS_FIELD_ALIASES.taskName) || '').trim();
     let reason = '';
-    if (isTestOrSyntheticRecord_(item)) reason = 'synthetic_or_test_record';
-    else if (!name && !code) reason = 'missing_task_code_and_name';
+    if (!name && !code) reason = 'missing_task_code_and_name';
     else if (type === 'Milestone') reason = 'milestone_not_task';
     if (reason) {
       diagnostics.excluded_row_count++;
@@ -649,6 +658,10 @@ function readOfficialWbsTasks_(ss) {
   const codes = rows.map(function(item) { return String(getField_(item, WBS_FIELD_ALIASES.taskId) || item.row_number || '').trim(); });
   diagnostics.first_10_task_codes = codes.slice(0, 10);
   diagnostics.last_10_task_codes = codes.slice(Math.max(codes.length - 10, 0));
+  const duplicateCodes = {};
+  codes.filter(Boolean).forEach(function(code) { duplicateCodes[code] = (duplicateCodes[code] || 0) + 1; });
+  const duplicateCodeCount = Object.keys(duplicateCodes).filter(function(code) { return duplicateCodes[code] > 1; }).length;
+  if (duplicateCodeCount) Logger.log('[data_quality] duplicate task codes detected: ' + duplicateCodeCount + ' (details available in Data Quality Center)');
   validateUnifiedPipeline_(diagnostics, rows.length);
   logDataSyncDiagnostics_(diagnostics);
   return { rows: rows, headers: headers, diagnostics: diagnostics };
@@ -662,17 +675,12 @@ function normalizeTaskType_(value) {
 }
 
 function logDataSyncDiagnostics_(diagnostics) {
-  Logger.log('[data_sync] Spreadsheet ID: ' + diagnostics.spreadsheet_id);
   Logger.log('[data_sync] Sheet: ' + diagnostics.sheet_name);
   Logger.log('[data_sync] Raw rows: ' + diagnostics.raw_row_count);
   Logger.log('[data_sync] Non-empty rows: ' + diagnostics.non_empty_row_count);
   Logger.log('[data_sync] Valid tasks: ' + diagnostics.valid_task_count);
   Logger.log('[data_sync] Excluded rows: ' + diagnostics.excluded_row_count);
-  Logger.log('[data_sync] Exclusion reasons: ' + JSON.stringify(diagnostics.exclusion_reasons));
-  Logger.log('[data_sync] First 10 task codes: ' + JSON.stringify(diagnostics.first_10_task_codes));
-  Logger.log('[data_sync] Last 10 task codes: ' + JSON.stringify(diagnostics.last_10_task_codes));
-  Logger.log('[data_sync] Payload task total: ' + diagnostics.payload_task_total);
-  Logger.log('[data_sync] Home task total: ' + diagnostics.home_task_total);
+  Logger.log('[data_sync] Sent rows: ' + diagnostics.payload_task_total);
 }
 
 function validateUnifiedPipeline_(diagnostics, payloadCount) {
