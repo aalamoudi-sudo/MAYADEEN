@@ -1566,7 +1566,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <small>جاهزية الافتتاح</small>
           </div>
           <div class="esb-divider"></div>
-          <div class="esb-metric" onclick="showPage('risksMgmt')" title="فتح سجل المخاطر">
+          <div class="esb-metric" onclick="goToRisksFiltered('حرج')" title="فتح سجل المخاطر الحرجة">
             <b id="esbLate" style="color:#ff4d6a">--</b>
             <small>مخاطر حرجة</small>
           </div>
@@ -5384,7 +5384,7 @@ function renderPhases(){
 
   /* بيانات مشتركة لبطاقة الجاهزية والمعوقات (نفس المتغيرات المحسوبة أصلاً) */
   const remaining=active.total-active.done;
-  const criticalRisks=(window._rmRisks||[]).filter(r=>r.sev==='حرج'&&r.status!=='مغلق').length;
+  const criticalRisks=getRiskMetrics().openCritical;
   const openDecs=(window._decPending||[]).filter(d=>d.status==='معلق'&&d.priority==='عاجل').length;
   const readinessPct=active.pct>=90&&active.late===0&&criticalRisks===0?95:
     active.pct>=75&&active.late<=2?70:active.pct>=50?45:20;
@@ -6396,6 +6396,7 @@ function renderExecutiveAdditions(){
   const nextMs=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY)).sort((a,b)=>d(a.end)-d(b.end))[0];
   const soonMs=nextMs?daysBetween(today,nextMs.end):null;
   const criticalMs=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY)&&daysBetween(today,m.end)<=30).length;
+  const criticalRisks=getRiskMetrics().critical;
 
   /* ── 1. EXECUTIVE STATUS BAR ── */
   const esbBar=document.getElementById('execStatusBar');
@@ -6412,7 +6413,7 @@ function renderExecutiveAdditions(){
   const readEl=document.getElementById('esbReadiness');
   if(readEl){readEl.textContent=actual+'%';readEl.style.color=actual>=70?'#10e87a':actual>=40?'#f5b800':'#ff4d6a';}
   const lateEl=document.getElementById('esbLate');
-  if(lateEl){lateEl.textContent=late;lateEl.style.color=late>10?'#ff4d6a':late>3?'#f5b800':'#10e87a';}
+  if(lateEl){lateEl.textContent=criticalRisks;lateEl.style.color=criticalRisks>10?'#ff4d6a':criticalRisks>3?'#f5b800':'#10e87a';}
   const daysElESB=document.getElementById('esbDaysLeft');
   if(daysElESB){daysElESB.textContent=daysLeft;daysElESB.style.color=daysLeft<30?'#ff4d6a':daysLeft<60?'#f5b800':'#00d4ff';}
   const decEl=document.getElementById('esbDecision');
@@ -6431,10 +6432,10 @@ function renderExecutiveAdditions(){
   const scGrid=document.getElementById('statusCountGrid');
   if(scGrid){
     const statuses=[
-      {label:'مكتملة',count:done,color:'#10e87a',rgb:'16,232,122',page:'tasks',icon:''},
-      {label:'قيد التنفيذ',count:inprog,color:'#3b82f6',rgb:'59,130,246',page:'tasks',icon:''},
+      {label:'مكتملة',count:done,color:'#10e87a',rgb:'16,232,122',page:'tasks',filterStatus:'مكتملة',icon:''},
+      {label:'قيد التنفيذ',count:inprog,color:'#3b82f6',rgb:'59,130,246',page:'tasks',filterStatus:'قيد التنفيذ',icon:''},
       {label:'متأخرة',count:late,color:'#ff4d6a',rgb:'255,77,106',page:'tasks',filterStatus:'متأخرة',icon:''},
-      {label:'لم تبدأ',count:notStarted,color:'#6b7a9f',rgb:'107,122,159',page:'tasks',icon:'○'},
+      {label:'لم تبدأ',count:notStarted,color:'#6b7a9f',rgb:'107,122,159',page:'tasks',filterStatus:'لم تبدأ',icon:'○'},
     ];
     scGrid.innerHTML=statuses.map(s=>{
       const pct=total?Math.round(s.count/total*100):0;
@@ -6917,6 +6918,35 @@ function _buildRisksData(){
   return (riskGovernanceRegister||[]).filter(r=>!isTestOrSyntheticRecord_(r));
 }
 
+// تعريف مركزي وحيد لمؤشرات المخاطر. البطاقة الرئيسية وصفحة المخاطر وأي بطاقة
+// قابلة للنقر تقرأ جميعها السجل الرسمي نفسه وتستخدم النتائج المحسوبة هنا.
+function getRiskMetrics(){
+  const risks=_buildRisksData();
+  const criticalRisks=risks.filter(r=>r.sev==='حرج');
+  return {
+    risks,
+    total:risks.length,
+    critical:criticalRisks.length,
+    openCritical:criticalRisks.filter(r=>r.status!=='مغلق').length,
+    high:risks.filter(r=>r.sev==='مرتفع').length,
+    medium:risks.filter(r=>r.sev==='متوسط').length,
+    closed:risks.filter(r=>r.status==='مغلق').length,
+  };
+}
+
+function goToRisksFiltered(severity=''){
+  showPage('risksMgmt');
+  const severityFilter=document.getElementById('rm-filterSeverity');
+  const statusFilter=document.getElementById('rm-filterStatus');
+  const search=document.getElementById('rm-search');
+  if(severityFilter) severityFilter.value=severity;
+  // البطاقة تمثل كل المخاطر بهذه الشدة، لذلك تزال الفلاتر الأخرى حتى يساوي
+  // عداد السجل الرقم الذي ضغط عليه المستخدم بالضبط.
+  if(statusFilter) statusFilter.value='';
+  if(search) search.value='';
+  renderRiskRegister();
+}
+
 function _buildRiskTrendDataFromRegister(risks){
   const severityWeight={"منخفض":1,"متوسط":2,"مرتفع":3,"حرج":4};
   const datedRisks=(risks||[]).filter(r=>d(r.discovered)||d(r.updated));
@@ -6941,15 +6971,12 @@ function _buildRiskTrendDataFromRegister(risks){
 }
 
 function renderRisksMgmt(){
-  const risks=_buildRisksData();
+  const metrics=getRiskMetrics();
+  const risks=metrics.risks;
   const today=riyadhTodayKey();
 
   /* KPIs */
-  const total=risks.length;
-  const critical=risks.filter(r=>r.sev==='حرج').length;
-  const high=risks.filter(r=>r.sev==='مرتفع').length;
-  const medium=risks.filter(r=>r.sev==='متوسط').length;
-  const closed=risks.filter(r=>r.status==='مغلق').length;
+  const {total,critical,high,medium,closed}=metrics;
 
   // مخاطر بدون مسؤول محدد (owner = 'غير محدد' أو فارغ)
   const noOwnerRisks=risks.filter(r=>!r.owner||r.owner==='غير محدد').length;
@@ -7907,23 +7934,25 @@ const _origOpenDetail=window.openDetail||null;
 function renderActions(){
   const today=TODAY;
   const todayStr=dateToKey_(today);
-  const risks=window._rmRisks||_buildRisksData()||[];
+  const riskMetrics=getRiskMetrics();
+  const risks=riskMetrics.risks;
 
   /* ── KPIs ── */
   const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة');
   const dueTodayMs=milestones.filter(m=>d(m.end)&&daysBetween(todayStr,m.end)<=7&&isOnOrAfterDay(m.end,today));
   const criticalTasks=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=14&&isOnOrAfterDay(t.end,today));
-  const criticalRisks=risks.filter(r=>r.sev==='حرج'&&r.status!=='مغلق');
+  const criticalRisks=riskMetrics.critical;
+  const openCriticalRiskCount=riskMetrics.openCritical;
 
   const kpis=[
-    {label:'مهام متأخرة',val:lateTasks.length,color:'#ff4d6a',page:'tasks'},
+    {label:'مهام متأخرة',val:lateTasks.length,color:'#ff4d6a',page:'tasks',filterStatus:'متأخرة'},
     {label:'معالم مستحقة قريباً',val:dueTodayMs.length,color:'#ff8c42',page:'milestonesPage'},
     {label:'مهام حرجة مفتوحة',val:criticalTasks.length,color:'#f5b800',page:'tasks'},
-    {label:'مخاطر حرجة',val:criticalRisks.length,color:'#a07dff',page:'risksMgmt'},
+    {label:'مخاطر حرجة',val:criticalRisks,color:'#a07dff',page:'risksMgmt',riskSeverity:'حرج'},
   ];
   const kEl=document.getElementById('ac-kpis');
   if(kEl) kEl.innerHTML=kpis.map(k=>`
-    <div class="ac-kpi" style="--ac-color:${k.color}" onclick="${k.filterStatus?`goToTasksFiltered('${k.filterStatus}')`:`showPage('${k.page}')`}">
+    <div class="ac-kpi" style="--ac-color:${k.color}" onclick="${k.riskSeverity?`goToRisksFiltered('${k.riskSeverity}')`:k.filterStatus?`goToTasksFiltered('${k.filterStatus}')`:`showPage('${k.page}')`}">
       <div class="ac-val">${k.val}</div>
       <div class="ac-label">${k.label}</div>
     </div>`).join('');
@@ -8013,8 +8042,8 @@ function renderActions(){
   if(veryLate.length) escItems.push({badgeColor:'#ff4d6a',cls:'critical',
     title:`${veryLate.length} مهمة تجاوزت 14 يوم تأخير`,sub:'تحتاج تصعيداً فورياً لمدير المشروع',
     tag:'تصعيد عاجل',tagBg:'rgba(255,77,106,.15)',tagColor:'#ff4d6a',onclick:"showPage('tasks')"});
-  if(criticalRisks.length>3) escItems.push({badgeColor:'#a07dff',cls:'urgent',
-    title:`${criticalRisks.length} مخاطر حرجة مفتوحة`,sub:'تتطلب قرارات وخطط معالجة عاجلة',
+  if(openCriticalRiskCount>3) escItems.push({badgeColor:'#a07dff',cls:'urgent',
+    title:`${openCriticalRiskCount} مخاطر حرجة مفتوحة`,sub:'تتطلب قرارات وخطط معالجة عاجلة',
     tag:'تصعيد',tagBg:'rgba(160,125,255,.15)',tagColor:'#a07dff',onclick:"showPage('risksMgmt')"});
   const pendingDecs=(window._decPending||[]).filter(dd=>dd.priority==='عاجل'&&dd.status==='معلق');
   if(pendingDecs.length) escItems.push({badgeColor:'#f5b800',cls:'warn',
