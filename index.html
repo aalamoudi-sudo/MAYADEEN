@@ -269,8 +269,7 @@ button,input,select{font-family:inherit}
   border-radius:14px;margin-bottom:18px;
   position:relative;overflow:hidden;
 }
-.esb-status-wrap{display:flex;flex-direction:column;gap:4px;min-width:190px}
-.esb-status-reason{font-size:10.5px;color:var(--muted);line-height:1.45;max-width:330px}
+.esb-status-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0;padding:0 10px}
 .exec-status-bar::before{
   content:"";position:absolute;top:0;left:0;right:0;height:2px;
   background:linear-gradient(90deg,transparent,var(--esb-accent,var(--brand)),transparent);
@@ -278,6 +277,9 @@ button,input,select{font-family:inherit}
 .esb-status{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .esb-dot{width:9px;height:9px;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0}
 .esb-label{font-size:12px;font-weight:700;letter-spacing:.3px}
+.esb-status-copy{display:flex;flex-direction:column;align-items:center;gap:2px}
+.esb-status-copy small{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.3px;white-space:nowrap}
+.esb-info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.07);color:var(--muted);font-size:11px;font-weight:800;cursor:help;flex-shrink:0}
 .esb-divider{width:1px;height:28px;background:rgba(255,255,255,.08);flex-shrink:0}
 .esb-metric{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding:0 10px;cursor:pointer;transition:var(--tr)}
 .esb-metric:hover{opacity:.8}
@@ -1558,12 +1560,15 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
         <!-- EXECUTIVE STATUS BAR -->
         <div class="exec-status-bar" id="execStatusBar">
-          <div class="esb-status-wrap" id="esbStatusExplanation" title="يتم احتساب الحالة بعد اكتمال مزامنة Google Sheets فقط">
+          <div class="esb-status-wrap">
             <div class="esb-status">
               <span class="esb-dot" id="esbDot" style="background:#f5b800"></span>
-              <span class="esb-label" id="esbStatusLabel" style="color:#f5b800">جاري التحميل...</span>
+              <span class="esb-status-copy">
+                <span class="esb-label" id="esbStatusLabel" style="color:#f5b800">جاري التحميل...</span>
+                <small>الحالة التنفيذية</small>
+              </span>
             </div>
-            <small class="esb-status-reason" id="esbStatusReason">بانتظار بيانات Google Sheets...</small>
+            <button type="button" class="esb-info" id="esbStatusExplanation" title="يتم احتساب الحالة بعد اكتمال مزامنة Google Sheets فقط" aria-label="تفاصيل الحالة التنفيذية">i</button>
           </div>
           <div class="esb-divider"></div>
           <div class="esb-metric" onclick="showPage('analytics')" title="فتح التحليلات التنفيذية">
@@ -1579,17 +1584,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <div class="esb-metric" onclick="showPage('timeline')" title="فتح الجدول الزمني">
             <b id="esbDaysLeft" style="color:#00d4ff">--</b>
             <small>يوم للافتتاح</small>
-          </div>
-          <div class="esb-divider"></div>
-          <div class="esb-decision" onclick="showPage('actions')" style="cursor:pointer" title="فتح مركز الأولويات">
-            
-            <span class="esb-decision-text" id="esbDecision">جاري تحليل البيانات...</span>
-          </div>
-          <div class="esb-sync">
-            <span></span>
-            <span>آخر مزامنة: <b id="esbSyncTime">--</b></span>
-            <span style="color:rgba(255,255,255,.2)">|</span>
-            <span><b id="esbSource">WBS</b></span>
           </div>
         </div>
         <!-- hidden elements kept for JS compatibility -->
@@ -6418,10 +6412,10 @@ function renderExecutiveAdditions(){
   const openingModel=openingReadinessModel();
   if(!openingModel){
     const label=document.getElementById('esbStatusLabel');
-    const reason=document.getElementById('esbStatusReason');
+    const explanation=document.getElementById('esbStatusExplanation');
     const readiness=document.getElementById('esbReadiness');
     if(label) label.textContent=NO_KPI_DATA_TEXT;
-    if(reason) reason.textContent='لا تُستخدم قيمة ثابتة أو مخزنة عند تعذر مزامنة Google Sheets.';
+    if(explanation) explanation.title='لا تُستخدم قيمة ثابتة أو مخزنة عند تعذر مزامنة Google Sheets.';
     if(readiness) readiness.textContent='--';
     return;
   }
@@ -6452,9 +6446,7 @@ function renderExecutiveAdditions(){
   const lblEl=document.getElementById('esbStatusLabel');
   if(dotEl) dotEl.style.background=statusColor;
   if(lblEl){lblEl.textContent=statusLabel;lblEl.style.color=statusColor;}
-  const reasonEl=document.getElementById('esbStatusReason');
   const explanationEl=document.getElementById('esbStatusExplanation');
-  if(reasonEl) reasonEl.textContent=openingModel.reason;
   if(explanationEl) explanationEl.title=openingModel.reason;
   const readEl=document.getElementById('esbReadiness');
   if(readEl){readEl.textContent=openingModel.readiness+'%';readEl.style.color=openingModel.band.color;readEl.title=`${openingModel.completed} مهمة مكتملة من ${openingModel.total} مهمة رسمية من Google Sheets`}
