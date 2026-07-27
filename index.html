@@ -545,22 +545,32 @@ button,input,select{font-family:inherit}
 
 /* ══ LINE CHART ══ */
 .line-chart-wrap{height:var(--chart-h-md);position:relative;overflow:hidden;display:block}
-.phase-progress-chart-wrap{height:210px;min-height:210px}
+.executive-progress-card{display:flex;flex-direction:column}
+.phase-progress-card-head{display:block}
+.phase-progress-card-head h2{white-space:nowrap}
+.phase-progress-card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px;min-height:18px}
+.phase-progress-card-meta .phase-progress-subtitle{margin-top:0;min-width:0}
+.phase-progress-chart-wrap{height:auto;min-height:210px;flex:1}
 .phase-progress-subtitle{display:block;margin-top:4px;color:var(--muted);font-size:10.5px;font-weight:600}
-.phase-progress-summary{height:100%;min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:8px 2px}
+.phase-progress-summary{height:100%;min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:4px 2px;direction:rtl}
 .phase-progress-summary-main{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .phase-progress-summary-pct{font-size:36px;font-weight:900;line-height:1;color:#a78bfa;font-variant-numeric:tabular-nums}
 .phase-progress-summary-label{display:block;margin-top:4px;color:var(--muted);font-size:10.5px;font-weight:700}
-.phase-progress-summary-count{color:#d0d8f0;font-size:12px;font-weight:800;text-align:left}
-.phase-progress-summary-count span{display:block;margin-top:3px;color:var(--muted);font-size:10px;font-weight:600}
-.phase-progress-summary-track{height:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.06);border-radius:99px;overflow:hidden}
-.phase-progress-summary-fill{height:100%;width:0;background:linear-gradient(90deg,#7c5cff,#a78bfa);border-radius:99px;box-shadow:0 0 16px rgba(124,92,255,.38);transition:width .6s ease}
-.phase-progress-summary-scale{display:flex;justify-content:space-between;margin-top:5px;color:#6b7a9f;font-size:9.5px;font-weight:700}
-.phase-progress-summary-dates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.phase-progress-summary-track{height:9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.06);border-radius:99px;overflow:hidden}
+.phase-progress-summary-fill{height:100%;width:0;background:var(--brand);border-radius:99px;transition:width .45s ease}
+.phase-progress-indicators{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.phase-progress-indicator{padding:7px 9px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px}
+.phase-progress-indicator small{display:block;color:var(--muted);font-size:9.5px;font-weight:700;margin-bottom:2px}
+.phase-progress-indicator b{color:#d0d8f0;font-size:13px;font-weight:900;font-variant-numeric:tabular-nums}
+.phase-progress-status{display:inline-flex;align-items:center;gap:6px;width:max-content;padding:4px 9px;border:1px solid;border-radius:99px;font-size:10.5px;font-weight:800}
+.phase-progress-status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.phase-progress-summary-dates{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .phase-progress-summary-date{padding:8px 10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px}
 .phase-progress-summary-date small{display:block;color:var(--muted);font-size:9.5px;font-weight:600;margin-bottom:3px}
 .phase-progress-summary-date b{color:#d0d8f0;font-size:11.5px;font-weight:800}
-.phase-progress-error{padding:18px;border:1px solid rgba(255,77,106,.35);border-radius:12px;background:rgba(255,77,106,.10);color:#ffb3bf;font-size:13px;font-weight:800;line-height:1.8;text-align:center}
+.phase-progress-error{padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);color:var(--muted);font-size:12px;font-weight:700;line-height:1.7;text-align:center}
+.phase-progress-link{color:var(--brand2);font-size:10.5px;font-weight:800;cursor:pointer;background:none;border:0;padding:0}
+.phase-progress-link:hover{color:#c4b5fd}
 
 /* ══ MILESTONES ══ */
 .milestone-list{display:flex;flex-direction:column;gap:8px}
@@ -1344,7 +1354,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.kpi-card{min-height:132px}.kpi-label{line-height:1.55}.kpi-value{font-variant-numeric:tabular-nums}.status-badge,.pill{gap:6px}
 @media(max-width:1100px){.app{flex-direction:row}.mobile-menu-btn,.sidebar-close{display:inline-flex;align-items:center}.sidebar{position:fixed;right:0;top:0;bottom:0;height:100vh;width:min(320px,86vw);z-index:80;transform:translateX(105%);transition:transform .22s ease}.app.sidebar-open .sidebar{transform:translateX(0)}.app.sidebar-open .sidebar-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}.sidebar-nav{display:block}.topbar{flex-wrap:wrap}.topbar-search{order:3;flex-basis:100%;max-width:none}.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.filters{grid-template-columns:1fr 1fr}.page-area{padding:16px}}
 @media(max-width:700px){.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid,.filters{grid-template-columns:1fr!important}.page-area{padding:12px}.page-header{padding:14px}.topbar-left,.topbar-right{width:100%;flex-wrap:wrap}.data-table{min-width:760px}.card{padding:14px}.kpi-value{font-size:32px!important}}
-@media(max-width:700px){.phase-progress-chart-wrap{height:190px;min-height:190px}.phase-progress-summary{min-height:130px}.phase-progress-summary-pct{font-size:31px}}
+@media(max-width:700px){.phase-progress-chart-wrap{height:auto;min-height:190px}.phase-progress-summary{min-height:180px}.phase-progress-summary-pct{font-size:31px}.phase-progress-summary-dates{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){.sidebar,.nav-group-toggle .chev{transition:none!important}}
 
 /* ثابت: منصة MAYADEEN تعمل بالوضع الداكن فقط، بدون مفاتيح تبديل للأوضاع. */
@@ -1643,11 +1653,13 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <div class="sec-title"><h2>تنبيهات اليوم</h2><span>مرتبة بالأولوية</span></div>
             <div class="alert-list" id="execAlerts"></div>
           </div>
-          <div class="card">
-            <div class="sec-title"><h2>التقدم الزمني للمرحلة<span id="phaseProgressSubtitle" class="phase-progress-subtitle">تطور إنجاز المرحلة عبر الزمن</span></h2></div>
+          <div class="card executive-progress-card">
+            <div class="sec-title phase-progress-card-head">
+              <h2>التقدم الزمني للمشروع</h2>
+              <div class="phase-progress-card-meta"><span id="phaseProgressSubtitle" class="phase-progress-subtitle"></span><button type="button" class="phase-progress-link" onclick="showPage('phases')">عرض تفاصيل المراحل</button></div>
+            </div>
             <div class="line-chart-wrap phase-progress-chart-wrap">
-              <canvas id="lineChart" style="display:block"></canvas>
-              <div id="phaseProgressSummary" class="phase-progress-summary" hidden></div>
+              <div id="phaseProgressSummary" class="phase-progress-summary"></div>
             </div>
           </div>
         </div>
@@ -5377,12 +5389,17 @@ function getSharedProjectPhaseStats(){
   sharedProjectPhaseStats.forEach(stat=>{
     const starts=stat.tasks.map(getTaskPlannedStartDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>a-b);
     const ends=stat.tasks.map(getTaskPlannedEndDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>b-a);
+    const updates=stat.tasks.map(t=>d(t.lastUpdate)).filter(Boolean).sort((a,b)=>b-a);
+    const startDateKey=starts[0]?dateToKey_(starts[0]):'';
+    const endDateKey=ends[0]?dateToKey_(ends[0]):'';
     Object.assign(stat,{
       completed:stat.done,
       overdue:stat.late,
       progress:stat.pct,
-      startDate:starts[0]?fmt(dateToKey_(starts[0])):'غير متوفر',
-      endDate:ends[0]?fmt(dateToKey_(ends[0])):'غير متوفر'
+      startDateKey,endDateKey,
+      startDate:startDateKey?fmt(startDateKey):'غير متوفر',
+      endDate:endDateKey?fmt(endDateKey):'غير متوفر',
+      lastUpdateDate:updates[0]?fmt(dateToKey_(updates[0])):''
     });
   });
   sharedProjectPhaseStatsVersion=dashboardDataVersion;
@@ -6188,122 +6205,53 @@ function renderDonutChart(){
     </div>`).join('');
 }
 
-/* ══ LINE CHART ══ */
-let lineInst=null;
+/* ══ EXECUTIVE PROJECT PROGRESS ══ */
 function activePhaseForProgressHistory(){
   return getCurrentProjectPhaseStat(getSharedProjectPhaseStats());
 }
-function actualPhaseProgressHistory(active){
-  if(!active) return null;
-  const phaseTasks=active.tasks;
-  const completions=phaseTasks.map(t=>getTaskActualEndDate(t)).filter(Boolean).map(dateKey=>({dateKey,date:d(dateKey)})).filter(x=>x.date);
-  const distinctMonths=new Set(completions.map(x=>`${x.date.getUTCFullYear()}-${x.date.getUTCMonth()}`));
-  if(distinctMonths.size<2) return null;
-
-  const first=new Date(Math.min(...completions.map(x=>x.date.getTime())));
-  const now=d(riyadhTodayKey());
-  const last=now&&now>first?now:new Date(Math.max(...completions.map(x=>x.date.getTime())));
-  const periods=[];
-  for(let cursor=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth(),1));cursor<=last;cursor.setUTCMonth(cursor.getUTCMonth()+1)){
-    const year=cursor.getUTCFullYear(),month=cursor.getUTCMonth();
-    const completedThisPeriod=completions.filter(x=>x.date.getUTCFullYear()===year&&x.date.getUTCMonth()===month).length;
-    const completedToDate=completions.filter(x=>x.date<Date.UTC(year,month+1,1)).length;
-    periods.push({
-      key:`${year}-${String(month+1).padStart(2,'0')}`,
-      label:new Intl.DateTimeFormat('ar-SA',{month:'short',year:'numeric',timeZone:'UTC'}).format(cursor),
-      progress:Math.round(completedToDate/phaseTasks.length*100),
-      completed:completedThisPeriod
-    });
-  }
-  return {phase:active.phase,periods};
-}
 function renderPhaseProgressSummary(active){
   const summary=document.getElementById('phaseProgressSummary');
+  const subtitle=document.getElementById('phaseProgressSubtitle');
   if(!summary) return;
-  if(!active){
-    summary.innerHTML='<div class="phase-progress-error" role="status">لا توجد إحصاءات متاحة للمرحلة الحالية.</div>';
+  const schedule=getScheduleProgressMetrics();
+  if(!active||!schedule){
+    if(subtitle) subtitle.textContent='';
+    summary.innerHTML='<div class="phase-progress-error" role="status">لا توجد بيانات زمنية معتمدة لاحتساب تقدم المشروع.</div>';
     return;
   }
-  const pct=Math.max(0,Math.min(100,active.progress));
+  if(subtitle) subtitle.textContent=`المرحلة الحالية: ${active.phase}`;
+  const pct=schedule.actual;
+  const variance=`${schedule.diff>0?'+':''}${schedule.diff}%`;
+  const status=schedule.level==='on-track'?'ضمن الخطة':schedule.level==='follow-up'?'يحتاج متابعة':'متأخر';
+  const temporal=[];
+  if(active.startDateKey&&active.endDateKey){
+    const duration=daysBetween(active.startDateKey,active.endDateKey)+1;
+    const elapsed=Math.max(0,Math.min(duration,daysBetween(active.startDateKey,riyadhTodayKey())+1));
+    temporal.push(['مدة المرحلة',`${duration} يوم`],['الأيام المنقضية',`${elapsed} يوم`],['الأيام المتبقية',`${Math.max(0,duration-elapsed)} يوم`]);
+  }
+  if(active.lastUpdateDate) temporal.push(['آخر تحديث',active.lastUpdateDate]);
   summary.innerHTML=`
     <div class="phase-progress-summary-main">
-      <div><b class="phase-progress-summary-pct">${pct}%</b><span class="phase-progress-summary-label">إنجاز مرحلة ${escapeHtml(active.phase)}</span></div>
-      <div class="phase-progress-summary-count">${active.completed} من ${active.total}<span>مهمة مكتملة</span></div>
+      <div><b class="phase-progress-summary-pct">${pct}%</b><span class="phase-progress-summary-label">التقدم الفعلي للمشروع</span></div>
+      <span class="phase-progress-status" style="color:${schedule.toneColor};background:${schedule.toneBg};border-color:${schedule.toneBorder}">${status}</span>
     </div>
-    <div>
-      <div class="phase-progress-summary-track" role="progressbar" aria-label="نسبة إنجاز مرحلة ${escapeHtml(active.phase)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="phase-progress-summary-fill" style="width:${pct}%"></div></div>
-      <div class="phase-progress-summary-scale"><span>0%</span><span>100%</span></div>
+    <div class="phase-progress-summary-track" role="progressbar" aria-label="نسبة التقدم الفعلي للمشروع" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="phase-progress-summary-fill" style="width:${pct}%"></div></div>
+    <div class="phase-progress-indicators">
+      <div class="phase-progress-indicator"><small>المخطط</small><b>${schedule.planned}%</b></div>
+      <div class="phase-progress-indicator"><small>الفعلي</small><b>${schedule.actual}%</b></div>
+      <div class="phase-progress-indicator"><small>الانحراف</small><b style="color:${schedule.toneColor}">${variance}</b></div>
     </div>
-    <div class="phase-progress-summary-dates">
-      <div class="phase-progress-summary-date"><small>تاريخ بداية المرحلة</small><b>${active.startDate}</b></div>
-      <div class="phase-progress-summary-date"><small>تاريخ نهاية المرحلة</small><b>${active.endDate}</b></div>
-    </div>`;
+    ${temporal.length?`<div class="phase-progress-summary-dates">${temporal.map(([label,value])=>`<div class="phase-progress-summary-date"><small>${label}</small><b>${value}</b></div>`).join('')}</div>`:''}`;
 }
 function renderLineChart(){
   if(chartRenderVersion.line===dashboardDataVersion) return;
-  const ctx=document.getElementById('lineChart');
   const summary=document.getElementById('phaseProgressSummary');
-  const subtitle=document.getElementById('phaseProgressSubtitle');
-  if(!ctx) return;
-  if(!ctx.offsetParent && ctx.getBoundingClientRect().width===0) {
+  if(!summary) return;
+  if(!summary.offsetParent && summary.getBoundingClientRect().width===0) {
     setTimeout(renderLineChart, 150); return;
   }
-  const activePhaseStat=activePhaseForProgressHistory();
-  const history=actualPhaseProgressHistory(activePhaseStat);
   chartRenderVersion.line=dashboardDataVersion;
-  if(lineInst) lineInst.destroy();
-  lineInst=null;
-  if(!history||!window.Chart){
-    ctx.style.display='none';
-    if(summary){
-      renderPhaseProgressSummary(activePhaseStat);
-      summary.hidden=false;
-    }
-    if(subtitle) subtitle.textContent='ملخص المرحلة الحالي من بيانات WBS';
-    return;
-  }
-  ctx.style.display='block';
-  if(summary) summary.hidden=true;
-  if(subtitle) subtitle.textContent='تطور إنجاز المرحلة عبر الزمن';
-  const currentMonth=riyadhTodayKey().slice(0,7);
-  const currentMonthMarker={
-    id:'currentMonthMarker',
-    afterDraw(chart){
-      const index=history.periods.findIndex(p=>p.key===currentMonth);
-      if(index<0) return;
-      const x=chart.scales.x.getPixelForValue(index),area=chart.chartArea,g=chart.ctx;
-      g.save();g.strokeStyle='rgba(0,212,255,.75)';g.lineWidth=1.5;g.setLineDash([4,4]);
-      g.beginPath();g.moveTo(x,area.top);g.lineTo(x,area.bottom);g.stroke();g.setLineDash([]);
-      g.fillStyle='#00d4ff';g.font='700 10px Tajawal, sans-serif';g.textAlign='center';g.fillText('الشهر الحالي',x,area.top-6);g.restore();
-    }
-  };
-  lineInst=new Chart(ctx,{
-    type:'line',
-    data:{
-      labels:history.periods.map(p=>p.label),
-      datasets:[{
-        label:'الإنجاز الموثق',data:history.periods.map(p=>p.progress),
-        borderColor:'#a78bfa',backgroundColor:'transparent',
-        borderWidth:2.5,pointBackgroundColor:'#a07dff',
-        pointBorderColor:'#f2edff',pointBorderWidth:1.5,pointRadius:4,pointHoverRadius:6,pointHoverBackgroundColor:'#7c5cff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,fill:false,tension:.25
-      }]
-    },
-    plugins:[currentMonthMarker],
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{intersect:false,mode:'index'},
-      layout:{padding:{top:14,bottom:0}},
-      plugins:{legend:{display:false},tooltip:{rtl:true,textDirection:'rtl',backgroundColor:'rgba(15,18,35,.96)',borderColor:'rgba(124,92,255,.4)',borderWidth:1,padding:10,bodyFont:{size:12,weight:'bold'},callbacks:{
-        title:items=>history.periods[items[0].dataIndex].label,
-        label:item=>`نسبة الإنجاز الموثقة: ${item.parsed.y}%`,
-        afterLabel:item=>`المهام المكتملة خلال الفترة: ${history.periods[item.dataIndex].completed}`
-      }}},
-      scales:{
-        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b99b8',font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:6}},
-        y:{min:0,max:100,grid:{color:'rgba(255,255,255,.05)'},ticks:{stepSize:25,color:'#8b99b8',font:{size:10},callback:value=>`${value}%`}}
-      }
-    }
-  });
+  renderPhaseProgressSummary(activePhaseForProgressHistory());
 }
 
 /* ══ INSIGHTS ══ */
@@ -6400,27 +6348,41 @@ function plannedProgressPct(){
   return Math.round(((TODAY-start)/(end-start))*100);
 }
 
-/* بطاقة الالتزام بالجدول الزمني (Planned vs Actual) — منطق موحّد لكلا نسختيها
-   (الصفحة الرئيسية وصفحة الجدول الزمني) بناءً على نفس بيانات WBS الحية. */
-function renderScheduleCard(rowsId, diffId){
+function getScheduleProgressMetrics(){
+  const starts=tasks.map(t=>d(t.start)).filter(Boolean);
+  const ends=tasks.map(t=>d(t.end)).filter(Boolean);
+  if(!tasks.length||!starts.length||!ends.length) return null;
   const done=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
-  const actual=tasks.length?Math.round(done/tasks.length*100):0;
+  const actual=Math.round(done/tasks.length*100);
   const planned=plannedProgressPct();
   const diff=actual-planned;
   const absDiff=Math.abs(diff);
+  let level,toneColor,toneBg,toneBorder;
+  if(diff>=0){level='on-track';toneColor='#10e87a';toneBg='rgba(16,232,122,.10)';toneBorder='rgba(16,232,122,.25)';}
+  else if(absDiff<=5){level='follow-up';toneColor='#f5b800';toneBg='rgba(245,184,0,.10)';toneBorder='rgba(245,184,0,.25)';}
+  else{level='late';toneColor='#ff4d6a';toneBg='rgba(255,77,106,.10)';toneBorder='rgba(255,77,106,.25)';}
+  return {actual,planned,diff,absDiff,level,toneColor,toneBg,toneBorder};
+}
+
+/* بطاقة الالتزام بالجدول الزمني (Planned vs Actual) — منطق موحّد لكلا نسختيها
+   (الصفحة الرئيسية وصفحة الجدول الزمني) بناءً على نفس بيانات WBS الحية. */
+function renderScheduleCard(rowsId, diffId){
+  const metrics=getScheduleProgressMetrics();
+  if(!metrics) return;
+  const {actual,planned,diff,absDiff}=metrics;
 
   // تصنيف ثلاثي المستويات: أخضر (مطابق/أفضل) — أصفر (انحراف بسيط) — أحمر (يحتاج تدخل)
   let toneColor,toneBg,toneBorder,statusBadge,message;
-  if(diff>=0){
-    toneColor='#10e87a';toneBg='rgba(16,232,122,.10)';toneBorder='rgba(16,232,122,.25)';
+  if(metrics.level==='on-track'){
+    ({toneColor,toneBg,toneBorder}=metrics);
     statusBadge='مطابق للخطة';
     message=diff===0?'التنفيذ الحالي مطابق تماماً للخطة الزمنية المعتمدة.':`التنفيذ الحالي متقدم على المخطط بنسبة ${diff}%. يُنصح بالاستمرار بنفس وتيرة التنفيذ الحالية.`;
-  } else if(absDiff<=5){
-    toneColor='#f5b800';toneBg='rgba(245,184,0,.10)';toneBorder='rgba(245,184,0,.25)';
+  } else if(metrics.level==='follow-up'){
+    ({toneColor,toneBg,toneBorder}=metrics);
     statusBadge='يحتاج متابعة';
     message=`التنفيذ الحالي أقل من المخطط بنسبة ${absDiff}%. يوصى بمتابعة الأنشطة الجارية لضمان عدم اتساع الفجوة.`;
   } else {
-    toneColor='#ff4d6a';toneBg='rgba(255,77,106,.10)';toneBorder='rgba(255,77,106,.25)';
+    ({toneColor,toneBg,toneBorder}=metrics);
     statusBadge='يحتاج تدخل';
     message=`التنفيذ الحالي أقل من المخطط بنسبة ${absDiff}%. يوصى بمراجعة الأنشطة الحرجة وتسريع التنفيذ للحفاظ على موعد الافتتاح.`;
   }
