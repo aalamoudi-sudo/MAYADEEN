@@ -30,7 +30,12 @@ assert.match(progressBody, /getScheduleProgressMetrics\(\)/);
 assert.match(progressBody, /active\.phase/);
 assert.match(progressBody, /active\.startDateKey/);
 assert.match(progressBody, /active\.endDateKey/);
-assert.match(progressBody, /active\.lastUpdateDate/);
+assert.doesNotMatch(progressBody, /phase-progress-indicators|المخطط|الانحراف|آخر تحديث/,
+  'Progress card must not duplicate schedule indicators or show extra metadata');
+assert.match(progressBody, /التقدم الفعلي للمشروع/);
+assert.match(progressBody, /مدة المرحلة/);
+assert.match(progressBody, /الأيام المنقضية/);
+assert.match(progressBody, /الأيام المتبقية/);
 assert.match(progressBody, /لا توجد بيانات زمنية معتمدة لاحتساب تقدم المشروع/);
 assert.doesNotMatch(source, /id="lineChart"|actualPhaseProgressHistory|type:'doughnut'[\s\S]{0,500}phaseProgressSummary/,
   'Executive progress card must not render another chart');

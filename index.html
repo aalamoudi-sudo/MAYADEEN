@@ -552,19 +552,15 @@ button,input,select{font-family:inherit}
 .phase-progress-card-meta .phase-progress-subtitle{margin-top:0;min-width:0}
 .phase-progress-chart-wrap{height:auto;min-height:210px;flex:1}
 .phase-progress-subtitle{display:block;margin-top:4px;color:var(--muted);font-size:10.5px;font-weight:600}
-.phase-progress-summary{height:100%;min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:4px 2px;direction:rtl}
+.phase-progress-summary{height:100%;min-height:210px;display:flex;flex-direction:column;justify-content:space-evenly;gap:14px;padding:8px 2px;direction:rtl}
 .phase-progress-summary-main{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .phase-progress-summary-pct{font-size:36px;font-weight:900;line-height:1;color:#a78bfa;font-variant-numeric:tabular-nums}
 .phase-progress-summary-label{display:block;margin-top:4px;color:var(--muted);font-size:10.5px;font-weight:700}
 .phase-progress-summary-track{height:9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.06);border-radius:99px;overflow:hidden}
 .phase-progress-summary-fill{height:100%;width:0;background:var(--brand);border-radius:99px;transition:width .45s ease}
-.phase-progress-indicators{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.phase-progress-indicator{padding:7px 9px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px}
-.phase-progress-indicator small{display:block;color:var(--muted);font-size:9.5px;font-weight:700;margin-bottom:2px}
-.phase-progress-indicator b{color:#d0d8f0;font-size:13px;font-weight:900;font-variant-numeric:tabular-nums}
 .phase-progress-status{display:inline-flex;align-items:center;gap:6px;width:max-content;padding:4px 9px;border:1px solid;border-radius:99px;font-size:10.5px;font-weight:800}
 .phase-progress-status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
-.phase-progress-summary-dates{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.phase-progress-summary-dates{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .phase-progress-summary-date{padding:8px 10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px}
 .phase-progress-summary-date small{display:block;color:var(--muted);font-size:9.5px;font-weight:600;margin-bottom:3px}
 .phase-progress-summary-date b{color:#d0d8f0;font-size:11.5px;font-weight:800}
@@ -6221,7 +6217,6 @@ function renderPhaseProgressSummary(active){
   }
   if(subtitle) subtitle.textContent=`المرحلة الحالية: ${active.phase}`;
   const pct=schedule.actual;
-  const variance=`${schedule.diff>0?'+':''}${schedule.diff}%`;
   const status=schedule.level==='on-track'?'ضمن الخطة':schedule.level==='follow-up'?'يحتاج متابعة':'متأخر';
   const temporal=[];
   if(active.startDateKey&&active.endDateKey){
@@ -6229,18 +6224,12 @@ function renderPhaseProgressSummary(active){
     const elapsed=Math.max(0,Math.min(duration,daysBetween(active.startDateKey,riyadhTodayKey())+1));
     temporal.push(['مدة المرحلة',`${duration} يوم`],['الأيام المنقضية',`${elapsed} يوم`],['الأيام المتبقية',`${Math.max(0,duration-elapsed)} يوم`]);
   }
-  if(active.lastUpdateDate) temporal.push(['آخر تحديث',active.lastUpdateDate]);
   summary.innerHTML=`
     <div class="phase-progress-summary-main">
       <div><b class="phase-progress-summary-pct">${pct}%</b><span class="phase-progress-summary-label">التقدم الفعلي للمشروع</span></div>
       <span class="phase-progress-status" style="color:${schedule.toneColor};background:${schedule.toneBg};border-color:${schedule.toneBorder}">${status}</span>
     </div>
     <div class="phase-progress-summary-track" role="progressbar" aria-label="نسبة التقدم الفعلي للمشروع" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="phase-progress-summary-fill" style="width:${pct}%"></div></div>
-    <div class="phase-progress-indicators">
-      <div class="phase-progress-indicator"><small>المخطط</small><b>${schedule.planned}%</b></div>
-      <div class="phase-progress-indicator"><small>الفعلي</small><b>${schedule.actual}%</b></div>
-      <div class="phase-progress-indicator"><small>الانحراف</small><b style="color:${schedule.toneColor}">${variance}</b></div>
-    </div>
     ${temporal.length?`<div class="phase-progress-summary-dates">${temporal.map(([label,value])=>`<div class="phase-progress-summary-date"><small>${label}</small><b>${value}</b></div>`).join('')}</div>`:''}`;
 }
 function renderLineChart(){
