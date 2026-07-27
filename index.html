@@ -545,6 +545,9 @@ button,input,select{font-family:inherit}
 
 /* ══ LINE CHART ══ */
 .line-chart-wrap{height:var(--chart-h-md);position:relative;overflow:hidden;display:block}
+.phase-progress-chart-wrap{height:210px;min-height:210px}
+.phase-progress-chart-empty{height:100%;min-height:150px;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px;color:var(--muted);font-size:12px;line-height:1.8}
+.phase-progress-subtitle{display:block;margin-top:4px;color:var(--muted);font-size:10.5px;font-weight:600}
 
 /* ══ MILESTONES ══ */
 .milestone-list{display:flex;flex-direction:column;gap:8px}
@@ -1328,6 +1331,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.kpi-card{min-height:132px}.kpi-label{line-height:1.55}.kpi-value{font-variant-numeric:tabular-nums}.status-badge,.pill{gap:6px}
 @media(max-width:1100px){.app{flex-direction:row}.mobile-menu-btn,.sidebar-close{display:inline-flex;align-items:center}.sidebar{position:fixed;right:0;top:0;bottom:0;height:100vh;width:min(320px,86vw);z-index:80;transform:translateX(105%);transition:transform .22s ease}.app.sidebar-open .sidebar{transform:translateX(0)}.app.sidebar-open .sidebar-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}.sidebar-nav{display:block}.topbar{flex-wrap:wrap}.topbar-search{order:3;flex-basis:100%;max-width:none}.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.filters{grid-template-columns:1fr 1fr}.page-area{padding:16px}}
 @media(max-width:700px){.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid,.filters{grid-template-columns:1fr!important}.page-area{padding:12px}.page-header{padding:14px}.topbar-left,.topbar-right{width:100%;flex-wrap:wrap}.data-table{min-width:760px}.card{padding:14px}.kpi-value{font-size:32px!important}}
+@media(max-width:700px){.phase-progress-chart-wrap{height:190px;min-height:190px}.phase-progress-chart-empty{min-height:130px;padding:12px}}
 @media(prefers-reduced-motion:reduce){.sidebar,.nav-group-toggle .chev{transition:none!important}}
 
 /* ثابت: منصة MAYADEEN تعمل بالوضع الداكن فقط، بدون مفاتيح تبديل للأوضاع. */
@@ -1627,9 +1631,10 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <div class="alert-list" id="execAlerts"></div>
           </div>
           <div class="card">
-            <div class="sec-title"><h2>التقدم الزمني للمرحلة</h2></div>
-            <div class="line-chart-wrap">
+            <div class="sec-title"><h2>التقدم الزمني للمرحلة<span class="phase-progress-subtitle">تطور الإنجاز الفعلي للمرحلة عبر الزمن</span></h2></div>
+            <div class="line-chart-wrap phase-progress-chart-wrap">
               <canvas id="lineChart" style="display:block"></canvas>
+              <div id="lineChartEmpty" class="phase-progress-chart-empty" hidden>لا توجد بيانات تاريخية كافية لعرض تطور إنجاز المرحلة.</div>
             </div>
           </div>
         </div>
@@ -6131,48 +6136,98 @@ function renderDonutChart(){
 
 /* ══ LINE CHART ══ */
 let lineInst=null;
+function activePhaseForProgressHistory(){
+  const stats=PROJECT_PHASE_ORDER.map(phase=>{
+    const phaseTasks=tasks.filter(t=>t.phase===phase);
+    const done=phaseTasks.filter(t=>classifyStatus(t)==='مكتملة').length;
+    return {phase,total:phaseTasks.length,done,pct:phaseTasks.length?Math.round(done/phaseTasks.length*100):0};
+  });
+  return stats.find(s=>s.total&&s.done<s.total&&s.done>0)
+    ||stats.find(s=>s.total&&s.done<s.total)
+    ||[...stats].reverse().find(s=>s.total)
+    ||null;
+}
+function actualPhaseProgressHistory(){
+  const active=activePhaseForProgressHistory();
+  if(!active) return null;
+  const phaseTasks=tasks.filter(t=>t.phase===active.phase);
+  const completions=phaseTasks.map(t=>getTaskActualEndDate(t)).filter(Boolean).map(dateKey=>({dateKey,date:d(dateKey)})).filter(x=>x.date);
+  const distinctMonths=new Set(completions.map(x=>`${x.date.getUTCFullYear()}-${x.date.getUTCMonth()}`));
+  if(distinctMonths.size<2) return null;
+
+  const first=new Date(Math.min(...completions.map(x=>x.date.getTime())));
+  const now=d(riyadhTodayKey());
+  const last=now&&now>first?now:new Date(Math.max(...completions.map(x=>x.date.getTime())));
+  const periods=[];
+  for(let cursor=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth(),1));cursor<=last;cursor.setUTCMonth(cursor.getUTCMonth()+1)){
+    const year=cursor.getUTCFullYear(),month=cursor.getUTCMonth();
+    const completedThisPeriod=completions.filter(x=>x.date.getUTCFullYear()===year&&x.date.getUTCMonth()===month).length;
+    const completedToDate=completions.filter(x=>x.date<Date.UTC(year,month+1,1)).length;
+    periods.push({
+      key:`${year}-${String(month+1).padStart(2,'0')}`,
+      label:new Intl.DateTimeFormat('ar-SA',{month:'short',year:'numeric',timeZone:'UTC'}).format(cursor),
+      progress:Math.round(completedToDate/phaseTasks.length*100),
+      completed:completedThisPeriod
+    });
+  }
+  return {phase:active.phase,periods};
+}
 function renderLineChart(){
   if(!window.Chart) return;
   if(chartRenderVersion.line===dashboardDataVersion) return;
   const ctx=document.getElementById('lineChart');
+  const empty=document.getElementById('lineChartEmpty');
   if(!ctx) return;
   if(!ctx.offsetParent && ctx.getBoundingClientRect().width===0) {
     setTimeout(renderLineChart, 150); return;
   }
-  const months=['Jun','Jul','Aug','Sep','Oct','Nov'];
-  const monthNums=[6,7,8,9,10,11];
-  const data=monthNums.map(m=>{
-    return tasks.filter(t=>{
-      const en=d(t.end); return en&&en.getMonth()+1<=m&&en.getFullYear()===2026;
-    }).length;
-  });
+  const history=actualPhaseProgressHistory();
   chartRenderVersion.line=dashboardDataVersion;
   if(lineInst) lineInst.destroy();
-  let lineGrad='rgba(124,92,255,.15)';
-  try{
-    const g=ctx.getContext('2d').createLinearGradient(0,0,0,190);
-    g.addColorStop(0,'rgba(124,92,255,.30)');
-    g.addColorStop(1,'rgba(124,92,255,.02)');
-    lineGrad=g;
-  }catch(e){ console.warn('Gradient تعويض عرضي (overview line chart):',e); }
+  lineInst=null;
+  if(!history){
+    ctx.style.display='none';
+    if(empty) empty.hidden=false;
+    return;
+  }
+  ctx.style.display='block';
+  if(empty) empty.hidden=true;
+  const currentMonth=riyadhTodayKey().slice(0,7);
+  const currentMonthMarker={
+    id:'currentMonthMarker',
+    afterDraw(chart){
+      const index=history.periods.findIndex(p=>p.key===currentMonth);
+      if(index<0) return;
+      const x=chart.scales.x.getPixelForValue(index),area=chart.chartArea,g=chart.ctx;
+      g.save();g.strokeStyle='rgba(0,212,255,.75)';g.lineWidth=1.5;g.setLineDash([4,4]);
+      g.beginPath();g.moveTo(x,area.top);g.lineTo(x,area.bottom);g.stroke();g.setLineDash([]);
+      g.fillStyle='#00d4ff';g.font='700 10px Tajawal, sans-serif';g.textAlign='center';g.fillText('الشهر الحالي',x,area.top-6);g.restore();
+    }
+  };
   lineInst=new Chart(ctx,{
     type:'line',
     data:{
-      labels:months,
+      labels:history.periods.map(p=>p.label),
       datasets:[{
-        label:'مهام تنتهي',data,
-        borderColor:'#7c5cff',backgroundColor:lineGrad,
+        label:'الإنجاز الفعلي',data:history.periods.map(p=>p.progress),
+        borderColor:'#a78bfa',backgroundColor:'transparent',
         borderWidth:2.5,pointBackgroundColor:'#a07dff',
-        pointRadius:4,pointHoverRadius:6,pointHoverBackgroundColor:'#7c5cff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,fill:true,tension:.4
+        pointBorderColor:'#f2edff',pointBorderWidth:1.5,pointRadius:4,pointHoverRadius:6,pointHoverBackgroundColor:'#7c5cff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,fill:false,tension:.25
       }]
     },
+    plugins:[currentMonthMarker],
     options:{
       responsive:true,maintainAspectRatio:false,
       interaction:{intersect:false,mode:'index'},
-      plugins:{legend:{display:false},tooltip:{rtl:true,backgroundColor:'rgba(15,18,35,.95)',borderColor:'rgba(124,92,255,.3)',borderWidth:1,padding:10,bodyFont:{size:12,weight:'bold'}}},
+      layout:{padding:{top:14,bottom:0}},
+      plugins:{legend:{display:false},tooltip:{rtl:true,textDirection:'rtl',backgroundColor:'rgba(15,18,35,.96)',borderColor:'rgba(124,92,255,.4)',borderWidth:1,padding:10,bodyFont:{size:12,weight:'bold'},callbacks:{
+        title:items=>history.periods[items[0].dataIndex].label,
+        label:item=>`نسبة الإنجاز الفعلية: ${item.parsed.y}%`,
+        afterLabel:item=>`المهام المكتملة خلال الفترة: ${history.periods[item.dataIndex].completed}`
+      }}},
       scales:{
-        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7a9f',font:{size:10}}},
-        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7a9f',font:{size:10}}}
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b99b8',font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:6}},
+        y:{min:0,max:100,grid:{color:'rgba(255,255,255,.05)'},ticks:{stepSize:25,color:'#8b99b8',font:{size:10},callback:value=>`${value}%`}}
       }
     }
   });
