@@ -23,19 +23,28 @@ const sharedBody = bodyOf('getSharedProjectPhaseStats');
 const phaseCardsBody = bodyOf('renderPhases');
 const activePhaseBody = bodyOf('activePhaseForProgressHistory');
 const progressBody = bodyOf('renderPhaseProgressSummary');
+const scheduleMetricsBody = bodyOf('getScheduleProgressMetrics');
 assert.doesNotMatch(progressBody, /\.filter\s*\(|normalizeProjectPhase|project_phase|selectedPhase|currentPhase/,
   'Progress card must not filter or normalize WBS rows');
-assert.match(progressBody, /active\.completed/);
-assert.match(progressBody, /active\.total/);
-assert.match(progressBody, /active\.progress/);
-assert.match(progressBody, /active\.startDate/);
-assert.match(progressBody, /active\.endDate/);
+assert.match(progressBody, /getScheduleProgressMetrics\(\)/);
+assert.match(progressBody, /active\.phase/);
+assert.match(progressBody, /active\.startDateKey/);
+assert.match(progressBody, /active\.endDateKey/);
+assert.match(progressBody, /active\.lastUpdateDate/);
+assert.match(progressBody, /لا توجد بيانات زمنية معتمدة لاحتساب تقدم المشروع/);
+assert.doesNotMatch(source, /id="lineChart"|actualPhaseProgressHistory|type:'doughnut'[\s\S]{0,500}phaseProgressSummary/,
+  'Executive progress card must not render another chart');
 assert.doesNotMatch(source, /تعذر استخراج مهام المرحلة الحالية من بيانات WBS/);
+assert.doesNotMatch(source, /لا توجد إحصاءات متاحة للمرحلة الحالية/);
 assert.match(sharedBody, /sharedProjectPhaseStats=getProjectPhaseStats\(\)/);
 assert.match(phaseCardsBody, /getSharedProjectPhaseStats\(\)\.map/);
 assert.match(phaseCardsBody, /return Object\.assign\(stat,/,
   'Phase cards must retain the shared stat object reference');
 assert.match(activePhaseBody, /getCurrentProjectPhaseStat\(getSharedProjectPhaseStats\(\)\)/);
+assert.match(scheduleMetricsBody, /plannedProgressPct\(\)/);
+assert.match(scheduleMetricsBody, /classifyStatus\(t\)==='مكتملة'/);
+assert.match(scheduleMetricsBody, /diff>=0/);
+assert.match(scheduleMetricsBody, /absDiff<=5/);
 
 const phaseCardStats = phases.map((phase, index) => ({
   phase, total: 100 + index, completed: 30 + index, progress: 30 + index
