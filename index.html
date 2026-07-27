@@ -546,8 +546,20 @@ button,input,select{font-family:inherit}
 /* ══ LINE CHART ══ */
 .line-chart-wrap{height:var(--chart-h-md);position:relative;overflow:hidden;display:block}
 .phase-progress-chart-wrap{height:210px;min-height:210px}
-.phase-progress-chart-empty{height:100%;min-height:150px;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px;color:var(--muted);font-size:12px;line-height:1.8}
 .phase-progress-subtitle{display:block;margin-top:4px;color:var(--muted);font-size:10.5px;font-weight:600}
+.phase-progress-summary{height:100%;min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:8px 2px}
+.phase-progress-summary-main{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.phase-progress-summary-pct{font-size:36px;font-weight:900;line-height:1;color:#a78bfa;font-variant-numeric:tabular-nums}
+.phase-progress-summary-label{display:block;margin-top:4px;color:var(--muted);font-size:10.5px;font-weight:700}
+.phase-progress-summary-count{color:#d0d8f0;font-size:12px;font-weight:800;text-align:left}
+.phase-progress-summary-count span{display:block;margin-top:3px;color:var(--muted);font-size:10px;font-weight:600}
+.phase-progress-summary-track{height:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.06);border-radius:99px;overflow:hidden}
+.phase-progress-summary-fill{height:100%;width:0;background:linear-gradient(90deg,#7c5cff,#a78bfa);border-radius:99px;box-shadow:0 0 16px rgba(124,92,255,.38);transition:width .6s ease}
+.phase-progress-summary-scale{display:flex;justify-content:space-between;margin-top:5px;color:#6b7a9f;font-size:9.5px;font-weight:700}
+.phase-progress-summary-dates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.phase-progress-summary-date{padding:8px 10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px}
+.phase-progress-summary-date small{display:block;color:var(--muted);font-size:9.5px;font-weight:600;margin-bottom:3px}
+.phase-progress-summary-date b{color:#d0d8f0;font-size:11.5px;font-weight:800}
 
 /* ══ MILESTONES ══ */
 .milestone-list{display:flex;flex-direction:column;gap:8px}
@@ -1331,7 +1343,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.kpi-card{min-height:132px}.kpi-label{line-height:1.55}.kpi-value{font-variant-numeric:tabular-nums}.status-badge,.pill{gap:6px}
 @media(max-width:1100px){.app{flex-direction:row}.mobile-menu-btn,.sidebar-close{display:inline-flex;align-items:center}.sidebar{position:fixed;right:0;top:0;bottom:0;height:100vh;width:min(320px,86vw);z-index:80;transform:translateX(105%);transition:transform .22s ease}.app.sidebar-open .sidebar{transform:translateX(0)}.app.sidebar-open .sidebar-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}.sidebar-nav{display:block}.topbar{flex-wrap:wrap}.topbar-search{order:3;flex-basis:100%;max-width:none}.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.filters{grid-template-columns:1fr 1fr}.page-area{padding:16px}}
 @media(max-width:700px){.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid,.filters{grid-template-columns:1fr!important}.page-area{padding:12px}.page-header{padding:14px}.topbar-left,.topbar-right{width:100%;flex-wrap:wrap}.data-table{min-width:760px}.card{padding:14px}.kpi-value{font-size:32px!important}}
-@media(max-width:700px){.phase-progress-chart-wrap{height:190px;min-height:190px}.phase-progress-chart-empty{min-height:130px;padding:12px}}
+@media(max-width:700px){.phase-progress-chart-wrap{height:190px;min-height:190px}.phase-progress-summary{min-height:130px}.phase-progress-summary-pct{font-size:31px}}
 @media(prefers-reduced-motion:reduce){.sidebar,.nav-group-toggle .chev{transition:none!important}}
 
 /* ثابت: منصة MAYADEEN تعمل بالوضع الداكن فقط، بدون مفاتيح تبديل للأوضاع. */
@@ -1631,10 +1643,10 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <div class="alert-list" id="execAlerts"></div>
           </div>
           <div class="card">
-            <div class="sec-title"><h2>التقدم الزمني للمرحلة<span class="phase-progress-subtitle">تطور الإنجاز الفعلي للمرحلة عبر الزمن</span></h2></div>
+            <div class="sec-title"><h2>التقدم الزمني للمرحلة<span id="phaseProgressSubtitle" class="phase-progress-subtitle">تطور إنجاز المرحلة عبر الزمن</span></h2></div>
             <div class="line-chart-wrap phase-progress-chart-wrap">
               <canvas id="lineChart" style="display:block"></canvas>
-              <div id="lineChartEmpty" class="phase-progress-chart-empty" hidden>لا توجد بيانات تاريخية كافية لعرض تطور إنجاز المرحلة.</div>
+              <div id="phaseProgressSummary" class="phase-progress-summary" hidden></div>
             </div>
           </div>
         </div>
@@ -6172,11 +6184,35 @@ function actualPhaseProgressHistory(){
   }
   return {phase:active.phase,periods};
 }
+function renderPhaseProgressSummary(active){
+  const summary=document.getElementById('phaseProgressSummary');
+  if(!summary) return;
+  active=active||{phase:'الحالية',total:0,done:0,pct:0};
+  const phaseTasks=tasks.filter(t=>t.phase===active.phase);
+  const starts=phaseTasks.map(t=>d(t.start)).filter(Boolean).sort((a,b)=>a-b);
+  const ends=phaseTasks.map(t=>d(t.end)).filter(Boolean).sort((a,b)=>b-a);
+  const start=starts[0]?fmt(dateToKey_(starts[0])):'غير متوفر';
+  const end=ends[0]?fmt(dateToKey_(ends[0])):'غير متوفر';
+  const pct=Math.max(0,Math.min(100,active.pct));
+  summary.innerHTML=`
+    <div class="phase-progress-summary-main">
+      <div><b class="phase-progress-summary-pct">${pct}%</b><span class="phase-progress-summary-label">إنجاز مرحلة ${escapeHtml(active.phase)}</span></div>
+      <div class="phase-progress-summary-count">${active.done} من ${active.total}<span>مهمة مكتملة</span></div>
+    </div>
+    <div>
+      <div class="phase-progress-summary-track" role="progressbar" aria-label="نسبة إنجاز مرحلة ${escapeHtml(active.phase)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="phase-progress-summary-fill" style="width:${pct}%"></div></div>
+      <div class="phase-progress-summary-scale"><span>0%</span><span>100%</span></div>
+    </div>
+    <div class="phase-progress-summary-dates">
+      <div class="phase-progress-summary-date"><small>تاريخ بداية المرحلة</small><b>${start}</b></div>
+      <div class="phase-progress-summary-date"><small>تاريخ نهاية المرحلة</small><b>${end}</b></div>
+    </div>`;
+}
 function renderLineChart(){
-  if(!window.Chart) return;
   if(chartRenderVersion.line===dashboardDataVersion) return;
   const ctx=document.getElementById('lineChart');
-  const empty=document.getElementById('lineChartEmpty');
+  const summary=document.getElementById('phaseProgressSummary');
+  const subtitle=document.getElementById('phaseProgressSubtitle');
   if(!ctx) return;
   if(!ctx.offsetParent && ctx.getBoundingClientRect().width===0) {
     setTimeout(renderLineChart, 150); return;
@@ -6185,13 +6221,18 @@ function renderLineChart(){
   chartRenderVersion.line=dashboardDataVersion;
   if(lineInst) lineInst.destroy();
   lineInst=null;
-  if(!history){
+  if(!history||!window.Chart){
     ctx.style.display='none';
-    if(empty) empty.hidden=false;
+    if(summary){
+      renderPhaseProgressSummary(activePhaseForProgressHistory());
+      summary.hidden=false;
+    }
+    if(subtitle) subtitle.textContent='ملخص المرحلة الحالي من بيانات WBS';
     return;
   }
   ctx.style.display='block';
-  if(empty) empty.hidden=true;
+  if(summary) summary.hidden=true;
+  if(subtitle) subtitle.textContent='تطور إنجاز المرحلة عبر الزمن';
   const currentMonth=riyadhTodayKey().slice(0,7);
   const currentMonthMarker={
     id:'currentMonthMarker',
@@ -6209,7 +6250,7 @@ function renderLineChart(){
     data:{
       labels:history.periods.map(p=>p.label),
       datasets:[{
-        label:'الإنجاز الفعلي',data:history.periods.map(p=>p.progress),
+        label:'الإنجاز الموثق',data:history.periods.map(p=>p.progress),
         borderColor:'#a78bfa',backgroundColor:'transparent',
         borderWidth:2.5,pointBackgroundColor:'#a07dff',
         pointBorderColor:'#f2edff',pointBorderWidth:1.5,pointRadius:4,pointHoverRadius:6,pointHoverBackgroundColor:'#7c5cff',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2,fill:false,tension:.25
@@ -6222,7 +6263,7 @@ function renderLineChart(){
       layout:{padding:{top:14,bottom:0}},
       plugins:{legend:{display:false},tooltip:{rtl:true,textDirection:'rtl',backgroundColor:'rgba(15,18,35,.96)',borderColor:'rgba(124,92,255,.4)',borderWidth:1,padding:10,bodyFont:{size:12,weight:'bold'},callbacks:{
         title:items=>history.periods[items[0].dataIndex].label,
-        label:item=>`نسبة الإنجاز الفعلية: ${item.parsed.y}%`,
+        label:item=>`نسبة الإنجاز الموثقة: ${item.parsed.y}%`,
         afterLabel:item=>`المهام المكتملة خلال الفترة: ${history.periods[item.dataIndex].completed}`
       }}},
       scales:{
