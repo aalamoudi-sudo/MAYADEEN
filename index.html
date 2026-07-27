@@ -560,6 +560,7 @@ button,input,select{font-family:inherit}
 .phase-progress-summary-date{padding:8px 10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:9px}
 .phase-progress-summary-date small{display:block;color:var(--muted);font-size:9.5px;font-weight:600;margin-bottom:3px}
 .phase-progress-summary-date b{color:#d0d8f0;font-size:11.5px;font-weight:800}
+.phase-progress-error{padding:18px;border:1px solid rgba(255,77,106,.35);border-radius:12px;background:rgba(255,77,106,.10);color:#ffb3bf;font-size:13px;font-weight:800;line-height:1.8;text-align:center}
 
 /* ══ MILESTONES ══ */
 .milestone-list{display:flex;flex-direction:column;gap:8px}
@@ -5341,18 +5342,39 @@ function renderTasks(){
   // صفحة المهام تعرض مهام WBS فقط، بدون أي حد عرض أو slice.
   applyFilters();
 }
+/* المصدر الوحيد لإحصاءات المراحل. تعتمد بطاقات صفحة المراحل وبطاقة التقدم
+   الزمني على المجموعة المطَبّعة نفسها، وبذلك لا يمكن أن تختلف الأعداد بينهما. */
+function getProjectPhaseStats(){
+  if(!Array.isArray(tasks)) throw new Error('تعذر استخراج مهام المراحل من بيانات WBS.');
+  return PROJECT_PHASE_ORDER.map(phase=>{
+    const phaseTasks=tasks.filter(task=>normalizeProjectPhase(getFirstTaskField_(task,'phase')||task?.phase)===phase);
+    const done=phaseTasks.filter(task=>classifyStatus(task)==='مكتملة').length;
+    return {
+      phase,
+      tasks:phaseTasks,
+      total:phaseTasks.length,
+      done,
+      late:phaseTasks.filter(task=>classifyStatus(task)==='متأخرة').length,
+      inprog:phaseTasks.filter(task=>classifyStatus(task)==='قيد التنفيذ').length,
+      notStarted:phaseTasks.filter(task=>classifyStatus(task)==='لم تبدأ').length,
+      pct:phaseTasks.length?Math.round(done/phaseTasks.length*100):0
+    };
+  });
+}
+function getCurrentProjectPhaseStat(phaseStats=getProjectPhaseStats()){
+  return phaseStats.find(phase=>phase.total&&(phase.inprog>0||phase.late>0))
+    ||phaseStats.find(phase=>phase.total&&phase.done<phase.total)
+    ||[...phaseStats].reverse().find(phase=>phase.total)
+    ||null;
+}
 function renderPhases(){
   const phases=PROJECT_PHASE_ORDER;
   const orderLabel=Object.fromEntries(phases.map((p,i)=>[p,String(i+1).padStart(2,'0')]));
   const colorMap={'البدء':'green','التخطيط':'cyan','التنفيذ':'brand','المراقبة والتحكم':'blue','الإغلاق':'yellow'};
 
-  const phaseStats=phases.map(p=>{
-    const arr=tasks.filter(t=>t.phase===p);
-    const done=arr.filter(t=>classifyStatus(t)==='مكتملة').length;
-    const late=arr.filter(t=>classifyStatus(t)==='متأخرة').length;
-    const inprog=arr.filter(t=>classifyStatus(t)==='قيد التنفيذ').length;
-    const notStarted=arr.filter(t=>classifyStatus(t)==='لم تبدأ').length;
-    const pct=arr.length?Math.round(done/arr.length*100):0;
+  const phaseStats=getProjectPhaseStats().map(stat=>{
+    const p=stat.phase,arr=stat.tasks;
+    const {done,late,inprog,notStarted,pct}=stat;
     const ends=arr.map(t=>d(t.actualEnd||t.end)).filter(Boolean).sort((a,b)=>b-a);
     const starts=arr.map(t=>d(t.actualStart||t.start)).filter(Boolean).sort((a,b)=>a-b);
     const firstDate=starts[0]?fmt(dateToKey_(starts[0])):'-';
@@ -5364,13 +5386,12 @@ function renderPhases(){
     else if(isNotStarted){status='لم تبدأ';statusClass='gray';}
     else if(late>0){status='تحتاج متابعة';statusClass='yellow';}
     else if(inprog>0||pct>0){status='قيد التنفيذ';statusClass='blue';}
-    return {phase:p,total:arr.length,done,late,inprog,notStarted,pct,firstDate,lastDate,owners,status,statusClass,color:isNotStarted?'muted':(colorMap[p]||'brand'),isNotStarted};
+    return {...stat,firstDate,lastDate,owners,status,statusClass,color:isNotStarted?'muted':(colorMap[p]||'brand'),isNotStarted};
   });
 
   /* Determine current active phase (moved earlier so phase cards can highlight it) */
-  const active=phaseStats.find(p=>p.status==='قيد التنفيذ'||p.status==='تحتاج متابعة')
-    ||phaseStats.find(p=>!p.isNotStarted&&p.pct<100)
-    ||phaseStats[0];
+  const active=getCurrentProjectPhaseStat(phaseStats);
+  if(!active) return;
   const nextPhaseIdx=phases.indexOf(active.phase)+1;
   const nextPhase=nextPhaseIdx<phases.length?phaseStats[nextPhaseIdx]:null;
 
@@ -6149,20 +6170,12 @@ function renderDonutChart(){
 /* ══ LINE CHART ══ */
 let lineInst=null;
 function activePhaseForProgressHistory(){
-  const stats=PROJECT_PHASE_ORDER.map(phase=>{
-    const phaseTasks=tasks.filter(t=>t.phase===phase);
-    const done=phaseTasks.filter(t=>classifyStatus(t)==='مكتملة').length;
-    return {phase,total:phaseTasks.length,done,pct:phaseTasks.length?Math.round(done/phaseTasks.length*100):0};
-  });
-  return stats.find(s=>s.total&&s.done<s.total&&s.done>0)
-    ||stats.find(s=>s.total&&s.done<s.total)
-    ||[...stats].reverse().find(s=>s.total)
-    ||null;
+  return getCurrentProjectPhaseStat();
 }
 function actualPhaseProgressHistory(){
   const active=activePhaseForProgressHistory();
   if(!active) return null;
-  const phaseTasks=tasks.filter(t=>t.phase===active.phase);
+  const phaseTasks=active.tasks;
   const completions=phaseTasks.map(t=>getTaskActualEndDate(t)).filter(Boolean).map(dateKey=>({dateKey,date:d(dateKey)})).filter(x=>x.date);
   const distinctMonths=new Set(completions.map(x=>`${x.date.getUTCFullYear()}-${x.date.getUTCMonth()}`));
   if(distinctMonths.size<2) return null;
@@ -6187,10 +6200,13 @@ function actualPhaseProgressHistory(){
 function renderPhaseProgressSummary(active){
   const summary=document.getElementById('phaseProgressSummary');
   if(!summary) return;
-  active=active||{phase:'الحالية',total:0,done:0,pct:0};
-  const phaseTasks=tasks.filter(t=>t.phase===active.phase);
-  const starts=phaseTasks.map(t=>d(t.start)).filter(Boolean).sort((a,b)=>a-b);
-  const ends=phaseTasks.map(t=>d(t.end)).filter(Boolean).sort((a,b)=>b-a);
+  if(!active){
+    summary.innerHTML='<div class="phase-progress-error" role="alert">تعذر استخراج مهام المرحلة الحالية من بيانات WBS. يرجى تحديث البيانات والمحاولة مجددًا.</div>';
+    return;
+  }
+  const phaseTasks=active.tasks;
+  const starts=phaseTasks.map(getTaskPlannedStartDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>a-b);
+  const ends=phaseTasks.map(getTaskPlannedEndDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>b-a);
   const start=starts[0]?fmt(dateToKey_(starts[0])):'غير متوفر';
   const end=ends[0]?fmt(dateToKey_(ends[0])):'غير متوفر';
   const pct=Math.max(0,Math.min(100,active.pct));
