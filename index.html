@@ -5367,12 +5367,33 @@ function getCurrentProjectPhaseStat(phaseStats=getProjectPhaseStats()){
     ||[...phaseStats].reverse().find(phase=>phase.total)
     ||null;
 }
+let sharedProjectPhaseStatsVersion=-1;
+let sharedProjectPhaseStats=[];
+/* تُنشأ هذه اللقطة بعد اكتمال تطبيع المهام، ثم تُمرر مراجع كائناتها نفسها
+   إلى بطاقات المراحل وبطاقة التقدم. لا تستخرج بطاقة التقدم صفوف WBS بنفسها. */
+function getSharedProjectPhaseStats(){
+  if(sharedProjectPhaseStatsVersion===dashboardDataVersion) return sharedProjectPhaseStats;
+  sharedProjectPhaseStats=getProjectPhaseStats();
+  sharedProjectPhaseStats.forEach(stat=>{
+    const starts=stat.tasks.map(getTaskPlannedStartDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>a-b);
+    const ends=stat.tasks.map(getTaskPlannedEndDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>b-a);
+    Object.assign(stat,{
+      completed:stat.done,
+      overdue:stat.late,
+      progress:stat.pct,
+      startDate:starts[0]?fmt(dateToKey_(starts[0])):'غير متوفر',
+      endDate:ends[0]?fmt(dateToKey_(ends[0])):'غير متوفر'
+    });
+  });
+  sharedProjectPhaseStatsVersion=dashboardDataVersion;
+  return sharedProjectPhaseStats;
+}
 function renderPhases(){
   const phases=PROJECT_PHASE_ORDER;
   const orderLabel=Object.fromEntries(phases.map((p,i)=>[p,String(i+1).padStart(2,'0')]));
   const colorMap={'البدء':'green','التخطيط':'cyan','التنفيذ':'brand','المراقبة والتحكم':'blue','الإغلاق':'yellow'};
 
-  const phaseStats=getProjectPhaseStats().map(stat=>{
+  const phaseStats=getSharedProjectPhaseStats().map(stat=>{
     const p=stat.phase,arr=stat.tasks;
     const {done,late,inprog,notStarted,pct}=stat;
     const ends=arr.map(t=>d(t.actualEnd||t.end)).filter(Boolean).sort((a,b)=>b-a);
@@ -5386,7 +5407,7 @@ function renderPhases(){
     else if(isNotStarted){status='لم تبدأ';statusClass='gray';}
     else if(late>0){status='تحتاج متابعة';statusClass='yellow';}
     else if(inprog>0||pct>0){status='قيد التنفيذ';statusClass='blue';}
-    return {...stat,firstDate,lastDate,owners,status,statusClass,color:isNotStarted?'muted':(colorMap[p]||'brand'),isNotStarted};
+    return Object.assign(stat,{firstDate,lastDate,owners,status,statusClass,color:isNotStarted?'muted':(colorMap[p]||'brand'),isNotStarted});
   });
 
   /* Determine current active phase (moved earlier so phase cards can highlight it) */
@@ -6170,10 +6191,9 @@ function renderDonutChart(){
 /* ══ LINE CHART ══ */
 let lineInst=null;
 function activePhaseForProgressHistory(){
-  return getCurrentProjectPhaseStat();
+  return getCurrentProjectPhaseStat(getSharedProjectPhaseStats());
 }
-function actualPhaseProgressHistory(){
-  const active=activePhaseForProgressHistory();
+function actualPhaseProgressHistory(active){
   if(!active) return null;
   const phaseTasks=active.tasks;
   const completions=phaseTasks.map(t=>getTaskActualEndDate(t)).filter(Boolean).map(dateKey=>({dateKey,date:d(dateKey)})).filter(x=>x.date);
@@ -6201,27 +6221,22 @@ function renderPhaseProgressSummary(active){
   const summary=document.getElementById('phaseProgressSummary');
   if(!summary) return;
   if(!active){
-    summary.innerHTML='<div class="phase-progress-error" role="alert">تعذر استخراج مهام المرحلة الحالية من بيانات WBS. يرجى تحديث البيانات والمحاولة مجددًا.</div>';
+    summary.innerHTML='<div class="phase-progress-error" role="status">لا توجد إحصاءات متاحة للمرحلة الحالية.</div>';
     return;
   }
-  const phaseTasks=active.tasks;
-  const starts=phaseTasks.map(getTaskPlannedStartDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>a-b);
-  const ends=phaseTasks.map(getTaskPlannedEndDate).filter(Boolean).map(d).filter(Boolean).sort((a,b)=>b-a);
-  const start=starts[0]?fmt(dateToKey_(starts[0])):'غير متوفر';
-  const end=ends[0]?fmt(dateToKey_(ends[0])):'غير متوفر';
-  const pct=Math.max(0,Math.min(100,active.pct));
+  const pct=Math.max(0,Math.min(100,active.progress));
   summary.innerHTML=`
     <div class="phase-progress-summary-main">
       <div><b class="phase-progress-summary-pct">${pct}%</b><span class="phase-progress-summary-label">إنجاز مرحلة ${escapeHtml(active.phase)}</span></div>
-      <div class="phase-progress-summary-count">${active.done} من ${active.total}<span>مهمة مكتملة</span></div>
+      <div class="phase-progress-summary-count">${active.completed} من ${active.total}<span>مهمة مكتملة</span></div>
     </div>
     <div>
       <div class="phase-progress-summary-track" role="progressbar" aria-label="نسبة إنجاز مرحلة ${escapeHtml(active.phase)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="phase-progress-summary-fill" style="width:${pct}%"></div></div>
       <div class="phase-progress-summary-scale"><span>0%</span><span>100%</span></div>
     </div>
     <div class="phase-progress-summary-dates">
-      <div class="phase-progress-summary-date"><small>تاريخ بداية المرحلة</small><b>${start}</b></div>
-      <div class="phase-progress-summary-date"><small>تاريخ نهاية المرحلة</small><b>${end}</b></div>
+      <div class="phase-progress-summary-date"><small>تاريخ بداية المرحلة</small><b>${active.startDate}</b></div>
+      <div class="phase-progress-summary-date"><small>تاريخ نهاية المرحلة</small><b>${active.endDate}</b></div>
     </div>`;
 }
 function renderLineChart(){
@@ -6233,14 +6248,15 @@ function renderLineChart(){
   if(!ctx.offsetParent && ctx.getBoundingClientRect().width===0) {
     setTimeout(renderLineChart, 150); return;
   }
-  const history=actualPhaseProgressHistory();
+  const activePhaseStat=activePhaseForProgressHistory();
+  const history=actualPhaseProgressHistory(activePhaseStat);
   chartRenderVersion.line=dashboardDataVersion;
   if(lineInst) lineInst.destroy();
   lineInst=null;
   if(!history||!window.Chart){
     ctx.style.display='none';
     if(summary){
-      renderPhaseProgressSummary(activePhaseForProgressHistory());
+      renderPhaseProgressSummary(activePhaseStat);
       summary.hidden=false;
     }
     if(subtitle) subtitle.textContent='ملخص المرحلة الحالي من بيانات WBS';
