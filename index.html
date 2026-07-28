@@ -4991,17 +4991,36 @@ function renderCriticalPath(){
   setTableRows_('criticalPathTable',((criticalPathAnalysis&&criticalPathAnalysis.tasks)||[]).map(r=>`<tr><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.early_start)}</td><td>${escapeHtml(r.early_finish)}</td><td>${escapeHtml(r.late_start)}</td><td>${escapeHtml(r.late_finish)}</td><td>${escapeHtml(r.total_float)}</td><td>${escapeHtml(r.free_float)}</td><td>${r.is_critical?'نعم':'لا'}</td><td>${r.directly_impacts_opening?'نعم':'لا'}</td><td>${escapeHtml(r.dependency_type)}</td><td>${escapeHtml(r.lag)}</td></tr>`).join(''),12);
 }
 let dataQualitySort={field:'first_detected_at',direction:'desc'}, visibleDataQualityIssues=[];
-function dataQualityValue_(value){return value===undefined||value===null||value===''?'لا توجد بيانات كافية':String(value);}
-function dataQualityDate_(value){if(!value)return 'لا توجد بيانات كافية';const d=new Date(value);return isNaN(d.getTime())?String(value):new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short',timeZone:RIYADH_TIME_ZONE}).format(d);}
+function dataQualityValue_(value){return value===undefined||value===null||value===''?'غير مسجل':String(value);}
+function dataQualityDate_(value){if(!value)return 'لم يسجل';const d=new Date(value);return isNaN(d.getTime())?String(value):new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short',timeZone:RIYADH_TIME_ZONE}).format(d);}
+function deriveDataQualityMetrics_(issues){
+  const records=Array.isArray(issues)?issues:[];
+  if(!records.length)return [];
+  const metrics=[{label:'إجمالي مخالفات جودة البيانات',value:records.length,color:'var(--yellow)'}];
+  const hasCompleteSeverity=records.every(r=>r&&String(r.severity||'').trim());
+  if(hasCompleteSeverity){
+    const severityLabels=[['حرج','أخطاء حرجة','var(--red)'],['مرتفع','مرتفعة الخطورة','#ff8c42'],['متوسط','متوسطة الخطورة','var(--yellow)'],['منخفض','منخفضة الخطورة','var(--green)']];
+    severityLabels.forEach(([key,label,color])=>metrics.push({label,value:records.filter(r=>String(r.severity).trim()===key).length,color}));
+  }
+  const hasCompleteStatus=records.every(r=>r&&String(r.status||'').trim());
+  if(hasCompleteStatus){
+    const statusColors={'تم الحل':'var(--green)','قيد المعالجة':'var(--cyan)','مفتوحة':'var(--red)'};
+    [...new Set(records.map(r=>String(r.status).trim()))].sort((a,b)=>a.localeCompare(b,'ar')).forEach(status=>metrics.push({label:status,value:records.filter(r=>String(r.status).trim()===status).length,color:statusColors[status]||'var(--brand2)'}));
+  }
+  const scans=records.map(r=>r.last_seen_at||r.detected_at||r.first_detected_at).filter(Boolean).map(value=>({value,time:new Date(value).getTime()})).filter(item=>!isNaN(item.time));
+  if(scans.length)metrics.push({label:'آخر فحص للبيانات',value:scans.reduce((latest,item)=>item.time>latest.time?item:latest).value,color:'var(--cyan)',isDate:true});
+  return metrics;
+}
 function fillDataQualityFilter_(id,values,label){const el=document.getElementById(id);if(!el)return;const selected=el.value;el.innerHTML=`<option value="">${label}</option>`+[...new Set(values.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'ar')).map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');el.value=selected;}
 function renderDataQualityCenter(){
-  const issues=Array.isArray(dataQualityCenter&&dataQualityCenter.issues)?dataQualityCenter.issues:[], summary=(dataQualityCenter&&dataQualityCenter.summary)||{};
+  // البطاقات والجدول يستهلكان مرجع السجل نفسه؛ لا تُقرأ summary أو أي أرقام احتياطية هنا.
+  const issues=Array.isArray(dataQualityCenter&&dataQualityCenter.issues)?dataQualityCenter.issues:[];
   fillDataQualityFilter_('dqTypeFilter',issues.map(r=>r.issue_type),'كل أنواع المخالفات');
   fillDataQualityFilter_('dqSeverityFilter',issues.map(r=>r.severity),'كل مستويات الخطورة');
   fillDataQualityFilter_('dqStatusFilter',issues.map(r=>r.status),'كل الحالات');
   fillDataQualityFilter_('dqSourceFilter',issues.map(r=>r.sheet_name||r.data_source),'كل مصادر البيانات');
-  const metric=(label,value,color)=>`<div class="kpi-card"><div class="kpi-value" style="color:${color}">${escapeHtml(dataQualityValue_(value))}</div><div class="kpi-label">${label}</div></div>`;
-  const kpis=document.getElementById('dqKpis');if(kpis)kpis.innerHTML=metric('إجمالي مخالفات جودة البيانات',summary.issue_count,'var(--yellow)')+metric('أخطاء حرجة',summary.critical_count,'var(--red)')+metric('تحذيرات',summary.warning_count,'var(--yellow)')+metric('سجلات تم التحقق منها',summary.checked_record_count,'var(--green)')+metric('آخر فحص للبيانات',summary.last_scan_at?dataQualityDate_(summary.last_scan_at):null,'var(--cyan)');
+  const metric=({label,value,color,isDate})=>`<div class="kpi-card"><div class="kpi-value" style="color:${color}">${escapeHtml(isDate?dataQualityDate_(value):value)}</div><div class="kpi-label">${escapeHtml(label)}</div></div>`;
+  const kpis=document.getElementById('dqKpis');if(kpis)kpis.innerHTML=deriveDataQualityMetrics_(issues).map(metric).join('');
   const search=(document.getElementById('dqSearch')?.value||'').trim().toLowerCase(), type=document.getElementById('dqTypeFilter')?.value||'', severity=document.getElementById('dqSeverityFilter')?.value||'', status=document.getElementById('dqStatusFilter')?.value||'', source=document.getElementById('dqSourceFilter')?.value||'', date=document.getElementById('dqDateFilter')?.value||'';
   visibleDataQualityIssues=issues.filter(r=>(!type||r.issue_type===type)&&(!severity||r.severity===severity)&&(!status||r.status===status)&&(!source||(r.sheet_name||r.data_source)===source)&&(!date||String(r.first_detected_at||r.detected_at||'').slice(0,10)===date)&&(!search||[r.issue_type,r.sheet_name,r.data_source,r.field_name,r.record_reference,r.description,r.status].some(v=>String(v||'').toLowerCase().includes(search))));
   const severityOrder={'حرج':4,'مرتفع':3,'متوسط':2,'منخفض':1};visibleDataQualityIssues.sort((a,b)=>{let av=a[dataQualitySort.field]||'',bv=b[dataQualitySort.field]||'';if(dataQualitySort.field==='severity'){av=severityOrder[av]||0;bv=severityOrder[bv]||0;}const result=typeof av==='number'?av-bv:String(av).localeCompare(String(bv),'ar');return dataQualitySort.direction==='asc'?result:-result;});
