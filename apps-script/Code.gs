@@ -192,6 +192,12 @@ function doPost(e) {
 
     const session = requireSession_(payload);
 
+    // Lightweight authoritative bootstrap: refreshes user roles from the access
+    // matrix without loading dashboard data or exposing it before auth resolves.
+    if (payload.action === 'auth_session') {
+      return json_({ ok: true, api_version: '2026-07-auth-session-v1', user: safeUser_(session) });
+    }
+
     if (payload.action === 'data_sync') {
       requireExecutiveBoardRequestAccess_(session, payload);
       return json_(buildDashboardData_(session));
