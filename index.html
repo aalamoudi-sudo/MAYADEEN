@@ -2,6 +2,7 @@
 <title>Mayadeen Project Command Center</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+<script src="auth-state.js"></script>
 <script>
 // Inline chart تعويض عرضي — runs if CDN fails
 (function(){
@@ -3167,6 +3168,13 @@ const EXECUTIVE_BOARD_ALLOWED_USERNAMES=['atheer','ahmad.amoudi','abdulaziz.obai
 const OVERDUE_TASK_ESCALATION_ALLOWED_USERNAMES=['ahmad.amoudi','atheer'];
 const OVERDUE_TASK_ESCALATION_TARGET={username:'abdulaziz.obaid',displayName:'عبدالعزيز العبيد'};
 let sessionToken='';
+let authState=MayadeenAuth.initialState();
+function dispatchAuth(event){
+  const previous=authState.phase;
+  authState=MayadeenAuth.transition(authState,event);
+  if(previous!==authState.phase) console.info(`[Auth] ${previous} -> ${authState.phase}`);
+  return authState;
+}
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
 let syncRequestSequence=0;
@@ -3357,9 +3365,12 @@ function renderOverview(){
 function renderCurrentPage(force=false){renderPageIfNeeded(getActivePageId(),force);}
 function isSessionExpiredError(e){return /Session expired|Unauthorized/i.test(String((e&&e.message)||e||''));}
 function returnToLoginForExpiredSession(){
+  MayadeenAuth.clear(sessionStorage);
+  dispatchAuth({type:'LOGOUT',error:'انتهت الجلسة. سجّل الدخول مرة أخرى.'});
   sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const appDiv=document.getElementById('app'); if(appDiv){appDiv.classList.remove('visible');appDiv.style.cssText='display:none!important';}
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
+  setLoginVisualState('idle'); updateLoginButtonState(false);
   showLoginError('انتهت الجلسة. سجّل الدخول مرة أخرى.');
 }
 function setSyncLoadingState(){
@@ -3507,9 +3518,11 @@ async function login(){
     const res=await withTimeout(fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_login',username,password})}),15000,'auth_login timeout');
     const data=await res.json();
     if(!res.ok||!data.ok) throw new Error(data.error||'login failed');
-    currentUser=data.user||{};
-    sessionToken=data.session_token||'';
-    if(!sessionToken) throw new Error('missing session token');
+    dispatchAuth({type:'CHECK'});
+    dispatchAuth({type:'AUTHENTICATED',user:data.user,token:data.session_token,expiresAt:data.expires_at});
+    if(authState.phase!==MayadeenAuth.phases.AUTHENTICATED) throw new Error(authState.error||'missing session token');
+    currentUser=authState.user; sessionToken=authState.token;
+    MayadeenAuth.write(sessionStorage,authState);
     markPerf('auth_request_end');
     measurePerf('auth_request_duration','auth_request_start','auth_request_end');
     markPerf('session_ready');
@@ -3517,6 +3530,9 @@ async function login(){
     setLoginTransitionStatus('تم التحقق من الهوية.',58);
   }catch(e){
     console.warn('Login failed',e);
+    MayadeenAuth.clear(sessionStorage);
+    dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر تسجيل الدخول.')});
+    sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
     setLoginVisualState('idle');
     showLoginError(sanitizeUserError(e,'تعذر تسجيل الدخول. تحقق من المستخدم أو كلمة المرور أو رابط Apps Script.'));
     return false;
@@ -3524,11 +3540,7 @@ async function login(){
   markPerf('transition_screen_shown');
   setLoginTransitionStatus('جارٍ تجهيز لوحة القيادة.',72);
   startClock();
-  const appDiv=document.getElementById('app');
-  appDiv.style.cssText='display:flex!important;min-height:100vh';
-  appDiv.classList.add('visible');
-  const preferredPage=safeLocalGet('mayadeen.lastPage')||'overview';
-  showPage(canAccessPage(preferredPage)?preferredPage:'overview');
+  revealAuthenticatedApp();
   markPerf('dashboard_shell_ready');
   measurePerf('dashboard_shell_duration','session_ready','dashboard_shell_ready');
   setLoginVisualState('idle');
@@ -3595,7 +3607,52 @@ document.addEventListener('DOMContentLoaded',function(){
   document.body.classList.remove('theme-light','war-display');
   try{localStorage.removeItem('mayadeen.themeMode');}catch(e){}
   bindPerformanceGuards();
+  bootstrapSession();
 });
+
+function revealAuthenticatedApp(){
+  if(authState.phase!==MayadeenAuth.phases.AUTHENTICATED) throw new Error('رفض عرض اللوحة قبل اكتمال التوثيق والصلاحيات.');
+  applyPermissions(); startClock();
+  const app=document.getElementById('app'); app.style.cssText='display:flex!important;min-height:100vh'; app.classList.add('visible');
+  document.getElementById('login').style.cssText='display:none!important'; setLoginVisualState('idle');
+  const preferred=safeLocalGet('mayadeen.lastPage')||'overview'; showPage(canAccessPage(preferred)?preferred:'overview');
+}
+async function bootstrapSession(){
+  const saved=MayadeenAuth.read(sessionStorage);
+  if(!saved){dispatchAuth({type:'NO_SESSION'});returnToAnonymousLogin('');return;}
+  authState=Object.assign(MayadeenAuth.initialState(),saved); dispatchAuth({type:'CHECK'});
+  sessionToken=saved.token; setLoginVisualState('loading'); setLoginTransitionStatus('جاري التحقق من الصلاحيات',35);
+  try{
+    const user=await validatePersistedSession();
+    dispatchAuth({type:'AUTHENTICATED',token:saved.token,user,expiresAt:saved.expiresAt});
+    currentUser=authState.user; MayadeenAuth.write(sessionStorage,authState); revealAuthenticatedApp(); setSyncLoadingState(); loadExternal(true).catch(e=>console.warn('Refresh data sync failed',e));
+  }catch(e){
+    console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage);
+    dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
+    returnToAnonymousLogin(authState.error);
+  }
+}
+async function validatePersistedSession(){
+  const baseUrl=getConfiguredApiUrl();
+  const response=await withTimeout(postApi(baseUrl,{action:'auth_session'}),12000,'session bootstrap timeout');
+  const data=await response.json();
+  if(response.ok&&data.ok&&data.user) return data.user;
+  const message=String(data.error||data.message||'');
+  if(!/Unsupported action/i.test(message)) throw new Error(message||`HTTP ${response.status}`);
+  // Rolling-deploy compatibility: an older Apps Script deployment does not yet
+  // know auth_session. data_sync already validates the token and returns safeUser.
+  console.info('[Auth] auth_session is not deployed yet; validating with data_sync compatibility path.');
+  const fallbackResponse=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'session compatibility timeout');
+  const fallback=await fallbackResponse.json();
+  if(!fallbackResponse.ok||!fallback.ok||!fallback.user) throw new Error(fallback.error||fallback.message||'تعذر التحقق من صلاحيات الجلسة.');
+  return fallback.user;
+}
+function returnToAnonymousLogin(error){
+  sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
+  const app=document.getElementById('app'); app?.classList.remove('visible'); if(app) app.style.cssText='display:none!important';
+  const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
+  setLoginVisualState('idle'); updateLoginButtonState(false); if(error) showLoginError(error);
+}
 function showPage(id){
   if(!document.getElementById(id)) id='overview';
   if(!canAccessPage(id)){alert(id==='executiveBoard'?EXECUTIVE_BOARD_ACCESS_DENIED:'ليست لديك صلاحية فتح هذه الصفحة.');return;}
