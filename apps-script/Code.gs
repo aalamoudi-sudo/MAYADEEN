@@ -767,7 +767,7 @@ function getBaselineHeaders_() { return ['task_code','task_name','original_basel
 function getRaciHeaders_() { return ['task_code','task_name','responsible','accountable','consulted','informed','source','data_status']; }
 function getWorkloadHeaders_() { return ['employee','email','task_count','overdue_task_count','critical_task_count','total_duration_days','workload_limit_days','alert','source']; }
 function getCriticalPathHeaders_() { return ['task_code','task_name','early_start','early_finish','late_start','late_finish','total_float','free_float','is_critical','directly_impacts_opening','dependency_type','lag','data_status']; }
-function getDataQualityHeaders_() { return ['issue_type','task_code','task_name','details','severity','excluded_from_kpi','detected_at']; }
+function getDataQualityHeaders_() { return ['issue_key','issue_type','data_source','sheet_name','field_name','record_reference','row_number','description','severity','status','current_value','expected_rule','suggested_resolution','first_detected_at','last_seen_at','last_updated_at','occurrence_count','original_record_url']; }
 
 function getEmployeeMasterRows_(ss) { return getExistingRegisterRows_(ss || SpreadsheetApp.openById(SPREADSHEET_ID), KAG_CONFIG.employeeMasterSheetName); }
 function normKey_(value) { return String(value || '').trim().toLowerCase(); }
@@ -805,11 +805,41 @@ function buildCriticalPathAnalysis_(ss, rows) {
 }
 
 function buildDataQualityCenter_(ss, rows, employees, criticalPath) {
-  const issues=[], codes={}, names={}, taskCodes={}; rows.forEach(function(r){ const c=taskCode_(r), n=taskName_(r); if(c){ (codes[c]=codes[c]||[]).push(r); taskCodes[c]=true; } if(n) (names[n]=names[n]||[]).push(r); }); const idx=employeeByNameOrEmail_(employees), now=new Date().toISOString(); function add(type,r,details,severity){ issues.push({issue_type:type,task_code:r?taskCode_(r):'',task_name:r?taskName_(r):'',details:details,severity:severity||'high',excluded_from_kpi:'TRUE',detected_at:now}); }
-  Object.keys(codes).forEach(function(k){ if(codes[k].length>1) codes[k].forEach(function(r){add('الأكواد المكررة',r,k,'critical');}); }); Object.keys(names).forEach(function(k){ if(names[k].length>1) names[k].forEach(function(r){add('أسماء المهام المكررة',r,k,'medium');}); });
-  rows.forEach(function(r){ if(!taskOwner_(r)) add('المهام بدون مسؤول',r,'owner missing'); if(!taskField_(r,'mainPath')) add('المهام بدون مسار',r,'path missing'); if(!taskField_(r,'approvalEntity')) add('المهام بدون معتمد',r,'approver missing'); if(!taskField_(r,'operationalDeliverable')) add('المهام بدون مخرج',r,'deliverable missing'); String(taskField_(r,'predecessor')||'').split(/[,;،]/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(p){ if(!taskCodes[p]) add('الاعتماديات المفقودة',r,p,'critical'); }); if(taskStart_(r)&&taskEnd_(r)&&dayNumber_(taskStart_(r))>dayNumber_(taskEnd_(r))) add('البداية بعد النهاية',r,'start > end','critical'); if(/1900|1970|2099|placeholder|tbd|لاحق/i.test(String(taskField_(r,'plannedStart'))+String(taskField_(r,'plannedEnd')))) add('Placeholder Dates',r,'placeholder date'); if(isCompleteTask_(r)&&!taskField_(r,'evidence')) add('المهام المكتملة بدون دليل',r,'evidence missing'); if(taskProgress_(r)>=100&&!taskField_(r,'actualEnd')) add('المهام 100% بدون تاريخ نهاية فعلي',r,'actual end missing'); if(/قيد التنفيذ|in progress/i.test(String(taskField_(r,'status')))&&taskStart_(r)&&dayNumber_(taskStart_(r))>dayNumber_(Utilities.formatDate(new Date(),KAG_CONFIG.timezone,'yyyy-MM-dd'))) add('المهام قيد التنفيذ قبل تاريخ البداية',r,'status before start'); const email=taskField_(r,'ownerEmail'); if(email && !findEmployee_(idx, taskOwner_(r), email)) add('البريد غير المطابق لـ Employee Master',r,email); });
-  if(criticalPath && criticalPath.circular_dependencies) add('الاعتماديات الدائرية',null,'cycle detected','critical');
-  return { issues:issues, excluded_task_codes:[], summary:{issue_count:issues.length, excluded_from_kpi_count:0} };
+  const detectedAt=new Date().toISOString(), sourceSheet=KAG_CONFIG.taskSheetName;
+  const candidates=[], codes={}, names={}, taskCodes={}, employeeIndex=employeeByNameOrEmail_(employees);
+  const severityLabels={critical:'حرج',high:'مرتفع',medium:'متوسط',low:'منخفض'};
+  function add(type,row,field,description,severity,currentValue,rule,suggestion){
+    const reference=row?(taskCode_(row)||('صف '+String(row.row_number||''))):'المصدر';
+    candidates.push({issue_type:type,data_source:'Google Sheets',sheet_name:row&&row._sheet_name||sourceSheet,field_name:field||'',record_reference:reference,row_number:row&&row.row_number||'',description:description,severity:severityLabels[severity]||severityLabels.medium,status:'مفتوحة',current_value:String(currentValue===undefined?'':currentValue),expected_rule:rule||'',suggested_resolution:suggestion||'',first_detected_at:detectedAt,last_seen_at:detectedAt,detected_at:detectedAt,last_updated_at:detectedAt,occurrence_count:1,original_record_url:row&&row.row_number?'https://docs.google.com/spreadsheets/d/'+KAG_CONFIG.sheetId+'/edit#range=A'+row.row_number:''});
+  }
+  rows.forEach(function(r){ const code=taskCode_(r), name=taskName_(r); if(code){(codes[normKey_(code)]=codes[normKey_(code)]||[]).push(r);taskCodes[normKey_(code)]=true;} if(name)(names[normKey_(name)]=names[normKey_(name)]||[]).push(r); });
+  Object.keys(codes).forEach(function(key){const group=codes[key];if(group.length>1)add('كود مكرر',group[0],'كود المهمة','الكود مستخدم في '+group.length+' صفوف.','critical',taskCode_(group[0]),'يجب أن يكون الكود فريدًا داخل الشيت.','مراجعة الصفوف المتكررة والإبقاء على مرجع واحد صحيح.');});
+  Object.keys(names).forEach(function(key){const group=names[key];if(group.length>1)add('اسم مهمة مكرر',group[0],'اسم المهمة','الاسم مستخدم في '+group.length+' صفوف.','medium',taskName_(group[0]),'يجب ألا يتكرر اسم المهمة للسجل نفسه دون تمييز.','مراجعة الأسماء المتطابقة وتأكيد ما إذا كانت سجلات مستقلة.');});
+  rows.forEach(function(r){
+    const rawStart=taskField_(r,'plannedStart'), rawEnd=taskField_(r,'plannedEnd'), progressRaw=taskField_(r,'progress'), progress=Number(String(progressRaw).replace('%',''));
+    if(!taskCode_(r)) add('حقل إلزامي مفقود',r,'كود المهمة','لا يوجد كود مرجعي للسجل.','critical','', 'كود المهمة حقل إلزامي وفريد.','إضافة كود رسمي فريد.');
+    if(!taskName_(r)) add('حقل إلزامي مفقود',r,'اسم المهمة','اسم السجل مفقود.','high','', 'اسم المهمة حقل إلزامي.','إضافة الاسم من المصدر الرسمي.');
+    if(!taskOwner_(r)) add('مسؤول غير محدد',r,'المسؤول','لم يُحدد مسؤول للسجل.','high','', 'كل سجل تشغيلي يجب أن يرتبط بمسؤول.','تحديد المسؤول المعتمد في WBS.');
+    if(rawStart&&!parseDateKey_(rawStart)) add('تاريخ بداية غير صالح',r,'تاريخ البداية المخطط','تعذر تفسير تاريخ البداية.','high',rawStart,'تاريخ صالح وفق تنسيق الشيت.','تصحيح قيمة التاريخ في المصدر.');
+    if(rawEnd&&!parseDateKey_(rawEnd)) add('تاريخ نهاية غير صالح',r,'تاريخ النهاية المخطط','تعذر تفسير تاريخ النهاية.','high',rawEnd,'تاريخ صالح وفق تنسيق الشيت.','تصحيح قيمة التاريخ في المصدر.');
+    if(taskStart_(r)&&taskEnd_(r)&&dayNumber_(taskStart_(r))>dayNumber_(taskEnd_(r))) add('تاريخ نهاية أقدم من تاريخ البداية',r,'تاريخ النهاية المخطط','النهاية تسبق البداية.','critical',taskEnd_(r),'تاريخ النهاية يساوي أو يلي تاريخ البداية.','مراجعة تاريخي البداية والنهاية.');
+    if(progressRaw!==''&&progressRaw!==null&&progressRaw!==undefined&&(isNaN(progress)||progress<0||progress>100)) add('نسبة إنجاز خارج النطاق',r,'نسبة الإنجاز','النسبة ليست بين 0 و100.','high',progressRaw,'نسبة الإنجاز رقم من 0 إلى 100.','تصحيح النسبة في المصدر.');
+    if(isCompleteTask_(r)&&!taskField_(r,'actualEnd')) add('مهمة مكتملة دون تاريخ إغلاق',r,'تاريخ النهاية الفعلي','السجل مكتمل دون تاريخ نهاية فعلي.','high','', 'السجل المكتمل يتطلب تاريخ إغلاق فعلي.','إضافة تاريخ الإغلاق المعتمد.');
+    String(taskField_(r,'predecessor')||'').split(/[,;،]/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(p){if(!taskCodes[normKey_(p)])add('مرجع مفقود أو علاقة غير صالحة',r,'المهمة السابقة','المرجع '+p+' غير موجود.','critical',p,'كل اعتماد يجب أن يشير إلى كود موجود.','تصحيح المرجع أو إضافة السجل المرجعي.');});
+    const email=taskField_(r,'ownerEmail'); if(email&&!findEmployee_(employeeIndex,taskOwner_(r),email)) add('مرجع مسؤول غير صالح',r,'البريد الإلكتروني للمسؤول','المسؤول غير مطابق لـ Employee Master.','medium',email,'المسؤول يجب أن يطابق سجل الموظفين الرسمي.','مراجعة البريد أو سجل الموظف.');
+  });
+  if(criticalPath&&criticalPath.circular_dependencies)add('مرجع مفقود أو علاقة غير صالحة',null,'المهمة السابقة','توجد حلقة دائرية في الاعتماديات.','critical','اعتمادية دائرية','شبكة الاعتماديات يجب أن تكون بلا حلقات.','تصحيح تسلسل الاعتماديات.');
+  const issues=deduplicateDataQualityIssues_(candidates,getExistingRegisterRows_(ss,KAG_CONFIG.dataQualitySheetName));
+  const openIssues=issues.filter(function(i){return i.status!=='تم الحل'&&i.status!=='مستبعدة بعد المراجعة';});
+  return {issues:issues,summary:{issue_count:openIssues.length,critical_count:openIssues.filter(function(i){return i.severity==='حرج';}).length,warning_count:openIssues.filter(function(i){return i.severity!=='حرج';}).length,checked_record_count:rows.length,last_scan_at:detectedAt}};
+}
+
+function dataQualityIssueKey_(issue){return [issue.issue_type,issue.sheet_name||issue.data_source,issue.field_name,issue.record_reference].map(normKey_).join('|');}
+function deduplicateDataQualityIssues_(candidates,stored){
+  const existing={}; (stored||[]).forEach(function(r){const key=String(r.issue_key||dataQualityIssueKey_(r));if(key)existing[key]=r;});
+  const unique={}; (candidates||[]).forEach(function(issue){const key=dataQualityIssueKey_(issue),prev=unique[key],history=existing[key]||{};if(prev){prev.occurrence_count++;prev.last_seen_at=issue.last_seen_at;return;} issue.issue_key=key;issue.first_detected_at=history.first_detected_at||history.detected_at||issue.first_detected_at;issue.status=history.status||issue.status;issue.last_updated_at=history.last_updated_at||history.updated_at||issue.last_updated_at;issue.occurrence_count=Number(history.occurrence_count||0)+1;unique[key]=issue;});
+  Object.keys(existing).forEach(function(key){const old=existing[key];if(!unique[key]&&old.status&&old.status!=='تم الحل'&&old.status!=='مستبعدة بعد المراجعة')unique[key]=Object.assign({},old,{issue_key:key,occurrence_count:Number(old.occurrence_count||1)});});
+  return Object.keys(unique).map(function(key){return unique[key];});
 }
 
 function getMeetingHeaders_() {
