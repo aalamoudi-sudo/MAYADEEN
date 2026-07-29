@@ -11,6 +11,16 @@ test('dashboard is hidden by default and only the authenticated reveal path can 
   assert.match(html,/if\(authState\.phase!==MayadeenAuth\.phases\.AUTHENTICATED\) throw new Error/);
 });
 
+test('login and permission-checking states stay centered in the full viewport',()=>{
+  assert.match(html,/\.login\{\s*position:fixed;inset:0;z-index:100;\s*display:flex;align-items:center;justify-content:center;/);
+  assert.match(html,/\.login-transition\{position:fixed;inset:0;z-index:130;display:grid;place-items:center;/);
+});
+
+test('authenticated reveal removes the full-screen login container',()=>{
+  const reveal=html.slice(html.indexOf('function revealAuthenticatedApp()'),html.indexOf('async function bootstrapSession()'));
+  assert.match(reveal,/document\.getElementById\('login'\)\.style\.cssText='display:none!important'/);
+});
+
 test('refresh validates the persisted session before revealing dashboard',()=>{
   const bootstrap=html.indexOf('async function bootstrapSession()');
   const validate=html.indexOf('await validatePersistedSession()',bootstrap);
