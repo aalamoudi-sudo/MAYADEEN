@@ -28,6 +28,13 @@ const plannedProgressBody = bodyOf('plannedProgressPct');
 assert.doesNotMatch(progressBody, /\.filter\s*\(|normalizeProjectPhase|project_phase|selectedPhase|currentPhase/,
   'Progress card must not filter or normalize WBS rows');
 assert.match(progressBody, /getScheduleProgressMetrics\(\)/);
+assert.doesNotMatch(source, /phaseTimelineDiagnostics|getProductionTimelineDiagnosticsHtml|temporary-production-timeline-debug/,
+  'Temporary production diagnostics must not remain in the rendered pages');
+const lineRenderBody = bodyOf('renderLineChart');
+assert.match(lineRenderBody, /renderPhaseProgressSummary\(activePhaseForProgressHistory\(\)\)/,
+  'The overview progress component must be populated through its DOM renderer');
+assert.doesNotMatch(lineRenderBody, /offsetParent|getBoundingClientRect|setTimeout/,
+  'Rendering must not be skipped merely because the overview is hidden during the shared render pass');
 assert.match(progressBody, /if\(!schedule\)/,
   'Project progress must render when schedule fields exist even if the source has no phase column');
 assert.doesNotMatch(progressBody, /if\(!active\|\|!schedule\)/,
