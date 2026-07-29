@@ -1434,20 +1434,17 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 @media(max-width:700px){#tasks .task-table-card{max-height:66vh;padding:8px;margin-inline:-2px}#tasks .task-table th,#tasks .task-table td{font-size:12.5px;padding:9px 8px}#tasks .task-table .escalate-btn{width:80px;height:32px}}
 
 
-/* المكوّن الثابت لمسار مراحل المشروع — HTML/CSS فقط */
-.phase-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:20px}
-.phase-overview-item{padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,rgba(22,27,52,.96),rgba(11,15,30,.98))}
-.phase-overview-item small{display:block;color:var(--muted);font-size:11px;margin-bottom:7px}.phase-overview-item b{font-size:22px;color:#eef1ff}
-.phase-stage-track{display:grid;grid-template-columns:repeat(5,minmax(190px,1fr));direction:rtl;overflow-x:auto;padding:10px 6px 20px;gap:0}
-.phase-stage{position:relative;min-width:190px;padding-top:45px}.phase-stage::before{content:"";position:absolute;top:25px;right:0;left:0;height:3px;background:rgba(148,163,184,.2)}
-.phase-stage:first-child::before{right:50%}.phase-stage:last-child::before{left:50%}.phase-stage-node{position:absolute;z-index:2;top:9px;right:50%;transform:translateX(50%);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#151a30;border:2px solid #52607c;color:#aab5cf;font-weight:900}
-.phase-stage-card{height:calc(100% - 12px);margin:12px 6px 0;padding:16px 14px;border:1px solid var(--line);border-radius:15px;background:linear-gradient(155deg,rgba(19,24,47,.98),rgba(10,14,28,.98))}.phase-stage-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.phase-stage-heading h2{font-size:14px;color:#eef1ff}.phase-stage-status{font-size:10px;font-weight:800;padding:3px 7px;border-radius:99px;background:rgba(148,163,184,.12);color:#aab5cf;white-space:nowrap}
-.phase-stage-progress-label{display:flex;justify-content:space-between;margin:18px 0 7px;font-size:10px;color:var(--muted)}.phase-stage-progress-label b{font-size:17px;color:#d9e0f5}.phase-stage-progress{height:7px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}.phase-stage-progress i{display:block;height:100%;background:#64748b;border-radius:inherit}
-.phase-stage-metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px}.phase-stage-metrics div{padding:8px;border:1px solid rgba(255,255,255,.06);border-radius:9px;background:rgba(255,255,255,.025)}.phase-stage-metrics dt{font-size:9px;color:var(--muted)}.phase-stage-metrics dd{margin:3px 0 0;font-size:16px;font-weight:900;color:#e5eafe}
-.phase-stage.is-complete .phase-stage-node,.phase-stage.is-complete .phase-stage-progress i{background:#10e87a;color:#07140d;border-color:#10e87a}.phase-stage.is-active .phase-stage-node,.phase-stage.is-active .phase-stage-progress i{background:#7c5cff;border-color:#a78bfa;color:white}.phase-stage.is-late .phase-stage-node,.phase-stage.is-late .phase-stage-progress i{background:#ff4d6a;border-color:#ff8fa0;color:white}.phase-stage.is-current .phase-stage-card{border-color:#8b72ff;box-shadow:0 0 0 1px rgba(124,92,255,.45),0 14px 36px rgba(124,92,255,.2)}.phase-stage.is-current .phase-stage-node{box-shadow:0 0 0 6px rgba(124,92,255,.18),0 0 24px rgba(124,92,255,.55)}
-.phase-unclassified[hidden]{display:none}.phase-unclassified{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;margin-top:5px;border:1px dashed rgba(245,184,0,.35);border-radius:13px;background:rgba(245,184,0,.05)}.phase-unclassified b,.phase-unclassified span{display:block}.phase-unclassified b{color:#f5b800}.phase-unclassified span{margin-top:3px;color:var(--muted);font-size:11px}.phase-unclassified strong{color:#f5b800;white-space:nowrap}
+/* واجهة التحليل التفصيلي لصفحة مراحل المشروع فقط */
+.phase-stage-track{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));direction:rtl;padding:14px 12px 10px;margin-bottom:14px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(155deg,rgba(19,24,47,.96),rgba(10,14,28,.98))}
+.phase-stage{position:relative;border:0;background:none;color:inherit;padding:42px 8px 10px;cursor:pointer;text-align:center;font:inherit}.phase-stage::before{content:"";position:absolute;top:25px;right:0;left:0;height:3px;background:rgba(148,163,184,.18)}.phase-stage:first-child::before{right:50%}.phase-stage:last-child::before{left:50%}
+.phase-stage-node{position:absolute;z-index:2;top:14px;right:50%;transform:translateX(50%);width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:#151a30;border:2px solid #52607c;color:#aab5cf;font-size:11px;font-weight:900;transition:var(--tr)}
+.phase-stage-name{display:block;color:#aab5cf;font-size:12px;font-weight:800}.phase-stage-status{display:block;margin-top:4px;color:var(--muted);font-size:9.5px;font-weight:700}.phase-stage.is-complete::before{background:rgba(16,232,122,.45)}.phase-stage.is-complete .phase-stage-node{background:#10e87a;color:#07140d;border-color:#10e87a}.phase-stage.is-selected{border-radius:12px;background:rgba(124,92,255,.1)}.phase-stage.is-selected .phase-stage-node,.phase-stage.is-current .phase-stage-node{border-color:#a78bfa;background:#7c5cff;color:white;box-shadow:0 0 0 5px rgba(124,92,255,.15)}.phase-stage.is-selected .phase-stage-name,.phase-stage.is-current .phase-stage-name{color:#e8e3ff}.phase-stage:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+.phase-detail{padding:20px;margin-bottom:14px}.phase-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}.phase-detail-title{display:flex;align-items:center;gap:10px}.phase-detail-title h2{font-size:20px;color:#eef1ff}.phase-detail-status{padding:4px 9px;border-radius:99px;background:rgba(124,92,255,.14);color:#c4b5fd;font-size:10px;font-weight:900}.phase-detail-progress{text-align:left}.phase-detail-progress b{display:block;color:#eef1ff;font-size:28px;line-height:1}.phase-detail-progress small{color:var(--muted);font-size:10px}.phase-detail-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.phase-detail-metric{padding:10px 12px;border:1px solid rgba(255,255,255,.06);border-radius:10px;background:rgba(255,255,255,.025)}.phase-detail-metric small{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}.phase-detail-metric b{color:#dfe6fa;font-size:15px}.phase-status-distribution{margin-top:16px}.phase-distribution-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:7px;color:var(--muted);font-size:10px}.phase-distribution-track{display:flex;height:10px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.06)}.phase-distribution-track i{display:block;height:100%;min-width:0}.phase-seg-done{background:#10b981}.phase-seg-progress{background:#7c5cff}.phase-seg-late{background:#ef5b70}.phase-seg-pending{background:#52607c}
+.phase-tasks-card{padding:18px 20px}.phase-tasks-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}.phase-tasks-head h2{font-size:15px;color:#e7ecfb}.phase-tasks-card .data-table{min-width:700px}.phase-view-all{border:1px solid rgba(124,92,255,.35);border-radius:9px;background:rgba(124,92,255,.12);color:#c4b5fd;padding:8px 12px;font-weight:800;cursor:pointer}.phase-empty{text-align:center;padding:24px!important;color:var(--muted)}
+.phase-unclassified[hidden]{display:none}.phase-unclassified{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;margin-bottom:14px;border:1px solid rgba(245,184,0,.22);border-radius:11px;background:rgba(245,184,0,.045);font-size:11px}.phase-unclassified span{color:#d9bf72}.phase-unclassified button{border:0;background:none;color:#f5c84c;font-weight:800;cursor:pointer}.phase-unclassified strong{margin-inline:4px}
 .phase-home-dots{display:flex;justify-content:space-between;gap:5px}.phase-home-dots span{flex:1;text-align:center;color:var(--muted);font-size:8px}.phase-home-dots i{display:block;width:9px;height:9px;margin:0 auto 5px;border-radius:50%;background:#64748b}.phase-home-dots .is-complete i{background:#10e87a}.phase-home-dots .is-active i{background:#7c5cff}.phase-home-dots .is-late i{background:#ff4d6a}.phase-home-dots .is-current i{box-shadow:0 0 0 4px rgba(124,92,255,.2)}
-@media(max-width:800px){.phase-overview{grid-template-columns:1fr 1fr}.phase-stage-track{grid-template-columns:repeat(5,210px)}}
+@media(max-width:900px){.phase-detail-grid{grid-template-columns:repeat(3,1fr)}.phase-stage-track{overflow-x:auto;grid-template-columns:repeat(5,150px)}}
+@media(max-width:600px){.phase-stage-track{grid-template-columns:repeat(5,126px);padding-inline:4px}.phase-detail{padding:15px}.phase-detail-head{align-items:center}.phase-detail-title h2{font-size:17px}.phase-detail-grid{grid-template-columns:1fr 1fr}.phase-detail-progress b{font-size:24px}.phase-unclassified{align-items:flex-start;flex-direction:column}}
 </style></head>
 <body>
 
@@ -1809,9 +1806,13 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <!-- PHASES PAGE -->
       <section class="page" id="phases">
         <div class="page-header"><h1>مراحل المشروع</h1><p>وضع كل مرحلة ومدى الجاهزية للانتقال للمرحلة التالية</p></div>
-        <div class="phase-overview" id="phaseStatusBanner" aria-label="ملخص تقدم المشروع"></div>
         <div class="phase-stage-track" id="phaseTimeline" aria-label="المراحل الخمس للمشروع"></div>
         <div class="phase-unclassified" id="phaseUnclassified" hidden></div>
+        <div class="card phase-detail" id="phaseDetail"></div>
+        <div class="card phase-tasks-card">
+          <div class="phase-tasks-head"><h2 id="phaseTasksTitle">مهام المرحلة</h2><button type="button" class="phase-view-all" id="phaseViewAll">عرض جميع مهام المرحلة</button></div>
+          <div style="overflow:auto"><table class="data-table"><thead><tr><th>كود المهمة</th><th>اسم المهمة</th><th>المسؤول</th><th>الحالة</th><th>تاريخ النهاية</th><th>نسبة الإنجاز</th></tr></thead><tbody id="phaseTasksBody"></tbody></table></div>
+        </div>
       </section>
 
       <!-- RISKS PAGE -->
@@ -5577,39 +5578,61 @@ function getProjectPhaseStatus(stat){
   if(stat.inprog>0||stat.done>0) return {label:'جارية',className:'is-active'};
   return {label:'لم تبدأ',className:'is-pending'};
 }
+let selectedProjectPhase='';
+function isPhaseAdmin(){
+  return currentUser?.access_level==='full'||normalizeArabic(currentUser?.role||'').includes('admin')||normalizeArabic(currentUser?.role||'').includes('مدير');
+}
+function openPhaseTasks(phase){
+  showPage('tasks');
+  const phSel=document.getElementById('filterPhase'); if(phSel) phSel.value=phase;
+  const stSel=document.getElementById('filterStatus'); if(stSel) stSel.value='';
+  taskDateFilter='all';
+  applyFilters();
+}
+function selectProjectPhase(phase){
+  if(!PROJECT_PHASE_ORDER.includes(phase)) return;
+  selectedProjectPhase=phase;
+  renderPhases();
+}
 function renderPhases(){
-  const scheduleMetrics=getScheduleProgressMetrics();
   const phaseStats=getSharedProjectPhaseStats();
   const active=getCurrentProjectPhaseStat(phaseStats)||phaseStats[0];
+  const selected=phaseStats.find(stat=>stat.phase===selectedProjectPhase)||active;
+  selectedProjectPhase=selected.phase;
   const unclassified=tasks.filter(task=>normalizeProjectPhase(task)===PROJECT_PHASE_UNSPECIFIED);
-  const banner=document.getElementById('phaseStatusBanner');
-  if(banner) banner.innerHTML=[
-    ['التقدم الفعلي العام',scheduleMetrics?`${scheduleMetrics.actual}%`:'—'],
-    ['التقدم المخطط العام',scheduleMetrics?`${scheduleMetrics.planned}%`:'—'],
-    ['الانحراف',scheduleMetrics?`${scheduleMetrics.diff>0?'+':''}${scheduleMetrics.diff}%`:'—'],
-    ['المرحلة الحالية',active.phase]
-  ].map(([label,value])=>`<div class="phase-overview-item"><small>${label}</small><b>${value}</b></div>`).join('');
-
   const timeline=document.getElementById('phaseTimeline');
   if(timeline) timeline.innerHTML=phaseStats.map((stat,index)=>{
     const status=getProjectPhaseStatus(stat);
     const current=stat.phase===active.phase;
-    return `<article class="phase-stage ${status.className} ${current?'is-current':''}" data-project-phase="${stat.phase}">
-      <div class="phase-stage-node" aria-hidden="true">${stat.done===stat.total&&stat.total?'✓':index+1}</div>
-      <div class="phase-stage-card">
-        <div class="phase-stage-heading"><h2>${stat.phase}</h2><span class="phase-stage-status">${status.label}</span></div>
-        <div class="phase-stage-progress-label"><span>التقدم الفعلي</span><b>${stat.pct}%</b></div>
-        <div class="phase-stage-progress" role="progressbar" aria-label="تقدم مرحلة ${stat.phase}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stat.pct}"><i style="width:${stat.pct}%"></i></div>
-        <dl class="phase-stage-metrics"><div><dt>المهام</dt><dd>${stat.total}</dd></div><div><dt>مكتملة</dt><dd>${stat.done}</dd></div><div><dt>قيد التنفيذ</dt><dd>${stat.inprog}</dd></div><div><dt>متأخرة</dt><dd>${stat.late}</dd></div></dl>
-      </div>
-    </article>`;
+    const selectedClass=stat.phase===selected.phase?'is-selected':'';
+    return `<button type="button" class="phase-stage ${status.className} ${current?'is-current':''} ${selectedClass}" data-project-phase="${stat.phase}" onclick="selectProjectPhase(${JSON.stringify(stat.phase)})" aria-pressed="${stat.phase===selected.phase}">
+      <span class="phase-stage-node" aria-hidden="true">${stat.done===stat.total&&stat.total?'✓':'•'}</span>
+      <span class="phase-stage-name">${escapeHtml(stat.phase)}</span>
+      <span class="phase-stage-status">${current?'المرحلة الحالية':status.label}</span>
+    </button>`;
   }).join('');
 
   const other=document.getElementById('phaseUnclassified');
   if(other){
-    other.hidden=!unclassified.length;
-    other.innerHTML=unclassified.length?`<div><b>غير مصنفة</b><span>مهام لم تتضمن حقلاً مرحلياً أو رمز WBS قابلاً للتصنيف</span></div><strong>${unclassified.length} مهمة</strong>`:'';
+    other.hidden=!unclassified.length||!isPhaseAdmin();
+    other.innerHTML=unclassified.length?`<span>توجد مهام تحتاج إلى استكمال اسم المرحلة <strong>${unclassified.length}</strong></span><button type="button" onclick="openPhaseTasks(${JSON.stringify(PROJECT_PHASE_UNSPECIFIED)})">الانتقال إلى مصدر البيانات</button>`:'';
   }
+  const status=getProjectPhaseStatus(selected);
+  const nearest=[...selected.tasks].filter(t=>classifyStatus(t)!=='مكتملة'&&getTaskPlannedEndDate(t)).sort((a,b)=>(d(getTaskPlannedEndDate(a))||Infinity)-(d(getTaskPlannedEndDate(b))||Infinity))[0];
+  const distribution=[['مكتملة',selected.done,'phase-seg-done'],['قيد التنفيذ',selected.inprog,'phase-seg-progress'],['متأخرة',selected.late,'phase-seg-late'],['لم تبدأ',selected.notStarted,'phase-seg-pending']];
+  const detail=document.getElementById('phaseDetail');
+  if(detail) detail.innerHTML=`<div class="phase-detail-head"><div class="phase-detail-title"><h2>${escapeHtml(selected.phase)}</h2><span class="phase-detail-status">${status.label}</span></div><div class="phase-detail-progress"><b>${selected.pct}%</b><small>نسبة إنجاز المرحلة</small></div></div>
+    <div class="phase-detail-grid">
+      ${[['إجمالي المهام',selected.total],['المهام المكتملة',selected.done],['قيد التنفيذ',selected.inprog],['المهام المتأخرة',selected.late],['لم تبدأ',selected.notStarted],['تاريخ البداية',selected.startDate],['تاريخ النهاية',selected.endDate],['أقرب مهمة مستحقة',nearest?`${nearest.name} · ${fmt(getTaskPlannedEndDate(nearest))}`:'لا توجد']].map(([label,value])=>`<div class="phase-detail-metric"><small>${label}</small><b>${escapeHtml(String(value))}</b></div>`).join('')}
+    </div><div class="phase-status-distribution"><div class="phase-distribution-head">${distribution.map(([label,count])=>`<span>${label}: <b>${count}</b></span>`).join('')}</div><div class="phase-distribution-track" aria-label="توزيع حالات مهام المرحلة">${distribution.map(([,count,cls])=>`<i class="${cls}" style="width:${selected.total?count/selected.total*100:0}%"></i>`).join('')}</div></div>`;
+  const important=[...selected.tasks].sort((a,b)=>{
+    const rank={'متأخرة':0,'قيد التنفيذ':1,'لم تبدأ':2,'مكتملة':3};
+    return (rank[classifyStatus(a)]??4)-(rank[classifyStatus(b)]??4)||(d(getTaskPlannedEndDate(a))||Infinity)-(d(getTaskPlannedEndDate(b))||Infinity);
+  }).slice(0,5);
+  const title=document.getElementById('phaseTasksTitle'); if(title) title.textContent=`مهام مرحلة ${selected.phase}`;
+  const body=document.getElementById('phaseTasksBody');
+  if(body) body.innerHTML=important.length?important.map(task=>{const state=classifyStatus(task);const cls=state==='مكتملة'?'green':state==='متأخرة'?'red':state==='قيد التنفيذ'?'blue':'gray';return `<tr onclick="openDetail(${JSON.stringify(task.code)})"><td>${escapeHtml(task.code||'-')}</td><td>${escapeHtml(task.name||'-')}</td><td>${escapeHtml(task.owner||'-')}</td><td><span class="pill ${cls}">${state}</span></td><td>${fmt(getTaskPlannedEndDate(task))}</td><td>${escapeHtml(String(task.progress||'0'))}</td></tr>`;}).join(''):'<tr><td class="phase-empty" colspan="6">لا توجد مهام في هذه المرحلة</td></tr>';
+  const allButton=document.getElementById('phaseViewAll'); if(allButton) allButton.onclick=()=>openPhaseTasks(selected.phase);
 }
 function goToBlocker(type,phase){
   if(type==='incomplete'){
