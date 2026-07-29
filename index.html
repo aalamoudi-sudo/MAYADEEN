@@ -3815,6 +3815,22 @@ function normalizeRows(data){
   return arr.map(normalizeRow).filter(Boolean).filter(isOfficialWbsRecord_);
 }
 
+function timelineDataAuditRows(rawRows,normalizedRows,limit=5){
+  return rawRows.slice(0,limit).map((raw,index)=>{
+    const normalized=normalizedRows[index]||{};
+    return {
+      task_code:normalized.code||valueOf(raw,WBS_FIELD_ALIASES.taskId)||'',
+      source_planned_start:valueOf(raw,TASK_FIELD_ALIASES.plannedStart)||'',
+      source_planned_end:valueOf(raw,TASK_FIELD_ALIASES.plannedEnd)||'',
+      source_actual_progress:valueOf(raw,TASK_FIELD_ALIASES.progress),
+      ui_planned_start:normalized.start||'',
+      ui_planned_end:normalized.end||'',
+      ui_actual_progress:normalized.progress,
+      ui_phase:normalized.phase||''
+    };
+  });
+}
+
 function normalizeRiskGovernanceRows(data){
   const arr=Array.isArray(data)?data:(data?.risk_governance_register||data?.riskGovernanceRegister||data?.risks||data?.rows||[]);
   const severityMap={critical:'حرج',high:'مرتفع',medium:'متوسط',low:'منخفض','حرجة':'حرج','عالية':'مرتفع'};
@@ -5911,6 +5927,9 @@ async function loadExternal(initial=true){
     if(requestSequence!==syncRequestSequence) return false;
     const normalized=normalizeRows(data);
     console.log(`⏱️ [Sync] عدد المهام المستلمة من الشيت: ${normalized.length}`);
+    // تشخيص فعلي لمسار البيانات: يقارن أول خمس مهام كما وصلت من Apps Script
+    // بالقيم التي ستستخدمها الواجهة، ولا ينشئ بيانات بديلة أو تجريبية.
+    console.table(timelineDataAuditRows(Array.isArray(data.rows)?data.rows:[],normalized));
     if(Array.isArray(data.task_headers)) console.table(data.task_headers.map((header,index)=>({index:index+1,normalized_header:header})));
     const normalizedApprovalChain=normalizeApprovalChainRows(data.approval_chain||[]);
     const normalizedEscalationChain=normalizeEscalationChainRows(data.escalation_chain||[]);
@@ -6334,16 +6353,16 @@ function renderPhaseProgressSummary(active){
   const subtitle=document.getElementById('phaseProgressSubtitle');
   if(!summary) return;
   const schedule=getScheduleProgressMetrics();
-  if(!active||!schedule){
+  if(!schedule){
     if(subtitle) subtitle.textContent='';
     summary.innerHTML='<div class="phase-progress-error" role="status">لا توجد بيانات زمنية معتمدة لاحتساب تقدم المشروع.</div>';
     return;
   }
-  if(subtitle) subtitle.textContent=`المرحلة الحالية: ${active.phase}`;
+  if(subtitle) subtitle.textContent=active?`المرحلة الحالية: ${active.phase}`:'';
   const pct=schedule.actual;
   const status=schedule.level==='on-track'?'ضمن الخطة':schedule.level==='follow-up'?'يحتاج متابعة':'متأخر';
   const temporal=[];
-  if(active.startDateKey&&active.endDateKey){
+  if(active?.startDateKey&&active?.endDateKey){
     const duration=daysBetween(active.startDateKey,active.endDateKey)+1;
     const elapsed=Math.max(0,Math.min(duration,daysBetween(active.startDateKey,riyadhTodayKey())+1));
     temporal.push(['مدة المرحلة',`${duration} يوم`],['الأيام المنقضية',`${elapsed} يوم`],['الأيام المتبقية',`${Math.max(0,duration-elapsed)} يوم`]);

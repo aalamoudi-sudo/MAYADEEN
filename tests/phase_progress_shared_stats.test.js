@@ -28,9 +28,13 @@ const plannedProgressBody = bodyOf('plannedProgressPct');
 assert.doesNotMatch(progressBody, /\.filter\s*\(|normalizeProjectPhase|project_phase|selectedPhase|currentPhase/,
   'Progress card must not filter or normalize WBS rows');
 assert.match(progressBody, /getScheduleProgressMetrics\(\)/);
+assert.match(progressBody, /if\(!schedule\)/,
+  'Project progress must render when schedule fields exist even if the source has no phase column');
+assert.doesNotMatch(progressBody, /if\(!active\|\|!schedule\)/,
+  'Missing phase metadata must not discard valid project dates and progress');
 assert.match(progressBody, /active\.phase/);
-assert.match(progressBody, /active\.startDateKey/);
-assert.match(progressBody, /active\.endDateKey/);
+assert.match(progressBody, /active\?\.startDateKey/);
+assert.match(progressBody, /active\?\.endDateKey/);
 assert.doesNotMatch(progressBody, /phase-progress-indicators|المخطط|الانحراف|آخر تحديث/,
   'Progress card must not duplicate schedule indicators or show extra metadata');
 assert.match(progressBody, /التقدم الفعلي للمشروع/);
