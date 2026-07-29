@@ -5532,8 +5532,8 @@ function renderPhases(){
   const phaseStats=getSharedProjectPhaseStats().map(stat=>{
     const p=stat.phase,arr=stat.tasks;
     const {done,late,inprog,notStarted,pct}=stat;
-    const ends=arr.map(t=>d(t.actualEnd||t.end)).filter(Boolean).sort((a,b)=>b-a);
-    const starts=arr.map(t=>d(t.actualStart||t.start)).filter(Boolean).sort((a,b)=>a-b);
+    const ends=arr.map(t=>d(getTaskActualEndDate(t)||getTaskPlannedEndDate(t))).filter(Boolean).sort((a,b)=>b-a);
+    const starts=arr.map(t=>d(getTaskActualStartDate(t)||getTaskPlannedStartDate(t))).filter(Boolean).sort((a,b)=>a-b);
     const firstDate=starts[0]?fmt(dateToKey_(starts[0])):'-';
     const lastDate=ends[0]?fmt(dateToKey_(ends[0])):'-';
     const owners=[...new Set(arr.map(t=>t.owner).filter(Boolean))];
@@ -5569,8 +5569,9 @@ function renderPhases(){
   if(el) el.innerHTML=cards;
 
   /* Schedule status */
-  const plannedPct=plannedProgressPct();
-  const diff=active.pct-plannedPct;
+  const scheduleMetrics=getScheduleProgressMetrics();
+  const plannedPct=scheduleMetrics.planned;
+  const diff=scheduleMetrics.diff;
   let schedStatus,schedColor;
   if(diff>5){schedStatus='متقدمة على الخطة';schedColor='#10e87a';}
   else if(diff>=-5){schedStatus='تسير وفق الخطة';schedColor='#10e87a';}
@@ -5589,8 +5590,8 @@ function renderPhases(){
   else{readinessLabel='غير جاهز للانتقال بعد';readinessBg='rgba(255,77,106,.10)';readinessColor='#ff4d6a';}
 
   /* التاريخ المتوقع للانتقال: يُحسب من أحدث تاريخ نهاية بين المهام غير المكتملة بالمرحلة الحالية (بيانات الشيت نفسها) */
-  const activePhaseTasks=tasks.filter(t=>t.phase===active.phase);
-  const openEnds=activePhaseTasks.filter(t=>classifyStatus(t)!=='مكتملة').map(t=>d(t.end)).filter(Boolean).sort((a,b)=>b-a);
+  const activePhaseTasks=active.tasks;
+  const openEnds=activePhaseTasks.filter(t=>classifyStatus(t)!=='مكتملة').map(t=>d(getTaskPlannedEndDate(t))).filter(Boolean).sort((a,b)=>b-a);
   const projectedTransitionDate=openEnds.length?fmt(dateToKey_(openEnds[0])):(remaining===0?'جاهزة الآن':'-');
 
   /* شريط الحالة العلوي: ملخص فوري من نفس المتغيرات أعلاه بدون أي حساب جديد */
@@ -6451,8 +6452,8 @@ function setLastUpdate(source, dt){
   if(esbSrc) esbSrc.textContent=source||'WBS';
 }
 function plannedProgressPct(){
-  const starts=tasks.map(t=>d(t.start)).filter(Boolean).sort((a,b)=>a-b);
-  const ends=tasks.map(t=>d(t.end)).filter(Boolean).sort((a,b)=>b-a);
+  const starts=tasks.map(getTaskPlannedStartDate).map(d).filter(Boolean).sort((a,b)=>a-b);
+  const ends=tasks.map(getTaskPlannedEndDate).map(d).filter(Boolean).sort((a,b)=>b-a);
   if(!starts.length||!ends.length) return 0;
   const start=starts[0], end=ends[0];
   if(TODAY<=start) return 0;
@@ -6461,8 +6462,8 @@ function plannedProgressPct(){
 }
 
 function getScheduleProgressMetrics(){
-  const starts=tasks.map(t=>d(t.start)).filter(Boolean);
-  const ends=tasks.map(t=>d(t.end)).filter(Boolean);
+  const starts=tasks.map(getTaskPlannedStartDate).map(d).filter(Boolean);
+  const ends=tasks.map(getTaskPlannedEndDate).map(d).filter(Boolean);
   if(!tasks.length||!starts.length||!ends.length) return null;
   const done=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
   const actual=Math.round(done/tasks.length*100);

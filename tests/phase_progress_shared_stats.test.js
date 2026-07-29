@@ -24,6 +24,7 @@ const phaseCardsBody = bodyOf('renderPhases');
 const activePhaseBody = bodyOf('activePhaseForProgressHistory');
 const progressBody = bodyOf('renderPhaseProgressSummary');
 const scheduleMetricsBody = bodyOf('getScheduleProgressMetrics');
+const plannedProgressBody = bodyOf('plannedProgressPct');
 assert.doesNotMatch(progressBody, /\.filter\s*\(|normalizeProjectPhase|project_phase|selectedPhase|currentPhase/,
   'Progress card must not filter or normalize WBS rows');
 assert.match(progressBody, /getScheduleProgressMetrics\(\)/);
@@ -50,6 +51,44 @@ assert.match(scheduleMetricsBody, /plannedProgressPct\(\)/);
 assert.match(scheduleMetricsBody, /classifyStatus\(t\)==='مكتملة'/);
 assert.match(scheduleMetricsBody, /diff>=0/);
 assert.match(scheduleMetricsBody, /absDiff<=5/);
+assert.match(scheduleMetricsBody, /tasks\.map\(getTaskPlannedStartDate\)\.map\(d\)/);
+assert.match(scheduleMetricsBody, /tasks\.map\(getTaskPlannedEndDate\)\.map\(d\)/);
+assert.doesNotMatch(scheduleMetricsBody, /t=>d\(t\.(?:start|end)\)/,
+  'Schedule metrics must use the normalized WBS date readers');
+assert.match(plannedProgressBody, /tasks\.map\(getTaskPlannedStartDate\)\.map\(d\)/);
+assert.match(plannedProgressBody, /tasks\.map\(getTaskPlannedEndDate\)\.map\(d\)/);
+assert.match(phaseCardsBody, /const scheduleMetrics=getScheduleProgressMetrics\(\)/,
+  'Phase page and home progress card must share the same schedule metrics');
+
+// Execute the production calculation bodies against the current Google Sheets
+// field names. The first task deliberately has 0% progress: zero is valid data.
+const syncedTasks = Array.from({ length: 283 }, (_, index) => ({
+  start_date: index === 0 ? '2026-06-01' : '2026-07-01',
+  end_date: index === 282 ? '2026-11-30' : '2026-10-31',
+  actual_progress: index === 0 ? 0 : (index < 85 ? 100 : 25),
+  phase: phases[index % phases.length],
+  status: index < 85 ? 'مكتملة' : 'قيد التنفيذ'
+}));
+const d = value => value ? new Date(`${value}T00:00:00Z`) : null;
+const getTaskPlannedStartDate = task => task.start_date;
+const getTaskPlannedEndDate = task => task.end_date;
+const classifyStatus = task => task.status;
+const TODAY = new Date('2026-07-29T00:00:00Z');
+const runProductionMetrics = new Function(
+  'tasks', 'd', 'getTaskPlannedStartDate', 'getTaskPlannedEndDate', 'classifyStatus', 'TODAY',
+  `function plannedProgressPct(){${plannedProgressBody}}
+   function getScheduleProgressMetrics(){${scheduleMetricsBody}}
+   return getScheduleProgressMetrics();`
+);
+const metrics = runProductionMetrics(
+  syncedTasks, d, getTaskPlannedStartDate, getTaskPlannedEndDate, classifyStatus, TODAY
+);
+assert.ok(metrics, '283 synchronized tasks with valid dates must produce schedule metrics');
+assert.equal(metrics.actual, 30);
+assert.equal(metrics.planned, 32);
+assert.equal(metrics.diff, -2);
+assert.equal(syncedTasks.length, 283);
+console.log(`PASS synchronized tasks=${syncedTasks.length}; planned=${metrics.planned}%; actual=${metrics.actual}%; variance=${metrics.diff}%`);
 
 const phaseCardStats = phases.map((phase, index) => ({
   phase, total: 100 + index, completed: 30 + index, progress: 30 + index
