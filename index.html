@@ -1794,6 +1794,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <!-- PHASES PAGE -->
       <section class="page" id="phases">
         <div class="page-header"><h1>مراحل المشروع</h1><p>وضع كل مرحلة ومدى الجاهزية للانتقال للمرحلة التالية</p></div>
+        <div id="phaseTimelineDiagnostics"></div>
         <div class="phase-status-banner" id="phaseStatusBanner"></div>
         <div class="phase-timeline" id="phaseTimeline"></div>
         <!-- Phase cards row -->
@@ -5544,6 +5545,9 @@ function renderPhases(){
   const phases=PROJECT_PHASE_ORDER;
   const orderLabel=Object.fromEntries(phases.map((p,i)=>[p,String(i+1).padStart(2,'0')]));
   const colorMap={'البدء':'green','التخطيط':'cyan','التنفيذ':'brand','المراقبة والتحكم':'blue','الإغلاق':'yellow'};
+  const scheduleMetrics=getScheduleProgressMetrics();
+  const diagnosticsEl=document.getElementById('phaseTimelineDiagnostics');
+  if(diagnosticsEl) diagnosticsEl.innerHTML=getProductionTimelineDiagnosticsHtml(scheduleMetrics);
 
   const phaseStats=getSharedProjectPhaseStats().map(stat=>{
     const p=stat.phase,arr=stat.tasks;
@@ -5585,7 +5589,6 @@ function renderPhases(){
   if(el) el.innerHTML=cards;
 
   /* Schedule status */
-  const scheduleMetrics=getScheduleProgressMetrics();
   const plannedPct=scheduleMetrics.planned;
   const diff=scheduleMetrics.diff;
   let schedStatus,schedColor;
@@ -6348,14 +6351,36 @@ function renderDonutChart(){
 function activePhaseForProgressHistory(){
   return getCurrentProjectPhaseStat(getSharedProjectPhaseStats());
 }
+function getProductionTimelineDiagnosticsHtml(scheduleMetrics){
+  const isAdmin=String(currentUser?.role||'').trim().toLowerCase()==='admin'||String(currentUser?.username||'').trim().toLowerCase()==='admin';
+  if(!isAdmin) return '';
+  const starts=tasks.map(getTaskPlannedStartDate).map(d).filter(Boolean);
+  const ends=tasks.map(getTaskPlannedEndDate).map(d).filter(Boolean);
+  const firstTask=tasks[0];
+  const rawStart=firstTask?.rawStart||getFirstTaskField_(firstTask,'plannedStart')||firstTask?.start;
+  const rawEnd=firstTask?.rawEnd||getFirstTaskField_(firstTask,'plannedEnd')||firstTask?.end;
+  const display=value=>escapeHtml(value===undefined?'undefined':value===null?'null':typeof value==='object'?JSON.stringify(value):String(value));
+  const rows=[
+    ['tasks.length',tasks.length],
+    ['starts.length',starts.length],
+    ['ends.length',ends.length],
+    ['أول قيمة خام لتاريخ البداية',rawStart],
+    ['أول قيمة بعد getTaskPlannedStartDate',getTaskPlannedStartDate(firstTask)],
+    ['أول قيمة خام لتاريخ النهاية',rawEnd],
+    ['أول قيمة بعد getTaskPlannedEndDate',getTaskPlannedEndDate(firstTask)],
+    ['نتيجة getScheduleProgressMetrics()',scheduleMetrics===null?'null':'object']
+  ];
+  return `<div data-temporary-production-timeline-debug style="direction:ltr;text-align:left;padding:12px;border:1px dashed #f5b800;border-radius:10px;background:rgba(245,184,0,.08);color:#f8e7a1;font:12px/1.6 monospace;overflow-wrap:anywhere"><b style="display:block;margin-bottom:6px;color:#f5b800">Temporary production timeline debug (Admin only)</b>${rows.map(([label,value])=>`<div><strong>${escapeHtml(label)}:</strong> ${display(value)}</div>`).join('')}</div>`;
+}
 function renderPhaseProgressSummary(active){
   const summary=document.getElementById('phaseProgressSummary');
   const subtitle=document.getElementById('phaseProgressSubtitle');
   if(!summary) return;
   const schedule=getScheduleProgressMetrics();
+  const diagnostics=getProductionTimelineDiagnosticsHtml(schedule);
   if(!schedule){
     if(subtitle) subtitle.textContent='';
-    summary.innerHTML='<div class="phase-progress-error" role="status">لا توجد بيانات زمنية معتمدة لاحتساب تقدم المشروع.</div>';
+    summary.innerHTML=diagnostics+'<div class="phase-progress-error" role="status">لا توجد بيانات زمنية معتمدة لاحتساب تقدم المشروع.</div>';
     return;
   }
   if(subtitle) subtitle.textContent=active?`المرحلة الحالية: ${active.phase}`:'';
@@ -6367,7 +6392,7 @@ function renderPhaseProgressSummary(active){
     const elapsed=Math.max(0,Math.min(duration,daysBetween(active.startDateKey,riyadhTodayKey())+1));
     temporal.push(['مدة المرحلة',`${duration} يوم`],['الأيام المنقضية',`${elapsed} يوم`],['الأيام المتبقية',`${Math.max(0,duration-elapsed)} يوم`]);
   }
-  summary.innerHTML=`
+  summary.innerHTML=diagnostics+`
     <div class="phase-progress-summary-main">
       <div><b class="phase-progress-summary-pct">${pct}%</b><span class="phase-progress-summary-label">التقدم الفعلي للمشروع</span></div>
       <span class="phase-progress-status" style="color:${schedule.toneColor};background:${schedule.toneBg};border-color:${schedule.toneBorder}">${status}</span>
