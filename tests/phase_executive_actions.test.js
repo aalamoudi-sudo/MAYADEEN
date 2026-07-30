@@ -41,6 +41,10 @@ assert.match(renderBody, /الإجراء المطلوب الآن/);
 assert.doesNotMatch(renderBody, /اتجاه الأداء/, 'Trend must remain hidden without a genuine historical snapshot');
 assert.match(renderBody, /remainingTime\|\|'غير متوفر'/, 'Missing end dates must not receive an invented value');
 assert.match(renderBody, /stat\.late>0\?\{label:'🔴 متأخرة'/, 'Red badge must require actual overdue tasks');
+assert.match(renderBody, /remainingTasks=stat\.total-stat\.done/, 'Remaining closure tasks must use only the phase task totals');
+assert.match(renderBody, /المتبقي للإغلاق/, 'Every phase card must show the remaining-to-close fact');
+assert.match(renderBody, /complete\?'المرحلة مكتملة':`\$\{remainingTasks\} مهمة`/, 'Completed phases must display an explicit completion message');
+assert.doesNotMatch(renderBody, /👤 المسؤول/, 'Phase cards must not present a single owner');
 
 // Guardrails: phase calculations and other system page renderers remain untouched by this polish.
 assert.doesNotMatch(statsBody, /getPhaseDecision|getPhaseRequiredAction|getPhaseRemainingTime/);
