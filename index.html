@@ -5723,14 +5723,14 @@ function renderPhases(){
     const decision=getPhaseDecision(stat,current);
     const requiredAction=current?getPhaseRequiredAction(stat,activeIndex===PROJECT_PHASE_ORDER.length-1):'';
     const remainingTime=getPhaseRemainingTime(stat);
-    const quick=getPhaseCardQuickFacts(stat);
+    const remainingTasks=stat.total-stat.done;
     return `<article class="phase-summary-card ${current?'is-current':''} ${selected?'is-selected':''}" tabindex="0" role="button" aria-label="فتح تفاصيل ${escapeHtml(stat.phase)}" onclick="openPhaseTasks(${JSON.stringify(stat.phase)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPhaseTasks(${JSON.stringify(stat.phase)})}">
       <div class="phase-card-head"><h2>${escapeHtml(stat.phase)}</h2><span class="phase-status-badge ${badge.className}">${badge.label}</span></div>
       <div class="phase-percent"><b>${stat.pct}%</b><small>نسبة الإنجاز</small></div>
       <div class="phase-card-progress" role="progressbar" aria-label="نسبة إنجاز ${escapeHtml(stat.phase)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stat.pct}"><span style="width:${stat.pct}%"></span></div>
       <div class="phase-executive-lines"><div class="phase-executive-line ${decision.className}"><span>قرار المرحلة</span><b>${decision.label}</b></div>${requiredAction?`<div class="phase-executive-line is-current"><span>الإجراء المطلوب الآن</span><b>${requiredAction}</b></div>`:''}</div>
       <div class="phase-card-metrics"><div class="phase-card-metric"><span class="phase-card-metric-icon">∑</span><small>إجمالي المهام</small><b>${stat.total}</b></div><div class="phase-card-metric"><span class="phase-card-metric-icon">✓</span><small>مكتملة</small><b>${stat.done}</b></div><div class="phase-card-metric"><span class="phase-card-metric-icon">▶</span><small>قيد التنفيذ</small><b>${stat.inprog}</b></div><div class="phase-card-metric is-late ${stat.late>0?'has-late':''}"><span class="phase-card-metric-icon">!</span><small>متأخرة</small><b>${stat.late}</b></div><div class="phase-card-metric"><span class="phase-card-metric-icon">○</span><small>لم تبدأ</small><b>${stat.notStarted}</b></div></div>
-      <div class="phase-quick-facts"><div class="phase-quick-fact"><span>📅 الوقت المتبقي</span><b>${escapeHtml(remainingTime||'غير متوفر')}</b></div><div class="phase-quick-fact ${stat.late>0?'has-late':''}"><span>⚠ المتأخر</span><b>${stat.late}</b></div><div class="phase-quick-fact"><span>👤 المسؤول</span><b title="${escapeHtml(quick.owner)}">${escapeHtml(quick.owner)}</b></div></div>
+      <div class="phase-quick-facts"><div class="phase-quick-fact"><span>📅 الوقت المتبقي</span><b>${escapeHtml(remainingTime||'غير متوفر')}</b></div><div class="phase-quick-fact ${stat.late>0?'has-late':''}"><span>⚠ المتأخر</span><b>${stat.late}</b></div><div class="phase-quick-fact"><span>✓ المتبقي للإغلاق</span><b>${complete?'المرحلة مكتملة':`${remainingTasks} مهمة`}</b></div></div>
       <button type="button" class="phase-detail-toggle" onclick="event.stopPropagation();openPhaseTasks(${JSON.stringify(stat.phase)})">عرض تفاصيل المرحلة</button>
     </article>`;
   }).join('');
