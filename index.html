@@ -4055,7 +4055,7 @@ const OWNERSHIP_PROFILES=[
   {name:'منذر الأنصاري',team:'PMO',manager:'أحمد المحيسن',second:'أحمد العامودي',domains:['مشتريات','مهام','تشغيل','متابعة'],capacity:8},
   {name:'أحمد المحيسن',team:'التشغيل',manager:'أحمد العامودي',second:'عبدالعزيز العبيد',domains:['تشغيل','مورد','تصعيد','جدول'],capacity:10},
   {name:'سارة الشهري',team:'التصاريح والجهات',manager:'أحمد العامودي',second:'عبدالعزيز العبيد',domains:['تصاريح','بوابات','جهات حكومية'],capacity:7},
-  {name:'بندر الهضيبة',team:'الجودة والمخاطر',manager:'أحمد العامودي',second:'عبدالعزيز العبيد',domains:['مخاطر','جودة','أوامر تغيير'],capacity:7},
+  {name:'شهد الخزيم',team:'الجودة والمخاطر',manager:'أحمد العامودي',second:'عبدالعزيز العبيد',domains:['مخاطر','جودة','أوامر تغيير'],capacity:7},
   {name:'أحمد العامودي',team:'PMO القيادة',manager:'عبدالعزيز العبيد',second:'مركز القيادة',domains:['اعتمادات','قرارات','تغيير','إدارة'],capacity:12},
   {name:'عبدالعزيز العبيد',team:'الإدارة العليا',manager:'مركز القيادة',second:'مركز القيادة',domains:['حرج','افتتاح','تكلفة','نطاق'],capacity:5},
   {name:'مالك المشروع',team:'مالك المشروع',manager:'المشرف العام',second:'مركز القيادة',domains:['أوامر تغيير','تغيير','نطاق','تكلفة','اعتماد نهائي'],capacity:6},
@@ -4085,7 +4085,7 @@ const WORKFLOW_OWNERSHIP_MATRIX=[
   {workflow:'التصاريح',stages:PERMIT_WORKFLOW,execute:'سارة الشهري',review:'منذر الأنصاري',approve:'أحمد المحيسن',escalate:'أحمد العامودي',sla:'12 ساعة',condition:'اكتمال الهوية/المركبة/المرفقات وتحديد البوابة والمنطقة'},
   {workflow:'أوامر التغيير',stages:CHANGE_ORDER_WORKFLOW,execute:'المشرف العام',review:'المشرف العام',approve:'مالك المشروع',escalate:'مالك المشروع',sla:'24 ساعة',condition:'أوامر التغيير اختصاص مالك المشروع والمشرف العام فقط، مع تحليل أثر الوقت والتكلفة والنطاق والجودة'},
   {workflow:'الاعتمادات',stages:['إرسال المرجع','فحص الاكتمال','مراجعة تنفيذية','جودة ومخاطر','اعتماد PMO','اعتماد داخلي حرج','بوابة خارجية'],execute:'صاحب المسار',review:'منذر الأنصاري',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'اكتمال الطلب ورابط المستند والجهة المعتمدة'},
-  {workflow:'المخاطر',stages:['اكتشاف','تقييم','معالجة','تصعيد','إغلاق'],execute:'قائد المسار',review:'بندر الهضيبة',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'تقييم الاحتمالية والتأثير وخطة المعالجة'},
+  {workflow:'المخاطر',stages:['اكتشاف','تقييم','معالجة','تصعيد','إغلاق'],execute:'قائد المسار',review:'شهد الخزيم',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'24 ساعة',condition:'تقييم الاحتمالية والتأثير وخطة المعالجة'},
   {workflow:'القرارات',stages:['طلب قرار','مراجعة','تحليل أثر','اعتماد','تنفيذ','إغلاق'],execute:'PMO',review:'أحمد المحيسن',approve:'أحمد العامودي',escalate:'عبدالعزيز العبيد',sla:'12 ساعة',condition:'وضوح القرار والجهة المطلوبة والأثر'},
   {workflow:'التصعيدات',stages:['فتح التصعيد','توجيه','رد المسؤول','قرار','إجراء تصحيحي','إغلاق'],execute:'المسؤول الحالي',review:'مدير المسار',approve:'مركز القيادة',escalate:'عبدالعزيز العبيد',sla:'4 ساعات',condition:'وجود سبب تصعيد وSLA واضح وتسجيل Audit Log'}
 ];
@@ -5199,7 +5199,7 @@ const MAYADEEN_APPROVAL_CHAIN=[
   {step:'1',title:'إرسال المرجع',owner:'صاحب المسار',role:'يرفع النسخة أو الطلب كاملاً',sla:'اليوم نفسه',color:'#3b82f6'},
   {step:'2',title:'فحص الاكتمال',owner:'منذر الأنصاري',role:'يتأكد من الرابط والبيانات ويوثق الطلب',sla:'4 ساعات',color:'#00d4ff'},
   {step:'3',title:'مراجعة تنفيذية',owner:'أحمد المحيسن',role:'يراجع الأثر على التنفيذ والمسارات',sla:'24 ساعة',color:'#f5b800'},
-  {step:'4',title:'جودة ومخاطر',owner:'بندر الهضيبة',role:'يفحص المخاطر والجودة قبل الاعتماد',sla:'24 ساعة',color:'#ff8c42'},
+  {step:'4',title:'جودة ومخاطر',owner:'شهد الخزيم',role:'يفحص المخاطر والجودة قبل الاعتماد',sla:'24 ساعة',color:'#ff8c42'},
   {step:'5',title:'اعتماد PMO',owner:'أحمد العامودي',role:'يثبت القرار في السجل والتقرير',sla:'24-48 ساعة',color:'#a07dff'},
   {step:'6',title:'اعتماد داخلي حرج',owner:'عبدالعزيز العبيد',role:'للقرارات المؤثرة على الجدول أو المرجع',sla:'فوري عند الحاجة',color:'#ff4d6a'},
   {step:'7',title:'بوابة خارجية',owner:'سارة الشهري',role:'للتصاريح والتنسيق الحكومي فقط',sla:'حسب الجهة',color:'#10e87a'}
@@ -5207,16 +5207,16 @@ const MAYADEEN_APPROVAL_CHAIN=[
 const MAYADEEN_ESCALATION_CHAIN=[
   {level:'L0',title:'معالجة داخل المسار',owner:'قائد المسار',trigger:'ملاحظة عادية أو نقص بيانات',sla:'12 ساعة',color:'#10e87a'},
   {level:'L1',title:'تصعيد تشغيلي',owner:'منذر + أحمد المحيسن',trigger:'تأخر تحديث أو عائق تشغيلي',sla:'24 ساعة',color:'#f5b800'},
-  {level:'L2',title:'تصعيد PMO/جودة',owner:'أحمد العامودي + بندر',trigger:'اعتماد متأخر أو خطر متوسط/مرتفع',sla:'48 ساعة',color:'#ff8c42'},
+  {level:'L2',title:'تصعيد PMO/جودة',owner:'أحمد العامودي + شهد الخزيم',trigger:'اعتماد متأخر أو خطر متوسط/مرتفع',sla:'48 ساعة',color:'#ff8c42'},
   {level:'L3',title:'تصعيد تنفيذي داخلي',owner:'عبدالعزيز العبيد',trigger:'أثر مباشر على الجدول أو جودة المرجع',sla:'نفس اليوم',color:'#ff4d6a'},
   {level:'L4',title:'بوابة خارجية',owner:'سارة الشهري',trigger:'تصريح أو جهة حكومية أو اعتماد أمانة',sla:'فوري وموثق',color:'#a07dff'}
 ];
 const MAYADEEN_RISK_CHAIN=[
   {title:'اكتشاف',owner:'قائد المسار / منذر',action:'تسجيل الخطر وربطه بالمهمة أو الاعتماد',color:'#3b82f6'},
-  {title:'تقييم',owner:'بندر',action:'احتمالية × تأثير وتحديد مستوى الخطر',color:'#f5b800'},
-  {title:'معالجة',owner:'أحمد المحيسن',action:'خطة معالجة ومالك إجراء وتاريخ إغلاق',color:'#ff8c42'},
+  {title:'تقييم',owner:'شهد الخزيم',action:'احتمالية × تأثير وتحديد مستوى الخطر',color:'#f5b800'},
+  {title:'معالجة',owner:'عبدالله المرحوم',action:'خطة معالجة ومالك إجراء وتاريخ إغلاق',color:'#ff8c42'},
   {title:'تصعيد',owner:'أحمد العامودي',action:'تفعيل سلسلة التصعيد عند تجاوز SLA',color:'#a07dff'},
-  {title:'إغلاق',owner:'PMO + بندر',action:'توثيق الدليل وتحديث السجل',color:'#10e87a'}
+  {title:'إغلاق',owner:'PMO + شهد الخزيم',action:'توثيق الدليل وتحديث السجل',color:'#10e87a'}
 ];
 // عرض مخصص لبطاقات مستويات التصعيد L0-L4 بمركز التصعيد التنفيذي فقط (لا يمس
 // renderChainCards المشتركة مع صفحتي الاعتمادات والمخاطر). يضيف فقط مؤشر SLA حي
@@ -7230,8 +7230,8 @@ function renderRisksMgmt(){
   renderChainCards('rm-governance',MAYADEEN_RISK_CHAIN);
   renderChainCards('rm-riskChain',[
     {level:'منخفض',title:'مراقبة',owner:'قائد المسار',trigger:'لا يؤثر على الافتتاح أو الاعتماد',sla:'تحديث أسبوعي',color:'#10e87a'},
-    {level:'متوسط',title:'خطة معالجة',owner:'بندر + قائد المسار',trigger:'يحتاج إجراء واضح وتاريخ إغلاق',sla:'48 ساعة',color:'#f5b800'},
-    {level:'مرتفع',title:'تصعيد PMO',owner:'أحمد العامودي + أحمد المحيسن',trigger:'قد يؤثر على المسار أو الاعتماد',sla:'24 ساعة',color:'#ff8c42'},
+    {level:'متوسط',title:'خطة معالجة',owner:'شهد الخزيم + قائد المسار',trigger:'يحتاج إجراء واضح وتاريخ إغلاق',sla:'48 ساعة',color:'#f5b800'},
+    {level:'مرتفع',title:'تصعيد PMO',owner:'أحمد العامودي + عبدالله المرحوم',trigger:'قد يؤثر على المسار أو الاعتماد',sla:'24 ساعة',color:'#ff8c42'},
     {level:'حرج',title:'تدخل تنفيذي',owner:'عبدالعزيز العبيد',trigger:'أثر مباشر على الجدول أو المرجع أو الافتتاح',sla:'فوري',color:'#ff4d6a'}
   ]);
 
@@ -7827,7 +7827,7 @@ async function submitAssignment(confirmed=false){
 /* ══ COMMAND ENHANCEMENTS ══ */
 function buildEscalationItems(){
   const late=[]; // لا تُحوّل المهام المتأخرة إلى عناصر تصعيد/مخاطر رسمية أو مقترحة.
-  const risk=(window._rmRisks||[]).filter(r=>r.status!=='مغلق'&&(r.sev==='حرج'||r.sev==='مرتفع')).slice(0,5).map(r=>({type:'خطر',title:r.name,owner:r.owner||'بندر الهضيبة',due:r.updated||'-',page:'risksMgmt',level:r.sev}));
+  const risk=(window._rmRisks||[]).filter(r=>r.status!=='مغلق'&&(r.sev==='حرج'||r.sev==='مرتفع')).slice(0,5).map(r=>({type:'خطر',title:r.name,owner:r.owner||'شهد الخزيم',due:r.updated||'-',page:'risksMgmt',level:r.sev}));
   const dec=(window._decPending||[]).filter(d=>d.priority==='عاجل').slice(0,4).map(d=>({type:'قرار',title:d.title,owner:d.party||'-',due:d.due||'-',page:'decisions',level:'عاجل'}));
   const app=(window._approvalsData||[]).filter(a=>approvalPressure(a)==='overdue'||approvalPressure(a)==='due_soon').slice(0,4).map(a=>({type:'اعتماد',title:a.title,owner:a.approver||'-',due:a.due||'-',page:'approvals',level:approvalPressure(a)==='overdue'?'متأخر':'قريب'}));
   const asg=(window._assignmentsData||[]).filter(a=>assignmentPressure(a)==='overdue'||a.priority==='عاجل').slice(0,4).map(a=>({type:'تكليف',title:a.title,owner:a.owner||'-',due:a.due||'-',page:'assignments',level:a.priority||'عاجل'}));
