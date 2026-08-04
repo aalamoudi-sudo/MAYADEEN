@@ -198,3 +198,69 @@
 [data-theme="light"] :is([style*="color:#eef1ff"],[style*="color: #eef1ff"],[style*="color:#eaf0ff"],[style*="color: #eaf0ff"],[style*="color:#d8e4ff"],[style*="color:#d0d8f0"],[style*="color:#c4d0f0"],[style*="color:#c4b5fd"],[style*="color:#d8ccff"],[style*="color:#e8edfb"]){color:var(--text-primary)!important}
 [data-theme="light"] :is([style*="color:#aab6d6"],[style*="color:#a8b4d0"],[style*="color:#9eacd0"],[style*="color:#9aa6bf"],[style*="color:#91a0c1"],[style*="color:#8d99b4"],[style*="color:#8793ac"],[style*="color:#7f8ba6"],[style*="color:var(--muted)"],[style*="color: var(--muted)"]){color:var(--label-text)!important}
 [data-theme="light"] :is(input,textarea)::placeholder{color:var(--placeholder-text)!important;opacity:1!important}
+
+/* Command Center light-mode finish -----------------------------------------
+   This section is intentionally fully light-scoped. It completes the visual
+   hierarchy for late feature modules while leaving the approved dark UI and
+   its shared component rules untouched. */
+[data-theme="light"]{color-scheme:light;--command-shadow:0 1px 2px rgba(16,43,63,.05),0 8px 24px rgba(16,43,63,.07);--command-shadow-hover:0 2px 4px rgba(16,43,63,.06),0 14px 32px rgba(16,43,63,.10)}
+[data-theme="light"] body{background:linear-gradient(145deg,var(--bg-primary) 0%,#eef4f5 100%);text-rendering:optimizeLegibility}
+[data-theme="light"] ::selection{background:var(--active-bg);color:var(--text-primary)}
+[data-theme="light"] ::-webkit-scrollbar-track{background:var(--bg-secondary)}
+[data-theme="light"] ::-webkit-scrollbar-thumb{background:var(--border-strong);border:1px solid var(--bg-secondary)}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover{background:var(--brand-primary)}
+
+[data-theme="light"] :is(.card,.health-card,.phase-card,.phase-insight-card,.phase-status-banner,.phase-timeline,.kpi-card,.ac-kpi,.risk-kpi,.dec-kpi,.ops-snapshot-card,.exec-meta-card,.exec-alert-card,.schedule-card,.achievements-card,.login-card){box-shadow:var(--command-shadow)}
+[data-theme="light"] :is(.card,.health-card,.phase-card,.kpi-card,.ac-kpi,.risk-kpi,.dec-kpi,.ops-snapshot-card):hover{box-shadow:var(--command-shadow-hover)}
+[data-theme="light"] :is(.card-header,.section-header,.modal-header,.drawer-header){border-color:var(--border-color);color:var(--text-primary)}
+[data-theme="light"] :is(hr,.divider,.section-divider){border-color:var(--border-color);background:var(--border-color)}
+
+/* Interactive controls: consistent primary, secondary and destructive states. */
+[data-theme="light"] :is(.setup-box button,.escalation-submit-btn,.primary-btn,.btn-primary){background:var(--brand-primary);color:var(--white);border-color:var(--brand-primary);box-shadow:0 4px 12px var(--brand-soft)}
+[data-theme="light"] :is(.setup-box button,.escalation-submit-btn,.primary-btn,.btn-primary):hover{background:var(--brand-deep);border-color:var(--brand-deep);box-shadow:0 6px 16px var(--brand-soft);transform:none}
+[data-theme="light"] :is(.modal-close,.drawer-close,.secondary-btn,.btn-secondary){background:var(--surface-secondary);color:var(--text-primary);border-color:var(--border-strong)}
+[data-theme="light"] :is(.modal-close,.drawer-close,.secondary-btn,.btn-secondary):hover{background:var(--hover-bg);color:var(--brand-primary);border-color:var(--brand-primary)}
+[data-theme="light"] :is(.escalate-btn,.danger-btn,.btn-danger):hover{background:var(--danger);color:var(--white);border-color:var(--danger)}
+[data-theme="light"] :is(.tab,[role="tab"],.phase-stage,.phase-detail-toggle){background:transparent;border-color:transparent}
+[data-theme="light"] :is(.tab,[role="tab"],.phase-stage,.phase-detail-toggle):hover{background:var(--hover-bg);border-color:var(--border-color)}
+[data-theme="light"] :is(.tab.active,[role="tab"][aria-selected="true"],.phase-stage.is-selected,.phase-stage.is-current){background:var(--active-bg);border-color:var(--brand-border);box-shadow:inset 0 -2px var(--brand-primary)}
+
+/* Forms, filters and menus retain definition against the quiet page canvas. */
+[data-theme="light"] :is(.input-group label,.ops-form label,.filter-label,.field-label){color:var(--label-text);font-weight:700}
+[data-theme="light"] :is(.filters,.filter-bar,.toolbar,.table-toolbar,.search-panel){background:var(--surface-secondary);border-color:var(--border-color)}
+[data-theme="light"] :is(.dropdown-menu,.select-menu,.context-menu,[role="menu"]){background:var(--surface-primary);color:var(--text-primary);border:1px solid var(--border-color);box-shadow:var(--command-shadow-hover)}
+[data-theme="light"] :is(.dropdown-item,.select-option,[role="menuitem"]){color:var(--text-primary)}
+[data-theme="light"] :is(.dropdown-item,.select-option,[role="menuitem"]):hover{background:var(--hover-bg);color:var(--brand-primary)}
+
+/* Tables: a restrained tinted header is easier to scan than a heavy block. */
+[data-theme="light"] .data-table th,[data-theme="light"] .matrix-table th{background:#e4edef;color:var(--brand-deep)!important;border-color:var(--border-strong);font-weight:800;letter-spacing:.01em}
+[data-theme="light"] :is(.data-table,.matrix-table) tbody tr{transition:background-color .15s ease}
+[data-theme="light"] :is(.data-table,.matrix-table) tbody tr:focus-within td{background:var(--active-bg);box-shadow:inset 0 0 0 1px var(--brand-border)}
+[data-theme="light"] :is(.table-wrap,.table-container){background:var(--surface-primary);border-color:var(--border-color);box-shadow:var(--command-shadow)}
+
+/* Feature panels created by the operations, governance and analytics views. */
+[data-theme="light"] :is(.setup-box,.detail-grid,.escalation-preview-cell,.an-summary-card,.an-delay-card,.dq-card,.dq-detail-item,.fes-card,.map-legend,.field-action-card,.report-card,.permission-card,.vendor-card,.meeting-card,.approval-card,.issue-card,.evidence-card){background:var(--surface-primary);color:var(--text-primary);border-color:var(--border-color);box-shadow:var(--command-shadow)}
+[data-theme="light"] :is(.setup-box p,.detail-grid small,.an-summary-card p,.an-delay-card small,.dq-detail-item span,.fes-card small,.field-action-card small,.report-card small,.permission-card small,.vendor-card small,.meeting-card small,.approval-card small,.issue-card small,.evidence-card small){color:var(--label-text)}
+[data-theme="light"] :is(.countdown-box,.readiness-box,.forecast-box,.workflow-box,.ops-form,.escalation-preview-form,.empty-state,.no-data){background:var(--surface-secondary);color:var(--text-primary);border-color:var(--border-color)}
+
+/* Charts and map chrome: labels, grids, legends and floating values. */
+[data-theme="light"] :is(.chart-wrap,.line-chart-wrap,.an-risk-chart-area,.chart-container,.chart-card){background:var(--surface-primary);color:var(--chart-text);box-shadow:inset 0 0 0 1px var(--border-color)}
+[data-theme="light"] :is(.chart-legend,.legend,.axis-label,.chart-label,.chart-caption){color:var(--chart-text)}
+[data-theme="light"] :is(.chart-grid,.grid-line){stroke:var(--border-color)}
+[data-theme="light"] :is(.chart-axis,.axis-line){stroke:var(--border-strong)}
+[data-theme="light"] :is(.chart-axis text,.chart-label text,.chart-legend text){fill:var(--chart-text)}
+[data-theme="light"] .leaflet-container{background:var(--bg-secondary);color:var(--text-primary);border-color:var(--border-color)}
+[data-theme="light"] .leaflet-control{border-color:var(--border-color)!important;box-shadow:var(--command-shadow)!important}
+[data-theme="light"] .leaflet-control a{background:var(--surface-primary)!important;color:var(--text-primary)!important;border-color:var(--border-color)!important}
+[data-theme="light"] .leaflet-control a:hover{background:var(--hover-bg)!important;color:var(--brand-primary)!important}
+
+/* Dialog surfaces and overlays must not inherit the near-black base panels. */
+[data-theme="light"] :is(.modal,.drawer){background:rgba(16,43,63,.34)}
+[data-theme="light"] :is(.modal-content,.detail-modal-box,.escalation-preview-modal,.drawer-content,.drawer-panel){background:var(--surface-primary);color:var(--text-primary);border-color:var(--border-color);box-shadow:0 24px 64px rgba(16,43,63,.18)}
+[data-theme="light"] :is(.modal-content p,.drawer-content p,.detail-modal-box p,.escalation-preview-modal p){color:var(--text-secondary)}
+
+/* Final readability safety net for native and generated supporting copy. */
+[data-theme="light"] :is(small,caption,figcaption,.meta,.subtitle,.description,.helper-text,.hint,.timestamp){color:var(--label-text)}
+[data-theme="light"] :is(.empty-state,.no-data,.loading-state){color:var(--text-secondary)}
+[data-theme="light"] :is(a:not(.nav-item):not(.login-btn),.text-link){color:var(--brand-primary)}
+[data-theme="light"] :is(a:not(.nav-item):not(.login-btn),.text-link):hover{color:var(--brand-deep)}
