@@ -10,7 +10,7 @@
 [data-theme="light"] {
   /* Mayadeen Colours & Patterns — light semantic tokens only. */
   --bg-primary:#f4f7f8;--bg-secondary:#eaf0f2;--surface-primary:#ffffff;--surface-secondary:#f8fafb;
-  --text-primary:#102b3f;--text-secondary:#526575;--text-tertiary:#70818d;--border-color:#d7e1e5;--border-strong:#bdccd2;
+  --text-primary:#102b3f;--text-secondary:#526575;--text-tertiary:#61727e;--border-color:#d7e1e5;--border-strong:#bdccd2;
   --brand-primary:#174f67;--brand-secondary:#008c89;--brand-accent:#72569b;--brand-deep:#123f53;
   --hover-bg:#e9f1f3;--active-bg:#dce9ed;--focus-ring:rgba(23,79,103,.20);--shadow-color:rgba(16,43,63,.10);
   --white:#ffffff;--overlay:rgba(255,255,255,.94);--surface-tint:rgba(23,79,103,.045);--surface-tint-strong:rgba(23,79,103,.09);
@@ -118,3 +118,38 @@
 [data-theme="light"] .modal,[data-theme="light"] .modal-content,[data-theme="light"] [class*="-modal"],[data-theme="light"] [class*="-popover"],[data-theme="light"] [class*="-dropdown"]{color:var(--text-primary)}
 [data-theme="light"] :is(.escalation-preview-modal,.detail-modal-box,.modal-content,[class*="-popover"],[class*="-dropdown"]){background:var(--surface-primary);border-color:var(--border-color);box-shadow:0 18px 50px var(--shadow-color)}
 [data-theme="light"] .leaflet-popup-content-wrapper,[data-theme="light"] .leaflet-popup-tip{background:var(--white)!important;color:var(--text-primary)!important}
+
+/* Final light-mode legibility pass. These selectors intentionally stay beneath
+   [data-theme="light"] so the approved dark palette remains byte-for-byte intact. */
+[data-theme="light"] :is(.login h1,.login-brand-text h2,.input-group label,.detail-grid b,.achievement-title,.owner-card b,.readiness-item-label,.forecast-val,.phase-projection-footer b,.workflow-step b,.workflow-meta b,.ops-link-card b,.audit-item b,.automation-rule b,.ownership-cell b,.person-card h3,.person-metrics b,.control-node b,.daily-brief-box,.task-date-chip b){color:var(--text-primary)}
+[data-theme="light"] :is(.login-sub,.login-brand-text p,.sec-title span,.exec-meta-item span,.schedule-stat span,.achievement-code,.countdown-details span,.readiness-item-note,.forecast-label,.phase-projection-footer,.workflow-meta span,.ops-link-card span,.audit-item span,.automation-rule span,.ownership-cell span,.person-card p,.control-node span){color:var(--text-secondary)}
+
+[data-theme="light"] :is(.login-card,.detail-modal-box,.escalation-preview-modal){background:var(--surface-primary);border-color:var(--border-color)}
+[data-theme="light"] .login-card::before{background:linear-gradient(135deg,var(--white),var(--brand-border),var(--teal-soft),transparent)}
+[data-theme="light"] .login-btn{background:var(--brand-primary);color:var(--white);border-color:var(--brand-primary)}
+[data-theme="light"] .login-btn:hover,[data-theme="light"] .login-btn:active{background:var(--brand-deep);border-color:var(--brand-deep)}
+[data-theme="light"] .login-error{background:var(--danger-soft);color:var(--danger);border-color:var(--danger-border)}
+
+[data-theme="light"] :is(.achievement-item,.owner-card,.workflow-step,.workflow-meta,.ops-link-card,.task-date-chip){background:var(--surface-secondary);border-color:var(--border-color)}
+[data-theme="light"] :is(.achievement-item,.owner-card,.ops-link-card,.task-date-chip):hover{background:var(--hover-bg);border-color:var(--border-strong)}
+[data-theme="light"] :is(.readiness-track,.forecast-track,.workflow-track){background:var(--bg-secondary);border-color:var(--border-color)}
+
+/* Status text uses dedicated light tokens rather than the luminous dark-mode
+   accents. This also covers badges generated dynamically by the dashboards. */
+[data-theme="light"] :is(.commitment-due.overdue,.escalation-preview-error,.escalate-btn,.risk-critical,.status-error){color:var(--danger)}
+[data-theme="light"] :is(.escalation-preview-error,.escalate-btn){background:var(--danger-soft);border-color:var(--danger-border)}
+[data-theme="light"] :is(.workflow-step.done .num,.status-success){color:var(--success);background:var(--success-soft)}
+[data-theme="light"] :is(.workflow-step.active .num,.status-warning){color:var(--warning);background:var(--warning-soft)}
+[data-theme="light"] :is(.workflow-step .num,.achievement-code){color:var(--brand-primary)}
+
+/* The operations-room view has its own fixed dark canvas in the base design;
+   provide a complete light counterpart without touching that base styling. */
+[data-theme="light"] .war-room{background:var(--bg-primary);color:var(--text-primary);border-color:var(--border-color)}
+[data-theme="light"] .war-header h1,[data-theme="light"] .war-card h2{color:var(--text-primary)}
+[data-theme="light"] .war-clock{color:var(--brand-primary)}
+[data-theme="light"] .matrix-table th{background:var(--brand-deep);color:var(--white);border-color:var(--brand-deep)}
+[data-theme="light"] .matrix-table td{background:var(--surface-primary);color:var(--text-primary);border-color:var(--border-color)}
+
+/* Native hints and floating help must remain readable wherever they appear. */
+[data-theme="light"] :is([title],[data-tooltip]){--tooltip-text:var(--text-primary);--tooltip-bg:var(--surface-primary)}
+[data-theme="light"] :is(.tooltip,.chartjs-tooltip,[role="tooltip"]){background:var(--brand-deep)!important;color:var(--white)!important;border-color:var(--brand-deep)!important}
