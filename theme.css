@@ -24,6 +24,11 @@
   --brand:var(--brand-primary);--brand2:var(--brand-accent);--brand3:var(--brand-deep);--line:var(--border-color);
   --shadow:0 10px 28px var(--shadow-color),0 1px 3px rgba(16,43,63,.06);--glow-brand:0 8px 24px var(--shadow-color);--glow-green:0 8px 24px var(--success-soft);
   --green:var(--success);--yellow:var(--warning);--red:var(--danger);--blue:var(--info);--cyan:var(--brand-secondary);--orange:#a9501d;
+  /* Text roles are deliberately local to light mode.  Components must not
+     fall back to the luminous neutral colours used by the approved dark UI. */
+  --text-muted:#526575;--table-text:#102b3f;--table-header:#ffffff;
+  --card-text:#102b3f;--label-text:#405667;--placeholder-text:#526575;
+  --badge-text:#102b3f;--tab-text:#334d60;--chart-text:#405667;
 }
 
 .theme-toggle{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;position:relative;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;padding:0;transition:var(--tr)}
@@ -153,3 +158,43 @@
 /* Native hints and floating help must remain readable wherever they appear. */
 [data-theme="light"] :is([title],[data-tooltip]){--tooltip-text:var(--text-primary);--tooltip-bg:var(--surface-primary)}
 [data-theme="light"] :is(.tooltip,.chartjs-tooltip,[role="tooltip"]){background:var(--brand-deep)!important;color:var(--white)!important;border-color:var(--brand-deep)!important}
+
+/* Exhaustive light text roles -------------------------------------------------
+   The source dashboard contains several late, feature-specific style blocks.
+   Keeping this final audit layer light-scoped prevents those blocks (and
+   dynamically rendered markup using their classes) from restoring dark-mode
+   neutral colours. */
+[data-theme="light"] :is(.card,.health-card,.phase-card,.phase-insight-card,.phase-status-banner,.phase-timeline,.kpi-card,.ac-kpi,.risk-kpi,.dec-kpi,.ops-snapshot-card,.exec-meta-card,.exec-alert-card,.schedule-card,.achievements-card){color:var(--card-text)}
+[data-theme="light"] :is(.health-phase,.health-meta,.chart-center-label .small,.phase-desc,.phase-stat small,.timeline-head div,.phase-progress-subtitle,.phase-progress-summary-label,.phase-progress-summary-date small,.milestone-date .mon,.insight-text span,.achievement-date,.legend-pct-sub,.alert-rank,.readiness-item-note){color:var(--label-text)}
+[data-theme="light"] :is(.esb-metric small,.esb-sync,.esb-sync b,.esb-decision-text,.sidebar-brand-text span,.days-label,.topbar-datetime .time,.user-badge span,.phase-home-dots span){color:var(--label-text)}
+
+[data-theme="light"] :is(.data-table,.matrix-table){color:var(--table-text)}
+[data-theme="light"] :is(.data-table td,.matrix-table td){color:var(--table-text)!important}
+[data-theme="light"] :is(.data-table th,.matrix-table th){color:var(--table-header)!important}
+[data-theme="light"] :is(.data-table td small,.matrix-table td small,.dq-detail-item b){color:var(--label-text)}
+
+[data-theme="light"] :is(.pill,.status-badge,.risk-badge,.milestone-badge,.schedule-status-badge,.phase-status-badge,.task-date-chip,.alert-rank){opacity:1}
+[data-theme="light"] :is(.phase-status-badge,.task-date-chip,.alert-rank){color:var(--badge-text)}
+[data-theme="light"] :is(.tabs,.tab-list,[role="tablist"]){color:var(--tab-text)}
+[data-theme="light"] :is(.tab,[role="tab"]){color:var(--tab-text)}
+[data-theme="light"] :is(.tab.active,[role="tab"][aria-selected="true"]){color:var(--brand-primary)}
+
+/* Phase cards use a separate, late CSS block with hard-coded dark neutrals. */
+[data-theme="light"] #phases :is(.phase-executive-item b,.phase-card-head h2,.phase-percent b,.phase-card-metric b,.phase-executive-line b,.phase-quick-fact b){color:var(--text-primary)}
+[data-theme="light"] #phases :is(.phase-percent small,.phase-health,.phase-card-metric-icon,.phase-card-metric small,.phase-executive-line,.phase-quick-fact span){color:var(--label-text)}
+[data-theme="light"] #phases :is(.phase-stage,.phase-detail-toggle){color:var(--tab-text)}
+[data-theme="light"] #phases :is(.phase-stage:hover,.phase-stage.is-selected,.phase-stage.is-current,.phase-detail-toggle:hover){color:var(--brand-primary)}
+[data-theme="light"] #phases .phase-status-badge{background:var(--bg-secondary);border-color:var(--border-color);color:var(--badge-text)}
+
+/* Dialogs, generated popups, maps and transient messages. */
+[data-theme="light"] :is(.escalation-preview-modal h2,.escalation-preview-cell b,.escalation-preview-form label,.detail-modal-box h2,.modal-content h2,.fes-map-popup h3,.fes-map-popup dd){color:var(--text-primary)}
+[data-theme="light"] :is(.escalation-preview-cell small,.detail-grid small,.fes-map-popup dt){color:var(--label-text)}
+[data-theme="light"] :is(.app-toast,.login-error){color:var(--danger);background:var(--danger-soft);border-color:var(--danger-border)}
+[data-theme="light"] :is(.fes-map-popup,.map-legend){background:var(--surface-primary);color:var(--chart-text);border-color:var(--border-color)}
+
+/* Inline neutral colours occur in server/dynamic templates.  Restrict the
+   compatibility mapping to known dark neutral literals; semantic status and
+   button colours are intentionally excluded. */
+[data-theme="light"] :is([style*="color:#eef1ff"],[style*="color: #eef1ff"],[style*="color:#eaf0ff"],[style*="color: #eaf0ff"],[style*="color:#d8e4ff"],[style*="color:#d0d8f0"],[style*="color:#c4d0f0"],[style*="color:#c4b5fd"],[style*="color:#d8ccff"],[style*="color:#e8edfb"]){color:var(--text-primary)!important}
+[data-theme="light"] :is([style*="color:#aab6d6"],[style*="color:#a8b4d0"],[style*="color:#9eacd0"],[style*="color:#9aa6bf"],[style*="color:#91a0c1"],[style*="color:#8d99b4"],[style*="color:#8793ac"],[style*="color:#7f8ba6"],[style*="color:var(--muted)"],[style*="color: var(--muted)"]){color:var(--label-text)!important}
+[data-theme="light"] :is(input,textarea)::placeholder{color:var(--placeholder-text)!important;opacity:1!important}
