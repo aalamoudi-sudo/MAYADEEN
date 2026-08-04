@@ -1,5 +1,6 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Mayadeen Project Command Center</title>
+<script src="theme.js"></script>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
 <script src="auth-state.js"></script>
@@ -1466,7 +1467,9 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 @media(max-width:1250px){#phases .phase-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:900px){#phases .phase-stage-track{overflow-x:auto;grid-template-columns:repeat(5,130px)}#phases .phase-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#phases .phase-cards{grid-template-columns:1fr}#phases .phase-summary-card.is-expanded{grid-column:auto}#phases .phase-card-details{grid-template-columns:1fr}}
-</style></head>
+</style>
+<link rel="stylesheet" href="theme.css"/>
+</head>
 <body>
 
 <!-- LOGIN -->
@@ -1600,6 +1603,10 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <input id="globalSearch" placeholder="ابحث عن مهمة، مسؤول، مرحلة..." oninput="globalSearchFn(this.value)"/>
       </div>
       <div class="topbar-left">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="تفعيل الوضع الفاتح" title="تفعيل الوضع الفاتح">
+          <span class="theme-toggle-icon theme-toggle-sun" aria-hidden="true">☀</span>
+          <span class="theme-toggle-icon theme-toggle-moon" aria-hidden="true">☾</span>
+        </button>
         <button class="ops-mini-btn" id="manualRefreshBtn" onclick="manualRefreshNow()" title="تجاوز الانتظار وقراءة أحدث بيانات من الشيت فوراً">↻ تحديث البيانات الآن</button>
         <div class="status-badge loading" id="sheetStatus">
           <span class="status-dot"></span>
