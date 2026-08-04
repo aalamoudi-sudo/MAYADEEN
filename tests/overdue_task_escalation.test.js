@@ -1,0 +1,42 @@
+const test=require('node:test'); const assert=require('node:assert/strict'); const fs=require('node:fs');
+const ui=fs.readFileSync('index.html','utf8'), gs=fs.readFileSync('apps-script/Code.gs','utf8'), chain=fs.readFileSync('data/escalation_chain_register_template.csv','utf8'), users=fs.readFileSync('data/user_access_matrix_template.csv','utf8');
+const has=(source,re)=>assert.match(source,re);
+test('1 allowed UI users',()=>has(ui,/\['atheer','ahmad\.amoudi','abdulaziz\.obaid'\]/));
+test('2 viewer excluded',()=>assert.doesNotMatch(ui,/OVERDUE_TASK_ESCALATION_ALLOWED_USERNAMES=.*viewer/));
+test('3 Ahmad route',()=>has(gs,/actorUsername === 'ahmad\.amoudi'\) targetUsername = 'abdulaziz\.obaid'/));
+test('4 Abdulaziz route',()=>has(gs,/actorUsername === 'abdulaziz\.obaid'\) targetUsername = 'ahmad\.amoudi'/));
+test('5 Atheer choices',()=>has(gs,/\['ahmad\.amoudi', 'abdulaziz\.obaid'\]\.indexOf\(targetUsername\)/));
+test('6 self route rejected',()=>has(gs,/targetUsername === actorUsername/));
+test('7 delegated open',()=>has(ui,/closest\('\.overdue-escalate-trigger'\)/));
+test('8 final HTML preview',()=>has(ui,/id="overdue-email-preview"/));
+test('9 shared urgent body',()=>has(gs,/buildUrgentTaskEmailBody_\(task\)/));
+test('10 preview has no API call',()=>{const x=ui.slice(ui.indexOf('function confirmOverdueTaskEscalation'),ui.indexOf('async function submitOverdue'));assert.doesNotMatch(x,/postApi/)});
+test('11 submit in-flight guard',()=>has(ui,/overdueEscalationSubmitting/));
+test('12 one target address',()=>has(gs,/to: item\.email_to/));
+test('13 empty CC',()=>has(gs,/cc: ''/));
+test('14 Atheer-only BCC',()=>has(gs,/bcc: item\.email_bcc/));
+test('15 mail failure propagated',()=>has(gs,/throw new Error\('فشل إرسال بريد التصعيد:/));
+test('16 sent status and time',()=>has(gs,/email_status = 'Sent'; item\.email_sent_at/));
+test('17 complete register headers',()=>has(gs,/Escalated By Username.*Email Error.*Created At/));
+test('18 audit success and failure',()=>{has(gs,/status:'success'/);has(gs,/status:'failed'/)});
+test('19 open duplicate rejected',()=>has(gs,/يوجد تصعيد مفتوح مسبقًا/));
+test('20 completed statuses rejected',()=>has(gs,/مكتمل\|completed\|done\|closed/));
+test('21 overdue validation',()=>has(gs,/لا يمكن تصعيد مهمة غير متأخرة/));
+test('22 task escalation merged into sync',()=>has(gs,/escalations: escalations\.concat\(taskEscalations\)/));
+test('23 separate custom level',()=>has(gs,/level:'تصعيد مهمة متأخرة'/));
+test('24 L1 chain',()=>has(chain,/L1,تصعيد تشغيلي,منذر الأنصاري \+ عبدالله المرحوم/));
+test('25 L2 chain',()=>has(chain,/L2,تصعيد PMO\/جودة,أحمد العامودي \+ شهد الخزيم/));
+test('official usernames corrected',()=>{has(users,/abdullah\.almarhoom,,,,عبدالله المرحوم/);has(users,/shahad\.abdullah,,,,شهد الخزيم/)});
+test('no overdue inline handlers',()=>{assert.doesNotMatch(ui,/onclick="[^"]*(confirmOverdueTaskEscalation|submitOverdueTaskEscalation)/)});
+test('Atheer visibility depends on authenticated username, not recipient config',()=>{
+  const fn=ui.slice(ui.indexOf('function canEscalateOverdueTask(){'),ui.indexOf('function isOverdueTasksView(){'));
+  assert.match(fn,/currentUser\?\.username/);
+  assert.doesNotMatch(fn,/overdueEscalationConfig\.allowed/);
+});
+test('button requires an overdue non-completed candidate',()=>{
+  has(ui,/showEscalate=canEscalateOverdueTask\(\)&&isOverdueTasksView\(\)&&isOverdueEscalationCandidate\(r\)/);
+  has(ui,/classifyStatus\(task\)==='متأخرة'&&classifyStatus\(task\)!=='مكتملة'/);
+});
+test('session payload exposes stable identity fields used by authorization',()=>{
+  has(gs,/username: user\.username[\s\S]*email: user\.email[\s\S]*role: user\.role/);
+});

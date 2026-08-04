@@ -123,6 +123,7 @@ function buildDashboardData_(session) {
   const approvalChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName);
   const escalationChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName);
   const escalations = deduplicateEscalationsById_(getExistingEscalationRows_(spreadsheet));
+  const taskEscalations = getTaskEscalationRows_(spreadsheet);
   const riskGovernance = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName);
   const assignments = getAssignmentRows_(spreadsheet);
   const meetings = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.meetingsSheetName);
@@ -147,7 +148,8 @@ function buildDashboardData_(session) {
     approvals: approvals,
     approval_chain: approvalChain,
     escalation_chain: escalationChain,
-    escalations: escalations,
+    escalations: escalations.concat(taskEscalations),
+    overdue_escalation_config: buildOverdueEscalationClientConfig_(session, spreadsheet),
     risk_governance: riskGovernance,
     assignments: assignments,
     meetings: meetings,
@@ -927,8 +929,8 @@ function getDefaultUsers_() {
     { username: 'atheer', display_name: 'أثير الثبيتي', email: '', role: 'admin', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
     { username: 'ahmad.amoudi', display_name: 'أحمد العامودي', email: 'a.alamoudi@mayadeen.sa', role: 'PMO', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
     { username: 'abdulaziz.obaid', display_name: 'عبدالعزيز العبيد', email: 'A.alobed@mayadeen.sa', role: 'مشرف عام داخلي', access_level: 'executive', path_scope: 'executive', allowed_pages: execPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
-    { username: 'ahmad.muhaysin', display_name: 'عبدالله المرحوم', email: '', role: 'مدير المشروع', access_level: 'manager', path_scope: 'all_delivery', allowed_pages: pmPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
-    { username: 'bandar.alhaydhah', display_name: 'بندر الهضيبة', email: 'b.alhaydhah@mayadeen.sa', role: 'مدير الجودة والمخاطر', access_level: 'control', path_scope: 'quality_risk', allowed_pages: 'overview,risksMgmt,approvals,actions,escalationHub,projectHealth,analytics,fileControl,smartReminders', can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
+    { username: 'abdullah.almarhoom', display_name: 'عبدالله المرحوم', email: '', role: 'مدير المشروع', access_level: 'manager', path_scope: 'all_delivery', allowed_pages: pmPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
+    { username: 'shahad.abdullah', display_name: 'شهد الخزيم', email: '', role: 'مدير الجودة والمخاطر', access_level: 'control', path_scope: 'quality_risk', allowed_pages: 'overview,risksMgmt,approvals,actions,escalationHub,projectHealth,analytics,fileControl,smartReminders', can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
     { username: 'mohammed.shalabi', display_name: 'محمد شلبي', email: '', role: 'مدير الحدث', access_level: 'event_manager', path_scope: 'field_event', allowed_pages: eventPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
     { username: 'munther.alansari', display_name: 'منذر الأنصاري', email: 'm.alansari@mayadeen.sa', role: 'منسق المشروع', access_level: 'coordinator', path_scope: 'coordination', allowed_pages: coordinatorPages, can_approve: 'FALSE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
     { username: 'sara.alshahri', display_name: 'سارة الشهري', email: '', role: 'مدير الحساب والعلاقات الحكومية', access_level: 'government_account', path_scope: 'government', allowed_pages: 'overview,tasks,approvals,escalationHub,meetingsHub,commitmentsHub,fileControl,smartReminders', can_approve: 'FALSE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
@@ -938,7 +940,6 @@ function getDefaultUsers_() {
     { username: 'ibrahim.almaghrabi', display_name: 'إبراهيم المغربي', email: '', role: 'مسار المحتوى', access_level: 'workstream', path_scope: 'content', allowed_pages: workstreamPages, can_approve: 'FALSE', can_escalate: 'FALSE', can_manage_users: 'FALSE' },
     { username: 'mohammed.imad', display_name: 'محمد عماد', email: '', role: 'مسار النقل واللوجستيات', access_level: 'workstream', path_scope: 'transport_logistics', allowed_pages: workstreamPages, can_approve: 'FALSE', can_escalate: 'FALSE', can_manage_users: 'FALSE' },
     { username: 'joseph.haddad', display_name: 'جوزيف حداد', email: '', role: 'مسار التنفيذ', access_level: 'workstream', path_scope: 'delivery', allowed_pages: workstreamPages, can_approve: 'FALSE', can_escalate: 'FALSE', can_manage_users: 'FALSE' },
-    { username: 'shahad.abdullah', display_name: 'شهد عبدالله', email: '', role: 'مسار التصميم', access_level: 'workstream', path_scope: 'design', allowed_pages: workstreamPages, can_approve: 'FALSE', can_escalate: 'FALSE', can_manage_users: 'FALSE' },
     { username: 'abdullah.almarhoon', display_name: 'عبدالله المرحون', email: '', role: 'مسار البروتوكول والحشود', access_level: 'workstream', path_scope: 'protocol_crowd', allowed_pages: workstreamPages, can_approve: 'FALSE', can_escalate: 'FALSE', can_manage_users: 'FALSE' }
   ];
 }
@@ -1218,7 +1219,16 @@ function urgentTaskFromRow_(headers, row, rowNumber) {
 }
 
 function sendUrgentTaskEmail_(task) {
-  const body = [
+  const body = buildUrgentTaskEmailBody_(task);
+
+  GmailApp.sendEmail(task.email, 'تم إسناد مهمة مستعجلة', body, {
+    from: 'support.services@mayadeen.sa'
+  });
+}
+
+// المصدر المشترك للنص الثابت المعتمد في إشعارات المهام. لا يغير بريد المهام المستعجلة.
+function buildUrgentTaskEmailBody_(task) {
+  return [
     'السلام عليكم،',
     '',
     'تم إسناد مهمة مستعجلة، يرجى الاطلاع على التفاصيل التالية واتخاذ اللازم:',
@@ -1232,10 +1242,6 @@ function sendUrgentTaskEmail_(task) {
     'مع التحية،',
     'فريق الدعم والخدمات'
   ].join('\n');
-
-  GmailApp.sendEmail(task.email, 'تم إسناد مهمة مستعجلة', body, {
-    from: 'support.services@mayadeen.sa'
-  });
 }
 
 function requireSupportSender_() {
@@ -1629,12 +1635,12 @@ function appendEventSiteAudit_(action, session, siteId, oldValues, newValues) {
 
 
 function getTaskEscalationHeaders_() {
-  return ['Escalation ID', 'Task ID', 'Task Name', 'Current Owner', 'Escalated By', 'Escalated To', 'Escalation Date', 'Reason', 'Status', 'Created At'];
+  return ['Escalation ID', 'Task ID', 'Task Name', 'Current Owner', 'Escalated By Username', 'Escalated By Name', 'Escalated To Username', 'Escalated To Name', 'Escalation Date', 'Reason', 'Notes', 'Status', 'Email To', 'Email CC', 'Email BCC', 'Email Status', 'Email Sent At', 'Email Error', 'Created At'];
 }
 
 function isOverdueTaskEscalationUser_(session) {
   const username = String((session && session.username) || '').trim().toLowerCase();
-  return ['ahmad.amoudi', 'atheer'].indexOf(username) !== -1;
+  return ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid'].indexOf(username) !== -1;
 }
 
 function requireOverdueTaskEscalationUser_(session) {
@@ -1666,31 +1672,85 @@ function findOfficialTaskForEscalation_(taskId) {
   return task;
 }
 
-function sendOverdueTaskEscalationEmail_(item) {
-  const to = 'A.alobed@mayadeen.sa';
-  if (!to) return;
+function isValidEmail_(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function getOfficialUserForEscalation_(username, ss) {
+  const sheet = (ss || SpreadsheetApp.openById(SPREADSHEET_ID)).getSheetByName(KAG_CONFIG.usersSheetName);
+  if (!sheet) throw new Error('تعذر قراءة User Access Matrix.');
+  const rows = readRegisterRowsFromSheet_(sheet, KAG_CONFIG.usersSheetName);
+  const user = rows.find(function(row) { return String(row.username || '').trim().toLowerCase() === username; });
+  if (!user) throw new Error('المستخدم المعتمد غير موجود في User Access Matrix: ' + username);
+  return user;
+}
+
+function resolveOverdueEscalationRoute_(session, requestedUsername, ss) {
+  requireOverdueTaskEscalationUser_(session);
+  const actorUsername = String(session.username || '').trim().toLowerCase();
+  var targetUsername = '';
+  if (actorUsername === 'ahmad.amoudi') targetUsername = 'abdulaziz.obaid';
+  if (actorUsername === 'abdulaziz.obaid') targetUsername = 'ahmad.amoudi';
+  if (actorUsername === 'atheer') {
+    targetUsername = String(requestedUsername || '').trim().toLowerCase();
+    if (['ahmad.amoudi', 'abdulaziz.obaid'].indexOf(targetUsername) === -1) throw new Error('يجب على أثير اختيار أحمد العامودي أو عبدالعزيز العبيد.');
+  }
+  if (!targetUsername || targetUsername === actorUsername) throw new Error('لا يجوز للمستخدم التصعيد إلى نفسه.');
+  const target = getOfficialUserForEscalation_(targetUsername, ss);
+  const atheer = getOfficialUserForEscalation_('atheer', ss);
+  if (!isValidEmail_(target.email)) throw new Error('بريد مستلم التصعيد مفقود أو غير صالح في User Access Matrix.');
+  if (!isValidEmail_(atheer.email)) throw new Error('بريد أثير الثبيتي مفقود أو غير صالح في User Access Matrix.');
+  return { target: target, atheer: atheer, cc: '' };
+}
+
+function buildOverdueEscalationClientConfig_(session, ss) {
+  if (!isOverdueTaskEscalationUser_(session)) return { allowed: false };
+  const username = String(session.username || '').toLowerCase();
+  const choices = username === 'atheer' ? ['ahmad.amoudi', 'abdulaziz.obaid'] : [username === 'ahmad.amoudi' ? 'abdulaziz.obaid' : 'ahmad.amoudi'];
+  return { allowed: true, actor_username: username, recipients: choices.map(function(u) { const x = getOfficialUserForEscalation_(u, ss); return { username: u, display_name: x.display_name || u, email: x.email || '' }; }), bcc: (function() { const x = getOfficialUserForEscalation_('atheer', ss); return { display_name: x.display_name || 'أثير الثبيتي', email: x.email || '' }; })() };
+}
+
+function buildOverdueTaskEscalationEmail_(item) {
   const body = [
-    'السلام عليكم عبدالعزيز العبيد،',
+    'الأستاذ/ة ' + item.escalated_to_name + ' المحترم/ة،',
     '',
-    'تم تصعيد مهمة متأخرة إليكم من منصة Mayadeen Project Command Center:',
+    'نفيدكم بأنه تم تصعيد المهمة الموضحة أدناه نظرًا لتجاوز تاريخ الاستحقاق، ونأمل الاطلاع واتخاذ الإجراء المناسب.',
     '',
+    'اسم المشروع: ' + (item.project || '-'),
+    'كود المهمة: ' + (item.task_id || '-'),
     'اسم المهمة: ' + (item.task_name || '-'),
-    'رقم المهمة: ' + (item.task_id || '-'),
+    'المسار: ' + (item.path || '-'),
     'المسؤول الحالي: ' + (item.current_owner || '-'),
-    'تاريخ الاستحقاق: ' + (item.due_date || '-'),
-    'قام بالتصعيد: ' + (item.escalated_by || '-'),
+    'تاريخ البداية المخطط: ' + (item.planned_start || '-'),
+    'تاريخ النهاية المخطط: ' + (item.due_date || '-'),
+    'عدد أيام التأخير: ' + (item.delay_days || '0'),
+    'الحالة الحالية: ' + (item.task_status || '-'),
     'سبب التصعيد: ' + (item.reason || '-'),
-    item.notes ? ('ملاحظات إضافية: ' + item.notes) : '',
+    'الملاحظات: ' + (item.notes || '-'),
+    'تم التصعيد بواسطة: ' + (item.escalated_by_name || '-'),
+    'تم التصعيد إلى: ' + (item.escalated_to_name || '-'),
+    'تاريخ ووقت التصعيد: ' + (item.escalation_date || '-'),
+    item.task_url ? ('رابط المهمة أو المنصة: ' + item.task_url) : '',
     '',
-    'مع التحية'
-  ].join('\n');
-  MailApp.sendEmail({ to: to, subject: '[Mayadeen] تصعيد مهمة متأخرة: ' + (item.task_id || ''), body: body, name: 'Mayadeen Command Center' });
+    'تم تنفيذ التصعيد بواسطة: ' + (item.escalated_by_name || '-'),
+    'تاريخ التصعيد: ' + (item.escalation_date || '-'),
+    '',
+    'هذا إشعار آلي صادر من منصة Mayadeen.'
+  ].filter(function(line) { return line !== ''; }).join('\n\n');
+  const htmlBody = '<div dir="rtl" style="direction:rtl;text-align:right;white-space:pre-wrap;font-family:Arial,Tahoma,sans-serif;line-height:1.8;color:#222">' + escapeHtmlEmail_(body) + '</div>';
+  return { subject: 'تصعيد مهمة متأخرة | ' + item.task_id + ' | ' + item.task_name, body: body, htmlBody: htmlBody };
+}
+
+function escapeHtmlEmail_(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function escalateOverdueTask_(payload, session) {
   requireOverdueTaskEscalationUser_(session);
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const task = findOfficialTaskForEscalation_(payload.task_id || payload.taskId);
   if (!isTaskOverdueForEscalation_(task)) throw new Error('لا يمكن تصعيد مهمة غير متأخرة.');
+  const route = resolveOverdueEscalationRoute_(session, payload.escalated_to, ss);
   const sheet = ensureRegisterSheet_(KAG_CONFIG.taskEscalationsSheetName, getTaskEscalationHeaders_());
   const now = new Date();
   const escalationId = 'TES-' + Utilities.getUuid();
@@ -1698,25 +1758,49 @@ function escalateOverdueTask_(payload, session) {
   const taskName = String(getField_(task, WBS_FIELD_ALIASES.taskName) || '').trim();
   const currentOwner = String(getField_(task, WBS_FIELD_ALIASES.owner) || '').trim();
   const actor = session.display_name || session.username;
+  const escalationDate = Utilities.formatDate(now, KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss');
+  const existing = getTaskEscalationRows_(ss).some(function(row) { return String(row.itemId) === taskId && String(row.toUsername) === String(route.target.username) && String(row.status).toLowerCase() === 'open'; });
+  if (existing) throw new Error('يوجد تصعيد مفتوح مسبقًا لنفس المهمة ونفس المستلم.');
   const item = {
     escalation_id: escalationId,
     task_id: taskId,
     task_name: taskName,
     current_owner: currentOwner,
-    escalated_by: actor,
-    escalated_to: 'عبدالعزيز العبيد',
-    escalated_to_username: 'abdulaziz.obaid',
-    escalation_date: Utilities.formatDate(now, KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
-    reason: String(payload.reason || '').trim() || 'تصعيد مهمة متأخرة إلى عبدالعزيز العبيد',
+    escalated_by_username: String(session.username || '').toLowerCase(), escalated_by_name: actor,
+    escalated_to_username: String(route.target.username), escalated_to_name: route.target.display_name || route.target.username,
+    escalation_date: escalationDate,
+    reason: String(payload.reason || '').trim() || 'تجاوز تاريخ الاستحقاق',
     notes: String(payload.notes || '').trim(),
     status: 'Open',
     created_at: now,
-    due_date: getField_(task, WBS_FIELD_ALIASES.plannedEnd) || ''
+    due_date: getField_(task, WBS_FIELD_ALIASES.plannedEnd) || '', planned_start: getField_(task, WBS_FIELD_ALIASES.plannedStart) || '',
+    project: getField_(task, ['اسم المشروع', 'project', 'project_name']) || '', path: getField_(task, WBS_FIELD_ALIASES.mainPath) || '',
+    delay_days: getField_(task, WBS_FIELD_ALIASES.delayDays) || '', task_status: getField_(task, WBS_FIELD_ALIASES.status) || getField_(task, WBS_FIELD_ALIASES.computedStatus) || '',
+    task_url: String(payload.task_url || '').trim(), email_to: route.target.email, email_cc: '', email_bcc: route.atheer.email,
+    email_status: 'Pending', email_sent_at: '', email_error: ''
   };
-  sheet.appendRow([item.escalation_id, item.task_id, item.task_name, item.current_owner, item.escalated_by, item.escalated_to, item.escalation_date, item.reason, item.status, item.created_at]);
-  appendAuditLog_({ action: 'ESCALATE_OVERDUE_TASK', operation: 'escalate', record: item.task_id, title: item.task_name, updated_by: actor, escalated_to: item.escalated_to, reference: item.escalation_id, status: 'success' });
-  try { sendOverdueTaskEscalationEmail_(item); } catch (mailErr) { Logger.log('Overdue task escalation email skipped/failed: ' + mailErr); }
+  sheet.appendRow([item.escalation_id,item.task_id,item.task_name,item.current_owner,item.escalated_by_username,item.escalated_by_name,item.escalated_to_username,item.escalated_to_name,item.escalation_date,item.reason,item.notes,item.status,item.email_to,item.email_cc,item.email_bcc,item.email_status,item.email_sent_at,item.email_error,item.created_at]);
+  const rowNumber = sheet.getLastRow();
+  try {
+    const email = buildOverdueTaskEscalationEmail_(item);
+    MailApp.sendEmail({ to: item.email_to, cc: '', bcc: item.email_bcc, subject: email.subject, body: email.body, htmlBody: email.htmlBody, name: 'Mayadeen Command Center' });
+    item.email_status = 'Sent'; item.email_sent_at = escalationDate;
+    sheet.getRange(rowNumber, 16, 1, 3).setValues([[item.email_status, item.email_sent_at, '']]);
+    appendAuditLog_({ action:'ESCALATE_OVERDUE_TASK', operation:'escalate', record:item.task_id, title:item.task_name, updated_by:actor, escalated_to:item.escalated_to_name, reference:item.escalation_id, status:'success' });
+  } catch (mailErr) {
+    item.status = 'Email Failed'; item.email_status = 'Failed'; item.email_error = String(mailErr && mailErr.message || mailErr);
+    sheet.getRange(rowNumber, 12).setValue(item.status);
+    sheet.getRange(rowNumber, 16, 1, 3).setValues([[item.email_status, '', item.email_error]]);
+    appendAuditLog_({ action:'ESCALATE_OVERDUE_TASK', operation:'escalate', record:item.task_id, title:item.task_name, updated_by:actor, escalated_to:item.escalated_to_name, reference:item.escalation_id, status:'failed', error:item.email_error });
+    throw new Error('فشل إرسال بريد التصعيد: ' + item.email_error);
+  }
   return item;
+}
+
+function getTaskEscalationRows_(ss) {
+  const sheet = (ss || SpreadsheetApp.openById(SPREADSHEET_ID)).getSheetByName(KAG_CONFIG.taskEscalationsSheetName);
+  if (!sheet) return [];
+  return readRegisterRowsFromSheet_(sheet, KAG_CONFIG.taskEscalationsSheetName).map(function(r) { return { id:r.escalation_id, itemId:r.task_id, itemTitle:r.task_name, itemType:'تصعيد مهمة متأخرة', from:r.escalated_by_name, to:r.escalated_to_name, toUsername:r.escalated_to_username, createdAt:r.escalation_date, reason:r.reason, level:'تصعيد مهمة متأخرة', status:r.status, center:'مركز التصعيد', emailStatus:r.email_status }; });
 }
 
 function ensureRegisterSheet_(sheetName, headers) {
@@ -1997,7 +2081,7 @@ function ensureApprovalHistorySheet_() {
 function getAllowedApprovalDecisionMakers_() {
   return [
     { display_name: 'أحمد العامودي', username: 'ahmad.amoudi' },
-    { display_name: 'عبدالله المرحوم', username: 'ahmad.muhaysin' }
+    { display_name: 'عبدالله المرحوم', username: 'abdullah.almarhoom' }
   ].map(function(allowed) {
     const matrixUser = findActiveUser_(allowed.username) || {};
     return Object.assign({}, allowed, { email: String(matrixUser.email || '').trim() });
