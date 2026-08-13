@@ -684,6 +684,55 @@ button,input,select{font-family:inherit}
 .pill.purple{background:rgba(124,92,255,.12);color:#c4b5fd;border:1px solid rgba(124,92,255,.22)}
 .pill.gray{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--line)}
 
+/* Urgent Tasks table only: preserve readable columns instead of compressing content. */
+#urgentTasksPage .urgent-tasks-table-card{
+  overflow-x:auto;
+  overflow-y:auto;
+  min-height:520px;
+  max-height:70vh;
+}
+#urgentTasksPage .urgent-tasks-table{
+  min-width:1380px;
+  table-layout:fixed;
+}
+#urgentTasksPage .urgent-tasks-table th{
+  white-space:nowrap;
+  overflow-wrap:normal;
+  word-break:normal;
+}
+#urgentTasksPage .urgent-tasks-table td{
+  overflow-wrap:normal;
+  word-break:normal;
+}
+#urgentTasksPage .urgent-task-id,
+#urgentTasksPage .urgent-task-date,
+#urgentTasksPage .urgent-task-status-cell{white-space:nowrap}
+#urgentTasksPage .urgent-task-email-list{
+  direction:ltr;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:4px;
+  min-width:0;
+}
+#urgentTasksPage .urgent-task-email{
+  direction:ltr;
+  unicode-bidi:isolate;
+  white-space:nowrap;
+  color:#9fd8ff;
+  font-size:12px;
+}
+#urgentTasksPage .urgent-task-status{
+  display:inline-flex;
+  width:max-content;
+  min-width:max-content;
+  justify-content:center;
+  white-space:nowrap;
+  overflow-wrap:normal;
+  word-break:keep-all;
+  padding:5px 11px;
+}
+
 /* ══ FILTERS ══ */
 .filters{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:10px;margin-bottom:14px}
 input,select{
@@ -1778,8 +1827,12 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <!-- PROJECT PAGE -->
       <section class="page" id="urgentTasksPage">
         <div class="page-header"><h1>المهام المستعجلة</h1><p>جميع سجلات شيت Urgent Task فقط دون فلترة حسب الحالة</p></div>
-        <div class="card" style="overflow:auto;min-height:520px;max-height:70vh">
-          <table class="data-table" id="urgentTasksTable">
+        <div class="card urgent-tasks-table-card">
+          <table class="data-table urgent-tasks-table" id="urgentTasksTable">
+            <colgroup>
+              <col style="width:100px"><col style="width:190px"><col style="width:260px"><col style="width:150px">
+              <col style="width:230px"><col style="width:140px"><col style="width:150px"><col style="width:160px">
+            </colgroup>
             <thead><tr>
               <th>ID</th><th>المهمة</th><th>الوصف</th><th>المسؤول</th><th>البريد الإلكتروني</th><th>تاريخ الإسناد</th><th>تاريخ الاستحقاق</th><th>الحالة</th>
             </tr></thead>
@@ -3921,6 +3974,19 @@ function normalizeUrgentTaskRows(data){
 function openUrgentTasks(){showPage('urgentTasksPage');renderUrgentTasksPage();}
 function urgentTaskRows(){return Array.isArray(urgentTasksRegister)?urgentTasksRegister:[];}
 function activeUrgentTasks(){return urgentTaskRows();}
+function urgentTaskStatusClass(status){
+  const value=normalizeArabic(status);
+  if(value.includes('مكتمل')||value==='تم') return 'green';
+  if(value.includes('متأخر')) return 'red';
+  if(value.includes('جاري العمل')||value.includes('قيد التنفيذ')||value.includes('قيد العمل')) return 'yellow';
+  if(value.includes('جديد')||value.includes('لم تبدأ')) return 'blue';
+  return 'gray';
+}
+function urgentTaskEmailsHtml(value){
+  const emails=String(value||'').split(/[;,،\n]+/).map(email=>email.trim()).filter(Boolean);
+  if(!emails.length) return '<span class="urgent-task-email">-</span>';
+  return emails.map(email=>`<span class="urgent-task-email">${escapeHtml(email)}</span>`).join('');
+}
 function renderUrgentTasksCard(){
   const countEl=document.getElementById('urgentTasksCount');
   const openEl=document.getElementById('urgentTasksOpenCount');
@@ -3947,14 +4013,14 @@ function renderUrgentTasksPage(){
   if(!body) return;
   const items=urgentTaskRows();
   body.innerHTML=items.map(t=>`<tr>
-    <td>${escapeHtml(t.id||'-')}</td>
+    <td class="urgent-task-id">${escapeHtml(t.id||'-')}</td>
     <td>${escapeHtml(t.task||'-')}</td>
     <td>${escapeHtml(t.description||'-')}</td>
     <td>${escapeHtml(t.owner||'-')}</td>
-    <td>${escapeHtml(t.email||'-')}</td>
-    <td>${fmt(t.assigned)}</td>
-    <td>${fmt(t.due)}</td>
-    <td><span class="pill ${normalizeArabic(t.status).includes('متأخر')?'red':'yellow'}">${escapeHtml(t.status||'-')}</span></td>
+    <td><div class="urgent-task-email-list">${urgentTaskEmailsHtml(t.email)}</div></td>
+    <td class="urgent-task-date">${fmt(t.assigned)}</td>
+    <td class="urgent-task-date">${fmt(t.due)}</td>
+    <td class="urgent-task-status-cell"><span class="pill urgent-task-status ${urgentTaskStatusClass(t.status)}">${escapeHtml(t.status||'-')}</span></td>
   </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">لا توجد مهام مستعجلة</td></tr>';
 }
 
