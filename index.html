@@ -5101,6 +5101,19 @@ function getTaskEvidence(task){
   if(!raw||invalid.some(v=>normalized===v||normalized.includes(v))) return '';
   return raw;
 }
+function isTaskEvidenceUrl(value){
+  try{
+    const url=new URL(String(value||'').trim());
+    return url.protocol==='https:'||url.protocol==='http:';
+  }catch(_error){ return false; }
+}
+function taskEvidenceHtml(task){
+  if(!isTaskCompleted(task)) return '-';
+  const evidence=getTaskEvidence(task);
+  if(!evidence) return '-';
+  if(isTaskEvidenceUrl(evidence)) return `<a class="ops-mini-btn" href="${escapeHtml(evidence)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">عرض دليل الإنجاز</a>`;
+  return `<span class="pill blue" title="مرجع دليل الإنجاز">${escapeHtml(evidence)}</span>`;
+}
 function isOfficialWbsRecord_(task){
   if(!task||isTestOrSyntheticRecord_(task)) return false;
   if(!String(task.code||task.name||'').trim()) return false;
@@ -6300,7 +6313,7 @@ function applyFilters(){
     const sc=s==='مكتملة'?'green':s==='قيد التنفيذ'?'blue':s==='متأخرة'?'red':s==='لم تبدأ'?'gray':'';
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&s==='متأخرة';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td>${escapeHtml(r.progress||'-')}</td><td>${r.evidence?`<a href="${escapeHtml(r.evidence)}" target="_blank" rel="noopener">دليل</a>`:'-'}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td>${escapeHtml(r.progress||'-')}</td><td>${taskEvidenceHtml(r)}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
 }

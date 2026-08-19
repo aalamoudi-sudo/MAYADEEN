@@ -58,6 +58,13 @@ const WBS_FIELD_ALIASES = {
 
 const EXECUTIVE_BOARD_ACCESS_DENIED = 'ليس لديك صلاحية للوصول إلى لوحة المدير العام';
 const EXECUTIVE_BOARD_ALLOWED_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid', 'abdulrahman.ceo'];
+const TASK_EVIDENCE_ALLOWED_DISPLAY_NAMES = [
+  'عبدالرحمن جارالله',
+  'أحمد العامودي',
+  'عبدالعزيز العبيد',
+  'عبدالله المرحوم',
+  'أثير الثبيتي'
+];
 
 const KAG_CONFIG = {
   timezone: 'Asia/Riyadh',
@@ -118,6 +125,7 @@ function buildDashboardData_(session) {
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   const taskRead = readOfficialWbsTasks_(spreadsheet);
   const rows = taskRead.rows;
+  const clientRows = filterTaskEvidenceForSession_(rows, session);
   const taskHeaders = taskRead.headers;
   const approvals = getApprovalRows_(spreadsheet);
   const approvalChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName);
@@ -143,7 +151,7 @@ function buildDashboardData_(session) {
     ok: true,
     generated_at: new Date().toISOString(),
     user: session ? safeUser_(session) : null,
-    rows: rows,
+    rows: clientRows,
     task_headers: taskHeaders,
     approvals: approvals,
     approval_chain: approvalChain,
@@ -180,6 +188,32 @@ function buildDashboardData_(session) {
     ' raw=' + taskRead.diagnostics.raw_row_count + ' filtered=' + taskRead.diagnostics.valid_task_count +
     ' sent=' + rows.length + ' duration_ms=' + response.sync_meta.duration_ms);
   return response;
+}
+
+function canViewTaskEvidence_(session) {
+  const displayName = normalizeHeader_((session && session.display_name) || '');
+  return TASK_EVIDENCE_ALLOWED_DISPLAY_NAMES.some(function(name) {
+    return normalizeHeader_(name) === displayName;
+  });
+}
+
+function isCompletedTaskForEvidence_(task) {
+  const status = normalizeHeader_(getField_(task || {}, WBS_FIELD_ALIASES.status));
+  return ['مكتملة', 'مكتمل', 'completed', 'done'].map(normalizeHeader_).indexOf(status) !== -1;
+}
+
+function filterTaskEvidenceForSession_(taskRows, session) {
+  const allowed = canViewTaskEvidence_(session);
+  const evidenceKeys = WBS_FIELD_ALIASES.evidence.map(normalizeHeader_);
+  return (taskRows || []).map(function(task) {
+    const filtered = Object.assign({}, task);
+    if (!allowed || !isCompletedTaskForEvidence_(task)) {
+      Object.keys(filtered).forEach(function(key) {
+        if (evidenceKeys.indexOf(normalizeHeader_(key)) !== -1) delete filtered[key];
+      });
+    }
+    return filtered;
+  });
 }
 
 function doPost(e) {
