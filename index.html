@@ -531,7 +531,7 @@ button,input,select{font-family:inherit}
 .health-status{font-size:11px;font-weight:600;margin-top:4px}
 
 /* ══ CHARTS ROW ══ */
-.charts-row{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:12px;margin-bottom:14px}
+.charts-row{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:12px;margin-bottom:14px;align-items:start}
 .chart-wrap{position:relative;height:var(--chart-h-md);display:flex;align-items:center;justify-content:center;min-height:190px;overflow:hidden}
 .chart-center-label{
   position:absolute;text-align:center;pointer-events:none;
@@ -569,6 +569,7 @@ button,input,select{font-family:inherit}
 .phase-progress-error{padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);color:var(--muted);font-size:12px;font-weight:700;line-height:1.7;text-align:center}
 .phase-progress-link{color:var(--brand2);font-size:10.5px;font-weight:800;cursor:pointer;background:none;border:0;padding:0}
 .phase-progress-link:hover{color:#c4b5fd}
+.pace-gap{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:9px}.pace-gap-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.pace-gap-title{font-size:11.5px;font-weight:800;color:#dbe5ff}.pace-gap-badge{border:1px solid;border-radius:99px;padding:3px 8px;font-size:10px;font-weight:900;white-space:nowrap}.pace-gap.is-sufficient .pace-gap-badge{color:#4fffb0;background:rgba(16,232,122,.10);border-color:rgba(16,232,122,.24)}.pace-gap.is-raise .pace-gap-badge{color:#ffb06f;background:rgba(255,140,66,.10);border-color:rgba(255,140,66,.28)}.pace-gap.is-insufficient .pace-gap-badge{color:#aab5ce;background:rgba(107,122,159,.10);border-color:rgba(107,122,159,.25)}.pace-gap-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.pace-gap-metric{padding:7px 8px;border-radius:8px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.055);min-width:0}.pace-gap-metric small{display:block;color:var(--muted);font-size:9px;margin-bottom:2px}.pace-gap-metric b{font-size:12px;color:#dbe5ff;font-variant-numeric:tabular-nums}.pace-gap-metric em{display:block;color:var(--muted);font-size:8px;font-style:normal}.pace-gap-note{font-size:10px;line-height:1.55;color:var(--muted)}.pace-gap-action{align-self:flex-start;color:#dce7ff;background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.25);border-radius:8px;padding:6px 9px;font:inherit;font-size:10px;font-weight:800;cursor:pointer}@media(max-width:700px){.pace-gap-action{width:100%}}
 
 /* ══ MILESTONES ══ */
 .milestone-list{display:flex;flex-direction:column;gap:8px}
@@ -3239,7 +3240,7 @@ const PROJECT_PHASE_UNSPECIFIED='غير مصنفة';
 const PROJECT_PHASE_COLORS={'البدء':'#10e87a','التخطيط':'#00d4ff','التنفيذ':'#7c5cff','المراقبة والتحكم':'#3b82f6','الإغلاق':'#f5b800'};
 const OFFICIAL_PATHS=['الضيافة','التشغيل','تجربة الضيوف','المحتوى','اللوجستيات والنقل','التنفيذ','التصميم','البروتوكول والحشود'];
 let officialDataReady=false;
-let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[];
+let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[]; let projectMasterRows=[];
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
 let employeeMaster=[]; let baselineManagement=[]; let raciMatrix=[]; let employeeWorkload=[]; let criticalPathAnalysis={ok:false,tasks:[],message:'لا توجد بيانات كافية لاحتساب المسار الحرج'}; let dataQualityCenter={issues:[],excluded_task_codes:[],summary:{}};
 let eventSites=[]; let eventSitePermissions={read:false,create:false,update:false,delete:false}; let eventSitesLoaded=false; let eventSitesLoading=false; let eventSitesView='map'; let eventSitesLeafletMap=null; let eventSitesLeafletMarkerLayer=null;
@@ -3247,6 +3248,10 @@ let activeFieldExperienceTab='sites'; let assetsGifts=[]; let assetsGiftsLoaded=
 let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords=[]; let issuesIncidents=[]; let vendorViolations=[]; let decisionLogRecords=[]; let suppliersRegister=[]; let riskGovernanceRegister=[];
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
 let taskDateFilter='all';
+let taskAccelerationFilter=false;
+const CURRENT_PACE_WINDOW_DAYS=28;
+const MIN_COMPLETION_DATES=2;
+const MIN_ACTUAL_END_COVERAGE=.5;
 const TIMELINE_FILTER_IDS=['tlSearch','tlPhase','tlOwner','tlType','tlMonth'];
 let timelineFiltersTouchedInSession=false;
 let timelinePageVisitToken=0;
@@ -3748,6 +3753,7 @@ function returnToAnonymousLogin(error){
 function showPage(id){
   if(!document.getElementById(id)) id='overview';
   if(!canAccessPage(id)){alert(id==='executiveBoard'?EXECUTIVE_BOARD_ACCESS_DENIED:'ليست لديك صلاحية فتح هذه الصفحة.');return;}
+  if(id==='tasks') taskAccelerationFilter=false;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   syncNavToPage(id);
@@ -5127,6 +5133,11 @@ function isTaskRecord_(task){
   if(type&&type!==normalizeArabic('task')&&type!==normalizeArabic('مهمة')) return false;
   return true;
 }
+function isExecutiveTask_(task){
+  if(!isTaskRecord_(task)||isTaskCancelled(task)) return false;
+  const kind=normalizeArabic(String(task.taskType||getFirstTaskField_(task,'taskType')||'').toLowerCase());
+  return !['milestone','معلم','معلم رئيسي','summary','summary task','group','phase','مرحلة','مجموعة','صف تجميعي'].map(normalizeArabic).includes(kind);
+}
 function isTaskCancelled(task){return normalizeTaskStatus(getSheetStatus(task))==='ملغاة';}
 function isTaskCancelled_(task){return isTaskCancelled(task);}
 function isTaskCompleted(task){return normalizeTaskStatus(getSheetStatus(task))==='مكتملة';}
@@ -6009,7 +6020,7 @@ async function loadExternal(initial=true){
 
   // لا تُستخدم localStorage كمصدر نهائي للمؤشرات؛ Google Sheets فقط.
   if(initial){
-    rows=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[]; officialDataReady=false;
+    rows=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[]; projectMasterRows=[]; officialDataReady=false;
     setSyncLoadingState();
   }
 
@@ -6063,6 +6074,7 @@ async function loadExternal(initial=true){
     const normalizedDecisionLog=normalizeDecisionRows(data.decision_log||[]);
     const normalizedSuppliers=normalizeSupplierRows(data.suppliers_register||data.suppliers||[]);
     const normalizedRiskGovernance=normalizeRiskGovernanceRows(data.risk_governance_register||data.riskGovernanceRegister||data.risk_governance||data.risks_governance||[]);
+    projectMasterRows=Array.isArray(data.project_master)?data.project_master.filter(r=>!isTestOrSyntheticRecord_(r)):[];
     employeeMaster=data.employee_master||[]; baselineManagement=data.baseline_management||[]; raciMatrix=data.raci_matrix||[]; employeeWorkload=data.employee_workload||[]; criticalPathAnalysis=data.critical_path||criticalPathAnalysis; dataQualityCenter=data.data_quality||dataQualityCenter;
     const syncMeta=data.sync_meta||{};
     if(Array.isArray(data.rows)){
@@ -6132,7 +6144,7 @@ async function loadExternal(initial=true){
   }catch(e){
     console.warn('Google Sheet fetch failed:',e);
     // فشل الاتصال بالـGoogle Sheet: نعرض حالة خطأ واضحة، ولا نستخدم cache أو بيانات مدمجة لحساب المؤشرات.
-    rows=[]; tasks=[]; milestones=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[];
+    rows=[]; tasks=[]; milestones=[]; approvals=[]; assignments=[]; meetings=[]; commitments=[]; filesRegister=[]; urgentTasksRegister=[]; projectMasterRows=[];
     procurementRequests=[]; permitsRegister=[]; changeOrders=[]; auditLog=[]; escalationRecords=[]; evidenceRecords=[]; approvalHistoryRecords=[];
     versionHistoryRecords=[]; issuesIncidents=[]; suppliersRegister=[]; vendorViolations=[]; decisionLogRecords=[]; riskGovernanceRegister=[];
     employeeMaster=[]; baselineManagement=[]; raciMatrix=[]; employeeWorkload=[]; criticalPathAnalysis={ok:false,tasks:[],message:NO_KPI_DATA_TEXT};
@@ -6279,6 +6291,7 @@ function applyFilters(){
     if(path&&r.mainPath!==path) return false;
     if(!taskMatchesOwnerFilter(r,ow)) return false;
     if(st&&classifyStatus(r)!==st) return false;
+    if(taskAccelerationFilter&&(!isExecutiveTask_(r)||isTaskCompleted(r))) return false;
     return true;
   });
   const dateCounts={
@@ -6290,6 +6303,10 @@ function applyFilters(){
   let data=dataBeforeDateFilter;
   if(taskDateFilter==='today') data=dataBeforeDateFilter.filter(r=>taskDueDateKey(r)===todayKey);
   if(taskDateFilter==='tomorrow') data=dataBeforeDateFilter.filter(r=>taskDueDateKey(r)===tomorrowKey);
+  if(taskAccelerationFilter){
+    const rank=value=>({critical:0,urgent:0,'حرجة':0,'عاجلة':0,high:1,'عالية':1,medium:2,'متوسطة':2,low:3,'منخفضة':3}[normalizeArabic(value)]??4);
+    data=data.slice().sort((a,b)=>rank(a.priority)-rank(b.priority)||(getTaskPlannedEndDate(a)||'9999-12-31').localeCompare(getTaskPlannedEndDate(b)||'9999-12-31'));
+  }
 
   const badge=document.getElementById('taskTotalBadge');
   if(badge){
@@ -6297,6 +6314,7 @@ function applyFilters(){
     badge.textContent = data.length===totalTasks && !q && !ph && !ow && !st && (!ty || ty==='Task')
       ? `${totalTasks} مهمة من ملف WBS`
       : `${data.length} معروضة من أصل ${totalTasks} مهمة`;
+    if(taskAccelerationFilter) badge.textContent=`${data.length} مهمة تنفيذية قابلة للتسريع — حسب الأولوية ثم قرب النهاية`;
     const actionHeader=document.getElementById('taskEscalationHeader');
     if(actionHeader) actionHeader.style.display=(canEscalateOverdueTask()&&isOverdueTasksView())?'':'none';
   }
@@ -6450,8 +6468,49 @@ function renderPhaseProgressSummary(active){
   summary.innerHTML=`
     <div class="phase-progress-summary-main"><div><b class="phase-progress-summary-pct">${schedule?schedule.actual+'%':'—'}</b><span class="phase-progress-summary-label">التقدم الفعلي للمشروع</span></div></div>
     <div class="phase-progress-summary-track" role="progressbar" aria-label="نسبة التقدم الفعلي للمشروع" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${schedule?schedule.actual:0}"><div class="phase-progress-summary-fill" style="width:${schedule?schedule.actual:0}%"></div></div>
-    <div class="phase-home-dots" aria-label="حالة مراحل المشروع">${phaseStats.map(stat=>{const status=getProjectPhaseStatus(stat);return `<span class="${status.className} ${stat.phase===current.phase?'is-current':''}" title="${stat.phase}: ${status.label}"><i></i><small>${stat.phase}</small></span>`;}).join('')}</div>`;
+    <div class="phase-home-dots" aria-label="حالة مراحل المشروع">${phaseStats.map(stat=>{const status=getProjectPhaseStatus(stat);return `<span class="${status.className} ${stat.phase===current.phase?'is-current':''}" title="${stat.phase}: ${status.label}"><i></i><small>${stat.phase}</small></span>`;}).join('')}</div>
+    ${renderRequiredPaceGap(getRequiredPaceGap(tasks,projectMasterRows,riyadhTodayKey()))}`;
 }
+function getOpeningDateFromProjectMaster(records){
+  const list=Array.isArray(records)?records:[];
+  const valid=row=>riyadhDateKey(valueOf(row,['opening_date','openingDate','تاريخ الافتتاح']));
+  const active=list.find(row=>['نشط','active'].includes(normalizeArabic(String(valueOf(row,['status','الحالة'])||''))));
+  const selected=active&&valid(active)?active:list.find(valid);
+  return selected?valid(selected):'';
+}
+function getRequiredPaceGap(allTasks,projectMasters,todayKey){
+  const eligible=(Array.isArray(allTasks)?allTasks:[]).filter(isExecutiveTask_);
+  const openingDate=getOpeningDateFromProjectMaster(projectMasters);
+  const result={status:'insufficient',statusLabel:'البيانات غير كافية',reason:'',currentPace:null,requiredPace:null,gap:null,acceleration:null,remainingWork:0,openingDate};
+  if(!openingDate){result.reason='تاريخ الافتتاح مفقود أو غير صالح في Project Master؛ حدّث سجل المشروع.';return result;}
+  if(!eligible.length){result.reason='لا توجد مهام تنفيذية مؤهلة؛ راجع تصنيف مهام WBS.';return result;}
+  result.remainingWork=eligible.reduce((sum,task)=>sum+Math.max(0,1-Math.min(100,Math.max(0,getTaskProgress(task)))/100),0);
+  const remainingDays=daysBetween(todayKey,openingDate);
+  if(remainingDays<0){result.reason='انتهى موعد الافتتاح؛ يلزم تحديث التاريخ في Project Master.';return result;}
+  if(remainingDays===0&&result.remainingWork>0){result.reason='موعد الافتتاح اليوم وما زال عمل متبقٍ؛ حدّث الموعد وخطة التنفيذ.';return result;}
+  const completed=eligible.filter(isTaskCompleted);
+  const datedCompleted=completed.map(task=>({task,date:getTaskActualEndDate(task)}));
+  const validDatedCompleted=datedCompleted.filter(item=>item&&item.date);
+  const coverage=completed.length?validDatedCompleted.length/completed.length:0;
+  const windowStart=addDaysToDateKey(todayKey,-(CURRENT_PACE_WINDOW_DAYS-1));
+  const recent=validDatedCompleted.filter(item=>item.date>=windowStart&&item.date<=todayKey).length;
+  result.currentPace=recent/(CURRENT_PACE_WINDOW_DAYS/7);
+  result.requiredPace=result.remainingWork===0?0:result.remainingWork/(remainingDays/7);
+  if(result.remainingWork===0){result.status='sufficient';result.statusLabel='كافية';result.gap=0;result.acceleration=0;result.reason='اكتمل العمل التنفيذي المؤهل قبل موعد الافتتاح، مع الاستمرار في المتابعة.';return result;}
+  if(validDatedCompleted.length<MIN_COMPLETION_DATES){result.reason=`تواريخ actual_end الصالحة للمهام المكتملة أقل من ${MIN_COMPLETION_DATES}؛ استكمل تواريخ الإغلاق الفعلية.`;return result;}
+  if(coverage<MIN_ACTUAL_END_COVERAGE){result.reason=`تغطية actual_end للمهام المكتملة ${Math.round(coverage*100)}%، وهي أقل من 50%؛ استكمل تواريخ الإغلاق.`;return result;}
+  result.gap=result.requiredPace-result.currentPace;
+  if(result.currentPace>=result.requiredPace){result.status='sufficient';result.statusLabel='كافية';result.acceleration=0;result.reason='الوتيرة الحالية كافية للحاق بموعد الافتتاح، مع الاستمرار في المتابعة.';}
+  else {result.status='raise';result.statusLabel='تحتاج رفعًا';result.acceleration=result.currentPace>0?Math.max(0,(result.requiredPace/result.currentPace-1)*100):null;result.reason=result.currentPace===0?'لم تُغلق مهام خلال آخر 28 يومًا؛ ابدأ إغلاق المهام فورًا.':'يلزم رفع وتيرة الإنجاز أو إعادة توزيع المهام للحاق بالموعد.';}
+  return result;
+}
+function paceValue_(value,suffix=''){return Number.isFinite(value)?`${Math.max(0,value).toFixed(2)}${suffix}`:'—';}
+function renderRequiredPaceGap(pace){
+  const cls=pace.status==='sufficient'?'is-sufficient':pace.status==='raise'?'is-raise':'is-insufficient';
+  const acceleration=pace.acceleration===null?'غير قابلة للحساب':paceValue_(pace.acceleration,'%');
+  return `<section class="pace-gap ${cls}" aria-label="فجوة الوتيرة المطلوبة للحاق بموعد الافتتاح"><div class="pace-gap-head"><span class="pace-gap-title">فجوة الوتيرة المطلوبة</span><span class="pace-gap-badge">${pace.statusLabel}</span></div><div class="pace-gap-metrics"><div class="pace-gap-metric"><small>الوتيرة الحالية</small><b>${paceValue_(pace.currentPace)}</b><em>مهمة مكافئة/أسبوع</em></div><div class="pace-gap-metric"><small>الوتيرة المطلوبة</small><b>${paceValue_(pace.requiredPace)}</b><em>مهمة مكافئة/أسبوع</em></div><div class="pace-gap-metric"><small>فجوة الوتيرة</small><b>${paceValue_(pace.gap)}</b><em>مهمة مكافئة/أسبوع</em></div><div class="pace-gap-metric"><small>التسريع المطلوب</small><b>${acceleration}</b><em>مقارنة بالوتيرة الحالية</em></div></div><div class="pace-gap-note">${escapeHtml(pace.reason)}<br>الحساب بوحدات مهام مكافئة، وليس ساعات عمل.</div><button type="button" class="pace-gap-action" onclick="showAccelerableTasks()">عرض المهام التي يمكن تسريعها</button></section>`;
+}
+function showAccelerableTasks(){taskDateFilter='all';showPage('tasks');taskAccelerationFilter=true;['searchTask','filterPhase','filterPath','filterOwner','filterStatus'].forEach(id=>{const el=document.getElementById(id);if(el) el.value='';});const type=document.getElementById('filterType');if(type) type.value='Task';applyFilters();}
 function renderLineChart(){
   if(chartRenderVersion.line===dashboardDataVersion) return;
   const summary=document.getElementById('phaseProgressSummary');
