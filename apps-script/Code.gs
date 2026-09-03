@@ -696,6 +696,7 @@ function readOfficialWbsTasks_(ss) {
       const progress = normalizeTaskProgress_(row[progressColumn], displayValues[index + 1][progressColumn], numberFormats[index + 1][progressColumn]);
       // API contract: task progress is nullable percentage points (0..100), never a 0..1 fraction.
       item[progressHeader] = progress.value;
+      item.progress_display = progress.display;
       item._progress = progress;
     }
     item.row_number = rowNumber;
@@ -742,11 +743,39 @@ function parseProgressNumber_(value) {
   return isFinite(number) ? number : null;
 }
 
+function isPercentageNumberFormat_(numberFormat) {
+  const format = String(numberFormat || '');
+  let quoted = false;
+  for (let index = 0; index < format.length; index++) {
+    const character = format.charAt(index);
+    if (character === '"') quoted = !quoted;
+    if (character === '\\') { index++; continue; }
+    if (!quoted && character === '%') return true;
+  }
+  return false;
+}
+
+function normalizeProgressDisplay_(displayValue, value) {
+  if (value === null) return '—';
+  let display = normalizeArabicDigits_(displayValue)
+    .replace(/٫/g, '.')
+    .replace(/,/g, '.')
+    .replace(/\s+/g, '')
+    .replace(/٪/g, '%');
+  const displayedNumber = parseProgressNumber_(display);
+  // Use Sheets' displayed precision only when it still represents the normalized value.
+  if (displayedNumber !== null && Math.abs(displayedNumber - value) < 1e-9) {
+    display = display.replace(/[%]+$/g, '') + '%';
+    return display;
+  }
+  return String(Math.round(value * 10000000000) / 10000000000) + '%';
+}
+
 function normalizeTaskProgress_(rawValue, displayValue, numberFormat) {
   const rawNumber = typeof rawValue === 'number' ? rawValue : parseProgressNumber_(rawValue);
   const format = String(numberFormat || '');
   const displayed = String(displayValue === null || displayValue === undefined ? '' : displayValue).trim();
-  const isPercentFormatted = /%/.test(format);
+  const isPercentFormatted = isPercentageNumberFormat_(format);
   const isPercentText = /[٪%]/.test(normalizeArabicDigits_(rawValue));
   let value = null;
   let scale = 'percent_points';
@@ -762,6 +791,7 @@ function normalizeTaskProgress_(rawValue, displayValue, numberFormat) {
   if (value !== null && (value < 0 || value > 100)) value = null;
   return {
     value: value,
+    display: normalizeProgressDisplay_(displayed, value),
     unit: 'percent',
     scale: 'percent_points',
     source_scale: scale,

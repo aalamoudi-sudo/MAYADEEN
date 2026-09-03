@@ -22,7 +22,7 @@ function functionSource(source, name) {
 
 const appsContext = { isFinite, KAG_CONFIG: { timezone: 'Asia/Riyadh' }, Utilities: { formatDate: () => '' } };
 vm.createContext(appsContext);
-['normalizeCell_', 'normalizeArabicDigits_', 'parseProgressNumber_', 'normalizeTaskProgress_']
+['normalizeCell_', 'normalizeArabicDigits_', 'parseProgressNumber_', 'isPercentageNumberFormat_', 'normalizeProgressDisplay_', 'normalizeTaskProgress_']
   .forEach(name => vm.runInContext(functionSource(scriptSource, name), appsContext));
 
 const sheetCases = [
@@ -33,10 +33,14 @@ const sheetCases = [
 sheetCases.forEach(([raw, display, format, expected]) => {
   const result = appsContext.normalizeTaskProgress_(raw, display, format);
   assert.equal(result.value, expected, `${raw}/${format}`);
+  assert.equal(result.display, `${expected}%`, `display ${raw}/${format}`);
   assert.equal(result.scale, 'percent_points');
 });
 assert.equal(appsContext.normalizeTaskProgress_('', '', '0%').value, null);
+assert.equal(appsContext.normalizeTaskProgress_('', '', '0%').display, '—');
 assert.equal(appsContext.normalizeTaskProgress_('invalid', 'invalid', '@').value, null);
+assert.equal(appsContext.normalizeTaskProgress_(70, '70', '0').display, '70%');
+assert.equal(appsContext.normalizeTaskProgress_(1, '1%', '\\%').value, 1, 'escaped percent is a literal, not percent formatting');
 
 const webContext = {
   Intl,
@@ -55,7 +59,12 @@ assert.equal(webContext.normalizeTaskProgress({ progress: 1 }), 1, '0-100 source
 assert.equal(webContext.normalizeTaskProgress({ progress: '٧٠٪' }), 70);
 assert.equal(webContext.normalizeTaskProgress({ progress: '' }), null);
 assert.equal(webContext.normalizeTaskProgress({ progress: 'invalid' }), null);
-assert.match(webContext.formatTaskProgress({ progress: 0 }), /%$/);
+assert.equal(webContext.formatTaskProgress({ progress: 0 }), '0%');
+assert.equal(webContext.formatTaskProgress({ progress: 100 }), '100%');
+assert.equal(webContext.formatTaskProgress({ progress: 70 }), '70%');
+assert.equal(webContext.formatTaskProgress({ progress: 0.5 }), '0.5%');
+assert.equal(webContext.formatTaskProgress({ progress: 70, progressDisplay: '٧٠٪' }), '70%');
+assert.equal(webContext.formatTaskProgress({ progress: 70, progressDisplay: '70%%' }), '70%', 'percent sign is not duplicated');
 assert.equal(webContext.formatTaskProgress({ progress: null }), '—');
 assert.equal(webContext.getTaskProgress({ progress: 70, status: 'مكتملة' }), 70, 'status must not override sheet progress');
 assert.match(functionSource(appSource, 'normalizeRow'), /progress=normalizeTaskProgress\(raw\)/);
@@ -63,5 +72,8 @@ assert.match(functionSource(appSource, 'applyFilters'), /formatTaskProgress\(r\)
 assert.match(scriptSource, /task_progress_contract:\s*\{[\s\S]*?scale:\s*'percent_points'/);
 assert.match(scriptSource, /getDisplayValues\(\)/);
 assert.match(scriptSource, /getNumberFormats\(\)/);
+assert.match(scriptSource, /item\.progress_display = progress\.display/);
+assert.match(appSource, /class="task-progress-value" dir="ltr"/);
+assert.match(appSource, /\.task-progress-value\{[^}]*unicode-bidi:isolate/);
 
 console.log('PASS task progress preserves source scale, Arabic percentage text, missing values, formatting, and status independence');
