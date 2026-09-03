@@ -2394,7 +2394,12 @@ function ensureProjectGovernanceSheets_(payload) {
 
 function getProjectMasterRows_(ss) {
   ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID);
-  return getExistingRegisterRows_(ss, KAG_CONFIG.projectMasterSheetName);
+  return getExistingRegisterRows_(ss, KAG_CONFIG.projectMasterSheetName).map(function(project) {
+    // Keep Project Master as the single opening-date source and make the wire
+    // representation independent of the cell's display format.
+    project.opening_date = parseDateKey_(project.opening_date);
+    return project;
+  });
 }
 
 function getProjectSettingsRows_(ss) {
@@ -2409,6 +2414,8 @@ function requireCanManageProjectConfig_(session) {
 
 function upsertProjectMaster_(payload) {
   if (!payload.project_id || !payload.project_name) throw new Error('project_id and project_name are required');
+  const openingDate = parseDateKey_(payload.opening_date);
+  if (payload.opening_date && !openingDate) throw new Error('opening_date must be a valid date');
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   ensureProjectGovernanceSheets_(payload);
   const sheet = spreadsheet.getSheetByName(KAG_CONFIG.projectMasterSheetName);
@@ -2416,7 +2423,7 @@ function upsertProjectMaster_(payload) {
   const values = sheet.getDataRange().getValues();
   const id = String(payload.project_id).trim();
   const now = new Date();
-  const row = [id, payload.project_name, payload.project_prefix || '', payload.project_prefix ? 'بانتظار اعتماد PMO' : 'غير متاح', payload.project_owner || '', payload.opening_date || '', payload.timezone || KAG_CONFIG.timezone, payload.status || KAG_CONFIG.defaultProjectStatus, now, now, '', ''];
+  const row = [id, payload.project_name, payload.project_prefix || '', payload.project_prefix ? 'بانتظار اعتماد PMO' : 'غير متاح', payload.project_owner || '', openingDate, payload.timezone || KAG_CONFIG.timezone, payload.status || KAG_CONFIG.defaultProjectStatus, now, now, '', ''];
   for (var r = 1; r < values.length; r++) {
     if (String(values[r][0]).trim() === id) {
       const previous = JSON.stringify(values[r]);
