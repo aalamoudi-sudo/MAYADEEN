@@ -153,6 +153,13 @@ function buildDashboardData_(session) {
     user: session ? safeUser_(session) : null,
     rows: clientRows,
     task_headers: taskHeaders,
+    task_progress_contract: {
+      field: 'progress',
+      unit: 'percent',
+      scale: 'percent_points',
+      range: [0, 100],
+      missing: null
+    },
     approvals: approvals,
     approval_chain: approvalChain,
     escalation_chain: escalationChain,
@@ -649,7 +656,10 @@ function getTaskRows_(ss) {
 function readOfficialWbsTasks_(ss) {
   ss = ss || SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = findTaskSheet_(ss);
-  const values = sheet.getDataRange().getValues();
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const displayValues = dataRange.getDisplayValues();
+  const numberFormats = dataRange.getNumberFormats();
   const headers = values.length ? values[0].map(function(h) { return normalizeHeader_(h); }) : [];
   const diagnostics = {
     spreadsheet_id: SPREADSHEET_ID,
@@ -669,6 +679,9 @@ function readOfficialWbsTasks_(ss) {
     return { rows: [], headers: headers, diagnostics: diagnostics };
   }
   const rows = [];
+  const progressColumn = headers.findIndex(function(header) {
+    return WBS_FIELD_ALIASES.progress.map(normalizeHeader_).indexOf(header) !== -1;
+  });
   values.slice(1).forEach(function(row, index) {
     const rowNumber = index + 2;
     const nonEmpty = row.some(function(cell) { return String(cell || '').trim() !== ''; });
@@ -678,6 +691,13 @@ function readOfficialWbsTasks_(ss) {
     headers.forEach(function(header, col) {
       item[header || ('col_' + (col + 1))] = normalizeCell_(row[col]);
     });
+    if (progressColumn !== -1) {
+      const progressHeader = headers[progressColumn] || ('col_' + (progressColumn + 1));
+      const progress = normalizeTaskProgress_(row[progressColumn], displayValues[index + 1][progressColumn], numberFormats[index + 1][progressColumn]);
+      // API contract: task progress is nullable percentage points (0..100), never a 0..1 fraction.
+      item[progressHeader] = progress.value;
+      item._progress = progress;
+    }
     item.row_number = rowNumber;
     item._source = 'google_sheets';
     item._sheet_name = sheet.getName();
@@ -707,6 +727,49 @@ function readOfficialWbsTasks_(ss) {
   validateUnifiedPipeline_(diagnostics, rows.length);
   logDataSyncDiagnostics_(diagnostics);
   return { rows: rows, headers: headers, diagnostics: diagnostics };
+}
+
+function normalizeArabicDigits_(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/[٠-٩]/g, function(d) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)); })
+    .replace(/[۰-۹]/g, function(d) { return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); });
+}
+
+function parseProgressNumber_(value) {
+  const text = normalizeArabicDigits_(value).replace(/[٪%]/g, '').replace(/\s+/g, '').replace(/٫/g, '.').replace(/,/g, '.');
+  if (!text) return null;
+  const number = Number(text);
+  return isFinite(number) ? number : null;
+}
+
+function normalizeTaskProgress_(rawValue, displayValue, numberFormat) {
+  const rawNumber = typeof rawValue === 'number' ? rawValue : parseProgressNumber_(rawValue);
+  const format = String(numberFormat || '');
+  const displayed = String(displayValue === null || displayValue === undefined ? '' : displayValue).trim();
+  const isPercentFormatted = /%/.test(format);
+  const isPercentText = /[٪%]/.test(normalizeArabicDigits_(rawValue));
+  let value = null;
+  let scale = 'percent_points';
+  if (rawNumber !== null) {
+    if (isPercentFormatted && typeof rawValue === 'number') {
+      value = rawNumber * 100;
+      scale = 'fraction';
+    } else {
+      value = rawNumber;
+      scale = isPercentText ? 'percent_text' : 'percent_points';
+    }
+  }
+  if (value !== null && (value < 0 || value > 100)) value = null;
+  return {
+    value: value,
+    unit: 'percent',
+    scale: 'percent_points',
+    source_scale: scale,
+    raw_value: normalizeCell_(rawValue),
+    display_value: displayed,
+    number_format: format,
+    valid: value !== null
+  };
 }
 
 function normalizeTaskType_(value) {
