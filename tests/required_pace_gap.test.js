@@ -42,6 +42,12 @@ const done = actualEnd => ({type:'Task',status:'مكتملة',progress:100,actua
 const recent = count => Array.from({length:count}, (_, i) => done(addDaysToDateKey(today,-i)));
 const run = (items, opening='2026-09-09', masters=master(opening)) => api.getRequiredPaceGap(items,masters,today);
 
+const approvedOpening = api.getRequiredPaceGap([...recent(2),open(50)], master('2026-11-01'), '2026-09-03');
+assert.equal(approvedOpening.openingDate, '2026-11-01', 'approved Project Master opening date is parsed');
+assert.equal(approvedOpening.remainingWeeks, 59/7, 'remaining weeks use the approved opening date');
+assert.equal(approvedOpening.requiredPace, .5/(59/7), 'required pace uses the approved opening date');
+assert.doesNotMatch(approvedOpening.reason, /تاريخ الافتتاح مفقود|انتهى موعد الافتتاح/, 'opening-date insufficiency is cleared');
+
 assert.equal(run([...recent(8),open()]).status, 'sufficient', 'current pace above required');
 assert.equal(run([...recent(4),open()]).currentPace, run([...recent(4),open()]).requiredPace, 'equal pace');
 assert.equal(run([...recent(4),open()]).status,'sufficient','equal pace is sufficient');
