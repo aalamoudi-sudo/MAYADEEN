@@ -3255,6 +3255,7 @@ let timelinePageVisitToken=0;
 const RIYADH_TIME_ZONE='Asia/Riyadh';
 const TODAY=riyadhTodayDate();
 const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzU75D5PcKWp3b19H8E8Gp9jJO_obD_qFHUqAl5g73fVdLccnmAg1HS57ukit_9dOLk/exec';
+const REQUIRED_DATA_API_RELEASE='task-progress-source-format-v2';
 const ALLOWED_API_HOSTS=['script.google.com','script.googleusercontent.com'];
 let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
 const EXECUTIVE_BOARD_ACCESS_DENIED='ليس لديك صلاحية للوصول إلى لوحة المدير العام';
@@ -5124,6 +5125,24 @@ function formatTaskProgress(task){
   }
   return `${new Intl.NumberFormat('en-US',{useGrouping:false,maximumFractionDigits:10}).format(value)}%`;
 }
+function taskProgressCellHtml(task){return `<span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(task))}</span>`;}
+function assertTaskProgressSourceContract(data){
+  const contract=data?.task_progress_contract;
+  if(data?.data_api_release!==REQUIRED_DATA_API_RELEASE||contract?.field!=='progress'||contract?.unit!=='percent'||contract?.scale!=='percent_points'){
+    throw new Error(`إصدار Apps Script المنشور قديم (${data?.data_api_release||'غير معرّف'}). حدّث نشر /exec إلى ${REQUIRED_DATA_API_RELEASE}`);
+  }
+}
+function taskProgressDataAuditRows(rawRows,normalizedRows){
+  return rawRows.map((raw,index)=>({
+    task_code:normalizedRows[index]?.code||valueOf(raw,WBS_FIELD_ALIASES.taskId)||'',
+    sheet_raw_value:raw?._progress?.raw_value??'غير متاح في النشر القديم',
+    sheet_number_format:raw?._progress?.number_format??'غير متاح في النشر القديم',
+    sheet_display_value:raw?._progress?.display_value??raw?.progress_display??'',
+    api_percent_points:raw?._progress?.value??valueOf(raw,TASK_FIELD_ALIASES.progress),
+    normalized_percent_points:normalizedRows[index]?.progress??null,
+    table_text:formatTaskProgress(normalizedRows[index]||{})
+  }));
+}
 function getTaskEvidence(task){
   const raw=String(getFirstTaskField_(task,'evidence')??task?.evidence??'').trim();
   const normalized=normalizeArabic(raw.toLowerCase());
@@ -6071,12 +6090,16 @@ async function loadExternal(initial=true){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json();
     if(!data.ok) throw new Error(data.error||'sync failed');
+    // Refuse an old Apps Script deployment instead of guessing whether `1`
+    // means 1% or 100%. Only the source number format can decide that scale.
+    assertTaskProgressSourceContract(data);
     if(requestSequence!==syncRequestSequence) return false;
     const normalized=normalizeRows(data);
     console.log(`⏱️ [Sync] عدد المهام المستلمة من الشيت: ${normalized.length}`);
     // تشخيص فعلي لمسار البيانات: يقارن أول خمس مهام كما وصلت من Apps Script
     // بالقيم التي ستستخدمها الواجهة، ولا ينشئ بيانات بديلة أو تجريبية.
     console.table(timelineDataAuditRows(Array.isArray(data.rows)?data.rows:[],normalized));
+    console.table(taskProgressDataAuditRows(Array.isArray(data.rows)?data.rows:[],normalized));
     if(Array.isArray(data.task_headers)) console.table(data.task_headers.map((header,index)=>({index:index+1,normalized_header:header})));
     const normalizedApprovalChain=normalizeApprovalChainRows(data.approval_chain||[]);
     const normalizedEscalationChain=normalizeEscalationChainRows(data.escalation_chain||[]);
@@ -6352,7 +6375,7 @@ function applyFilters(){
     const sc=s==='مكتملة'?'green':s==='قيد التنفيذ'?'blue':s==='متأخرة'?'red':s==='لم تبدأ'?'gray':'';
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&s==='متأخرة';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td><td>${taskEvidenceHtml(r)}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td>${taskProgressCellHtml(r)}</td><td>${taskEvidenceHtml(r)}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
 }

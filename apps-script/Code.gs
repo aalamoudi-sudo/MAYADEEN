@@ -20,6 +20,9 @@
 
 const SPREADSHEET_ID = '1e6Yw758p5cJYTERQpfmNLtRX_7HupiRfIkvrvNHY4BE';
 const PRIMARY_WBS_SHEET_NAME = 'WBS';
+// Bump this value whenever the deployed data contract changes. GitHub updates do
+// not update the immutable Apps Script /exec deployment automatically.
+const DATA_API_RELEASE = 'task-progress-source-format-v2';
 
 const WBS_FIELD_ALIASES = {
   taskId:['كود المهمة','معرف المهمة','code','WBS Code','Code','الكود','رمز WBS','task_id','id','رقم المهمة'],
@@ -149,6 +152,7 @@ function buildDashboardData_(session) {
   const dataQuality = buildDataQualityCenter_(spreadsheet, rows, employeeMaster, criticalPath);
   const response = {
     ok: true,
+    data_api_release: DATA_API_RELEASE,
     generated_at: new Date().toISOString(),
     user: session ? safeUser_(session) : null,
     rows: clientRows,
