@@ -58,13 +58,9 @@ const WBS_FIELD_ALIASES = {
 
 const EXECUTIVE_BOARD_ACCESS_DENIED = 'ليس لديك صلاحية للوصول إلى لوحة المدير العام';
 const EXECUTIVE_BOARD_ALLOWED_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid', 'abdulrahman.ceo'];
-const TASK_EVIDENCE_ALLOWED_DISPLAY_NAMES = [
-  'عبدالرحمن جارالله',
-  'أحمد العامودي',
-  'عبدالعزيز العبيد',
-  'عبدالله المرحوم',
-  'أثير الثبيتي'
-];
+// This allow-list is deliberately keyed by the immutable, authenticated username.
+// Roles and display names must never imply access to completion evidence.
+const TASK_EVIDENCE_ALLOWED_USERNAMES = ['ahmad.amoudi', 'atheer', 'abdulaziz.obaid', 'munther.alansari'];
 
 const KAG_CONFIG = {
   timezone: 'Asia/Riyadh',
@@ -126,7 +122,7 @@ function buildDashboardData_(session) {
   const taskRead = readOfficialWbsTasks_(spreadsheet);
   const rows = taskRead.rows;
   const clientRows = filterTaskEvidenceForSession_(rows, session);
-  const taskHeaders = taskRead.headers;
+  const taskHeaders = filterTaskEvidenceHeadersForSession_(taskRead.headers, session);
   const approvals = getApprovalRows_(spreadsheet);
   const approvalChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName);
   const escalationChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName);
@@ -198,10 +194,14 @@ function buildDashboardData_(session) {
 }
 
 function canViewTaskEvidence_(session) {
-  const displayName = normalizeHeader_((session && session.display_name) || '');
-  return TASK_EVIDENCE_ALLOWED_DISPLAY_NAMES.some(function(name) {
-    return normalizeHeader_(name) === displayName;
-  });
+  const username = String((session && session.username) || '').trim().toLowerCase();
+  return TASK_EVIDENCE_ALLOWED_USERNAMES.indexOf(username) !== -1 && parseBool_(session && session.can_view_completion_evidence);
+}
+
+function filterTaskEvidenceHeadersForSession_(headers, session) {
+  if (canViewTaskEvidence_(session)) return (headers || []).slice();
+  const evidenceKeys = WBS_FIELD_ALIASES.evidence.map(normalizeHeader_);
+  return (headers || []).filter(function(header) { return evidenceKeys.indexOf(normalizeHeader_(header)) === -1; });
 }
 
 function isCompletedTaskForEvidence_(task) {
@@ -1009,6 +1009,7 @@ function getUserAccessHeaders_() {
     'can_approve',
     'can_escalate',
     'can_manage_users',
+    'can_view_completion_evidence',
     'status',
     'must_change_password',
     'created_at',
@@ -1018,7 +1019,10 @@ function getUserAccessHeaders_() {
 
 function ensureUserAccessSheet_() {
   const sheet = ensureRegisterSheet_(KAG_CONFIG.usersSheetName, getUserAccessHeaders_());
-  if (sheet.getLastRow() > 1) return sheet;
+  if (sheet.getLastRow() > 1) {
+    syncTaskEvidencePermissions_(sheet);
+    return sheet;
+  }
   const now = new Date();
   getDefaultUsers_().forEach(function(user) {
     sheet.appendRow([
@@ -1035,6 +1039,7 @@ function ensureUserAccessSheet_() {
       user.can_approve,
       user.can_escalate,
       user.can_manage_users,
+      user.can_view_completion_evidence,
       'active',
       'TRUE',
       now,
@@ -1042,6 +1047,20 @@ function ensureUserAccessSheet_() {
     ]);
   });
   return sheet;
+}
+
+function syncTaskEvidencePermissions_(sheet) {
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return;
+  const headers = values[0].map(normalizeHeader_);
+  const usernameColumn = headers.indexOf(normalizeHeader_('username'));
+  const permissionColumn = headers.indexOf(normalizeHeader_('can_view_completion_evidence'));
+  if (usernameColumn < 0 || permissionColumn < 0) throw new Error('User access matrix is missing evidence permission columns');
+  const permissions = values.slice(1).map(function(row) {
+    const username = String(row[usernameColumn] || '').trim().toLowerCase();
+    return [TASK_EVIDENCE_ALLOWED_USERNAMES.indexOf(username) !== -1 ? 'TRUE' : 'FALSE'];
+  });
+  sheet.getRange(2, permissionColumn + 1, permissions.length, 1).setValues(permissions);
 }
 
 function getDefaultUsers_() {
@@ -1052,14 +1071,14 @@ function getDefaultUsers_() {
   const coordinatorPages = 'overview,tasks,phases,timeline,decisions,approvals,assignments,actions,escalationHub,meetingsHub,pmoAssistant,commitmentsHub,smartReminders,fileControl';
   const workstreamPages = 'overview,tasks,phases,timeline,approvals,assignments,meetingsHub,commitmentsHub,fileControl,actions';
   return [
-    { username: 'abdulrahman.ceo', display_name: 'عبدالرحمن جار الله', email: '', role: 'الرئيس التنفيذي', access_level: 'executive', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
-    { username: 'atheer', display_name: 'أثير الثبيتي', email: '', role: 'admin', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
-    { username: 'ahmad.amoudi', display_name: 'أحمد العامودي', email: 'a.alamoudi@mayadeen.sa', role: 'PMO', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE' },
-    { username: 'abdulaziz.obaid', display_name: 'عبدالعزيز العبيد', email: 'A.alobed@mayadeen.sa', role: 'مشرف عام داخلي', access_level: 'executive', path_scope: 'executive', allowed_pages: execPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
+    { username: 'abdulrahman.ceo', display_name: 'عبدالرحمن جار الله', email: '', role: 'الرئيس التنفيذي', access_level: 'executive', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE', can_view_completion_evidence: 'FALSE' },
+    { username: 'atheer', display_name: 'أثير الثبيتي', email: '', role: 'admin', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE', can_view_completion_evidence: 'TRUE' },
+    { username: 'ahmad.amoudi', display_name: 'أحمد العامودي', email: 'a.alamoudi@mayadeen.sa', role: 'PMO', access_level: 'full', path_scope: 'all', allowed_pages: all, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'TRUE', can_view_completion_evidence: 'TRUE' },
+    { username: 'abdulaziz.obaid', display_name: 'عبدالعزيز العبيد', email: 'A.alobed@mayadeen.sa', role: 'مشرف عام داخلي', access_level: 'executive', path_scope: 'executive', allowed_pages: execPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE', can_view_completion_evidence: 'TRUE' },
     { username: 'abdullah.almarhoom', display_name: 'عبدالله المرحوم', email: '', role: 'مدير المشروع', access_level: 'manager', path_scope: 'all_delivery', allowed_pages: pmPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
     { username: 'shahad.abdullah', display_name: 'شهد الخزيم', email: '', role: 'مدير الجودة والمخاطر', access_level: 'control', path_scope: 'quality_risk', allowed_pages: 'overview,risksMgmt,approvals,actions,escalationHub,projectHealth,analytics,fileControl,smartReminders', can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
     { username: 'mohammed.shalabi', display_name: 'محمد شلبي', email: '', role: 'مدير الحدث', access_level: 'event_manager', path_scope: 'field_event', allowed_pages: eventPages, can_approve: 'TRUE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
-    { username: 'munther.alansari', display_name: 'منذر الأنصاري', email: 'm.alansari@mayadeen.sa', role: 'منسق المشروع', access_level: 'coordinator', path_scope: 'coordination', allowed_pages: coordinatorPages, can_approve: 'FALSE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
+    { username: 'munther.alansari', display_name: 'منذر الأنصاري', email: 'm.alansari@mayadeen.sa', role: 'منسق المشروع', access_level: 'coordinator', path_scope: 'coordination', allowed_pages: coordinatorPages, can_approve: 'FALSE', can_escalate: 'TRUE', can_manage_users: 'FALSE', can_view_completion_evidence: 'TRUE' },
     { username: 'sara.alshahri', display_name: 'سارة الشهري', email: '', role: 'مدير الحساب والعلاقات الحكومية', access_level: 'government_account', path_scope: 'government', allowed_pages: 'overview,tasks,approvals,escalationHub,meetingsHub,commitmentsHub,fileControl,smartReminders', can_approve: 'FALSE', can_escalate: 'TRUE', can_manage_users: 'FALSE' },
     { username: 'nora.afif', display_name: 'نورة العفيف', email: '', role: 'مسار الضيافة', access_level: 'workstream', path_scope: 'hospitality', allowed_pages: workstreamPages, can_approve: 'FALSE', can_escalate: 'FALSE', can_manage_users: 'FALSE' },
     { username: 'majed.qasim', display_name: 'ماجد قاسم', email: '', role: 'مسار التشغيل', access_level: 'workstream', path_scope: 'operations', allowed_pages: workstreamPages, can_approve: 'FALSE', can_escalate: 'FALSE', can_manage_users: 'FALSE' },
@@ -1107,6 +1126,7 @@ function safeUser_(user) {
     can_approve: parseBool_(user.can_approve),
     can_escalate: parseBool_(user.can_escalate),
     can_manage_users: parseBool_(user.can_manage_users),
+    can_view_completion_evidence: parseBool_(user.can_view_completion_evidence),
     must_change_password: parseBool_(user.must_change_password)
   };
 }

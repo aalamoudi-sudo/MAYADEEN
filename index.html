@@ -1864,7 +1864,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
-              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرئيسي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>الحالة الأصلية</th><th>الحالة المحسوبة</th><th>نسبة الإنجاز</th><th>دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th id="taskEscalationHeader" style="display:none">الإجراءات</th>
+              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرئيسي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>الحالة الأصلية</th><th>الحالة المحسوبة</th><th>نسبة الإنجاز</th><th id="taskEvidenceHeader">دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th id="taskEscalationHeader" style="display:none">الإجراءات</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -3565,6 +3565,25 @@ function applyPermissions(){
   if(initEl) initEl.textContent=display.trim().charAt(0)||'U';
   const addApprovalBtn=document.getElementById('addApprovalBtn');
   if(addApprovalBtn) addApprovalBtn.style.display=canAccessPage('approvals')?'':'none';
+  syncTaskEvidenceColumn();
+}
+
+function canViewCompletionEvidence(){ return currentUser?.can_view_completion_evidence===true; }
+function syncTaskEvidenceColumn(){
+  const row=document.querySelector('#taskTable thead tr');
+  if(!row) return;
+  let header=document.getElementById('taskEvidenceHeader');
+  if(canViewCompletionEvidence()&&!header){
+    header=document.createElement('th'); header.id='taskEvidenceHeader'; header.textContent='دليل الإنجاز';
+    row.insertBefore(header,row.children[10]||null);
+  }else if(!canViewCompletionEvidence()&&header){ header.remove(); }
+}
+
+function clearCompletionEvidenceState(){
+  rows=[]; tasks=[]; milestones=[]; evidenceRecords=[];
+  const body=document.querySelector('#taskTable tbody'); if(body) body.replaceChildren();
+  document.getElementById('taskEvidenceHeader')?.remove();
+  const modal=document.getElementById('modalContent'); if(modal) modal.replaceChildren();
 }
 
 function authPayload(payload){
@@ -3597,6 +3616,7 @@ async function login(){
     showLoginError('أدخل اسم المستخدم وكلمة المرور.');
     return;
   }
+  clearCompletionEvidenceState();
   const loginErr=document.getElementById('loginErr');
   if(loginErr) loginErr.style.display='none';
   markPerf('login_click');
@@ -3742,6 +3762,7 @@ async function validatePersistedSession(){
   return fallback.user;
 }
 function returnToAnonymousLogin(error){
+  clearCompletionEvidenceState();
   sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const app=document.getElementById('app'); app?.classList.remove('visible'); if(app) app.style.cssText='display:none!important';
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
@@ -6344,7 +6365,8 @@ function applyFilters(){
   if(!tbody) return;
   if(!data.length){
     const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا.':'لا توجد مهام مطابقة لمعايير البحث الحالية';
-    tbody.innerHTML=`<tr><td colspan="26" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
+    const visibleColumns=(canViewCompletionEvidence()?25:24)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
+    tbody.innerHTML=`<tr><td colspan="${visibleColumns}" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>{
@@ -6352,7 +6374,7 @@ function applyFilters(){
     const sc=s==='مكتملة'?'green':s==='قيد التنفيذ'?'blue':s==='متأخرة'?'red':s==='لم تبدأ'?'gray':'';
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&s==='متأخرة';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td><td>${taskEvidenceHtml(r)}</td><td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
 }
@@ -9432,7 +9454,7 @@ function reportSourceMeta(scope){
   };
 }
 function phaseOrderIndex(phase){const i=PROJECT_PHASE_ORDER.indexOf(normalizeProjectPhase(phase));return i<0?PROJECT_PHASE_ORDER.length:i;}
-function reportTaskRow(t){return {الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:normalizeProjectPhase(t.phase),الحالة:classifyStatus(t),الاستحقاق:t.end||'',الدليل:t.evidence||''};}
+function reportTaskRow(t){const row={الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:normalizeProjectPhase(t.phase),الحالة:classifyStatus(t),الاستحقاق:t.end||''}; if(canViewCompletionEvidence()) row.الدليل=t.evidence||''; return row;}
 function buildBatch4ReportSections(type){
   const today=riyadhTodayKey(), tomorrow=addDaysToDateKey(today,1);
   const baseTasks=tasks||[];
