@@ -1433,8 +1433,8 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table{
   direction:rtl;
   table-layout:fixed;
-  min-width:2540px;
-  width:2540px;
+  min-width:2500px;
+  width:2500px;
   border-collapse:separate;
   border-spacing:0 4px;
 }
@@ -1473,18 +1473,22 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table th:first-child,#tasks .task-table td:first-child{border-right:1px solid rgba(255,255,255,.075);border-radius:0 10px 10px 0}
 #tasks .task-table th:last-child,#tasks .task-table td:last-child{border-left:1px solid rgba(255,255,255,.075);border-radius:10px 0 0 10px}
 #tasks .task-table tbody tr:hover td{background:rgba(124,92,255,.105)}
-#tasks .task-table th:nth-child(1),#tasks .task-table td:nth-child(1){width:105px;font-weight:900;color:#d8ccff}
-#tasks .task-table th:nth-child(2),#tasks .task-table td:nth-child(2){width:300px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
-#tasks .task-table th:nth-child(3),#tasks .task-table td:nth-child(3){width:180px}
-#tasks .task-table th:nth-child(4),#tasks .task-table td:nth-child(4),#tasks .task-table th:nth-child(7),#tasks .task-table td:nth-child(7){width:150px}
-#tasks .task-table th:nth-child(5),#tasks .task-table td:nth-child(5),#tasks .task-table th:nth-child(6),#tasks .task-table td:nth-child(6),#tasks .task-table th:nth-child(8),#tasks .task-table td:nth-child(8),#tasks .task-table th:nth-child(9),#tasks .task-table td:nth-child(9),#tasks .task-table th:nth-child(12),#tasks .task-table td:nth-child(12){width:120px}
-#tasks .task-table th:nth-child(10),#tasks .task-table td:nth-child(10),#tasks .task-table th:nth-child(11),#tasks .task-table td:nth-child(11){width:105px;text-align:center}
-#tasks .task-table th:nth-child(13),#tasks .task-table td:nth-child(13),#tasks .task-table th:nth-child(14),#tasks .task-table td:nth-child(14){width:125px}
-#tasks .task-table th:nth-child(n+15):nth-child(-n+25),#tasks .task-table td:nth-child(n+15):nth-child(-n+25){width:120px}
-#tasks .task-table th:nth-child(16),#tasks .task-table td:nth-child(16){width:220px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
-#tasks .task-table th:nth-child(26),#tasks .task-table td:nth-child(26){width:110px;text-align:center}
+#tasks .task-table .task-col-code{width:105px;font-weight:900;color:#d8ccff}
+#tasks .task-table .task-col-name{width:300px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+#tasks .task-table .task-col-path{width:180px}
+#tasks .task-table .task-col-path-owner{width:150px}
+#tasks .task-table .task-col-phase,#tasks .task-table .task-col-type{width:120px}
+#tasks .task-table .task-col-owner{width:190px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+#tasks .task-table .task-col-status{width:130px}
+#tasks .task-table .task-col-progress{width:120px;text-align:center}
+#tasks .task-table .task-col-evidence,#tasks .task-table .task-col-priority{width:105px;text-align:center}
+#tasks .task-table .task-col-follow-up{width:190px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+#tasks .task-table .task-col-deliverable{width:260px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+#tasks .task-table .task-col-approval{width:125px}
+#tasks .task-table .task-col-dependency,#tasks .task-table .task-col-dependency-type,#tasks .task-table .task-col-lag,#tasks .task-table .task-col-duration,#tasks .task-table .task-col-date{width:120px}
+#tasks .task-table .task-col-action{width:110px;text-align:center}
 #tasks .task-table .escalate-btn{width:84px;min-height:32px;height:32px;padding:0 12px;white-space:nowrap}
-@media(max-width:1100px){#tasks .task-table-card{max-height:68vh;padding:10px}#tasks .task-table{min-width:2540px;width:2540px}}
+@media(max-width:1100px){#tasks .task-table-card{max-height:68vh;padding:10px}#tasks .task-table{min-width:2500px;width:2500px}}
 @media(max-width:700px){#tasks .task-table-card{max-height:66vh;padding:8px;margin-inline:-2px}#tasks .task-table th,#tasks .task-table td{font-size:12.5px;padding:9px 8px}#tasks .task-table .escalate-btn{width:80px;height:32px}}
 
 
@@ -1864,7 +1868,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
-              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرئيسي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>الحالة</th><th>نسبة الإنجاز</th><th id="taskEvidenceHeader">دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th id="taskEscalationHeader" style="display:none">الإجراءات</th>
+              <th class="task-col-code">كود المهمة</th><th class="task-col-name">اسم المهمة</th><th class="task-col-path">المسار الرئيسي</th><th class="task-col-path-owner">مسؤول المسار</th><th class="task-col-phase">المرحلة</th><th class="task-col-type">نوع المهمة</th><th class="task-col-owner">المسؤول المباشر</th><th class="task-col-status">الحالة</th><th class="task-col-progress">نسبة الإنجاز</th><th class="task-col-evidence" id="taskEvidenceHeader">دليل الإنجاز</th><th class="task-col-priority" id="taskPriorityHeader">الأولوية</th><th class="task-col-follow-up">مسؤول المتابعة</th><th class="task-col-deliverable">المخرج المطلوب</th><th class="task-col-approval">المعتمد</th><th class="task-col-dependency">المهمة السابقة</th><th class="task-col-dependency-type">نوع الاعتمادية</th><th class="task-col-lag">Lag</th><th class="task-col-duration">مدة التنفيذ</th><th class="task-col-date">البداية المخططة</th><th class="task-col-date">النهاية المخططة</th><th class="task-col-date">البداية الفعلية</th><th class="task-col-date">النهاية الفعلية</th><th class="task-col-action" id="taskEscalationHeader" style="display:none">الإجراءات</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -3574,8 +3578,8 @@ function syncTaskEvidenceColumn(){
   if(!row) return;
   let header=document.getElementById('taskEvidenceHeader');
   if(canViewCompletionEvidence()&&!header){
-    header=document.createElement('th'); header.id='taskEvidenceHeader'; header.textContent='دليل الإنجاز';
-    row.insertBefore(header,row.children[10]||null);
+    header=document.createElement('th'); header.id='taskEvidenceHeader'; header.className='task-col-evidence'; header.textContent='دليل الإنجاز';
+    row.insertBefore(header,document.getElementById('taskPriorityHeader'));
   }else if(!canViewCompletionEvidence()&&header){ header.remove(); }
 }
 
@@ -6383,7 +6387,7 @@ function applyFilters(){
   if(!tbody) return;
   if(!data.length){
     const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا.':'لا توجد مهام مطابقة لمعايير البحث الحالية';
-    const visibleColumns=(canViewCompletionEvidence()?24:23)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
+    const visibleColumns=(canViewCompletionEvidence()?22:21)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
     tbody.innerHTML=`<tr><td colspan="${visibleColumns}" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
@@ -6392,7 +6396,7 @@ function applyFilters(){
     const sc=s==='مكتملة'?'green':isTaskStatusOverdue(r)?'red':taskStatusFamily(r)==='قيد التنفيذ'?'blue':taskStatusFamily(r)==='لم تبدأ'?'gray':'';
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${escapeHtml(s||'—')}</span></td><td><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td class="task-col-code">${escapeHtml(r.code||'-')}</td><td class="task-col-name" title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td class="task-col-path">${escapeHtml(r.mainPath||'-')}</td><td class="task-col-path-owner">${escapeHtml(r.executionOwner||'-')}</td><td class="task-col-phase">${escapeHtml(r.phase||'-')}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-owner">${escapeHtml(r.owner||'-')}</td><td class="task-col-status"><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${escapeHtml(s||'—')}</span></td><td class="task-col-progress"><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-follow-up">${escapeHtml(r.followUpOwner||'-')}</td><td class="task-col-deliverable">${escapeHtml(r.operationalDeliverable||'-')}</td><td class="task-col-approval">${escapeHtml(r.approvalEntity||'-')}</td><td class="task-col-dependency">${escapeHtml(r.predecessor||'-')}</td><td class="task-col-dependency-type">${escapeHtml(r.dependencyType||'-')}</td><td class="task-col-lag">${escapeHtml(r.lag||'-')}</td><td class="task-col-duration">${escapeHtml(r.plannedDurationDays||'-')}</td><td class="task-col-date">${fmt(r.start)}</td><td class="task-col-date">${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-date">${fmt(r.actualStart)}</td><td class="task-col-date">${fmt(r.actualEnd)}</td><td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
 }

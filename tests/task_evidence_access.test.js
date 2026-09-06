@@ -47,7 +47,7 @@ const frontendSource = fs.readFileSync('index.html', 'utf8');
 assert.match(frontendSource, /canViewCompletionEvidence\(\)\?`<td>\$\{taskEvidenceHtml\(r\)\}<\/td>`:''/, 'unauthorized tables must omit the cell, not visually hide it');
 assert.match(frontendSource, /document\.getElementById\('taskEvidenceHeader'\)\?\.remove\(\)/, 'account switching must remove the evidence header');
 assert.match(frontendSource, /rows=\[\]; tasks=\[\]; milestones=\[\]; evidenceRecords=\[\];/, 'account switching must purge evidence-bearing memory');
-assert.match(frontendSource, /const visibleColumns=\(canViewCompletionEvidence\(\)\?25:24\)/, 'empty-table colspan must track permission');
+assert.match(frontendSource, /const visibleColumns=\(canViewCompletionEvidence\(\)\?22:21\)/, 'empty-table colspan must track permission and the visible task columns');
 assert.match(frontendSource, /if\(canViewCompletionEvidence\(\)\) row\.الدليل=t\.evidence\|\|''/, 'exports must omit the evidence field for unauthorized users');
 assert.match(frontendSource, /rel="noopener noreferrer"/, 'external evidence links must be isolated');
 console.log('Task evidence authorization, rendering, export, and session-isolation tests passed.');
