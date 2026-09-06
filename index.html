@@ -1474,20 +1474,30 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table th:last-child,#tasks .task-table td:last-child{border-left:1px solid rgba(255,255,255,.075);border-radius:10px 0 0 10px}
 #tasks .task-table tbody tr:hover td{background:rgba(124,92,255,.105)}
 #tasks .task-table .task-col-code{width:105px;font-weight:900;color:#d8ccff}
-#tasks .task-table .task-col-name{width:300px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+#tasks .task-table .task-col-name{width:300px}
 #tasks .task-table .task-col-path{width:180px}
 #tasks .task-table .task-col-path-owner{width:150px}
 #tasks .task-table .task-col-phase,#tasks .task-table .task-col-type{width:120px}
-#tasks .task-table .task-col-owner{width:190px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+#tasks .task-table .task-col-owner{width:190px}
 #tasks .task-table .task-col-status{width:130px}
 #tasks .task-table .task-col-progress{width:120px;text-align:center}
 #tasks .task-table .task-col-evidence,#tasks .task-table .task-col-priority{width:105px;text-align:center}
-#tasks .task-table .task-col-follow-up{width:190px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
-#tasks .task-table .task-col-deliverable{width:260px;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+#tasks .task-table .task-col-follow-up{width:190px}
+#tasks .task-table .task-col-deliverable{width:260px}
 #tasks .task-table .task-col-approval{width:125px}
 #tasks .task-table .task-col-dependency,#tasks .task-table .task-col-dependency-type,#tasks .task-table .task-col-lag,#tasks .task-table .task-col-duration,#tasks .task-table .task-col-date{width:120px}
 #tasks .task-table .task-col-action{width:110px;text-align:center}
 #tasks .task-table .escalate-btn{width:84px;min-height:32px;height:32px;padding:0 12px;white-space:nowrap}
+.task-overflow-text{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;direction:rtl}
+.task-overflow-text.is-clipped{cursor:help;outline:none}
+.task-overflow-text.is-clipped:focus-visible{border-radius:4px;box-shadow:0 0 0 2px rgba(160,125,255,.8)}
+.task-overflow-tooltip{
+  position:fixed;display:none;box-sizing:border-box;width:max-content;min-width:min(180px,calc(100vw - 24px));max-width:min(440px,calc(100vw - 24px));max-height:min(280px,calc(100vh - 24px));
+  overflow:auto;padding:12px 14px;border:1px solid rgba(160,125,255,.62);border-radius:11px;background:#11152a;color:#f1f3ff;
+  box-shadow:0 10px 30px rgba(0,0,0,.42),0 0 0 1px rgba(124,92,255,.08);font-family:inherit;font-size:13px;font-weight:600;line-height:1.75;
+  text-align:right;direction:rtl;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;z-index:10000
+}
+.task-overflow-tooltip.is-visible{display:block}
 @media(max-width:1100px){#tasks .task-table-card{max-height:68vh;padding:10px}#tasks .task-table{min-width:2500px;width:2500px}}
 @media(max-width:700px){#tasks .task-table-card{max-height:66vh;padding:8px;margin-inline:-2px}#tasks .task-table th,#tasks .task-table td{font-size:12.5px;padding:9px 8px}#tasks .task-table .escalate-btn{width:80px;height:32px}}
 
@@ -3253,6 +3263,74 @@ let activeFieldExperienceTab='sites'; let assetsGifts=[]; let assetsGiftsLoaded=
 let evidenceRecords=[]; let approvalHistoryRecords=[]; let versionHistoryRecords=[]; let issuesIncidents=[]; let vendorViolations=[]; let decisionLogRecords=[]; let suppliersRegister=[]; let riskGovernanceRegister=[];
 let selectedProcurementId=''; let selectedPermitId=''; let selectedChangeOrderId=''; let selectedEscalationId=''; let selectedVendorName='';
 let taskDateFilter='all';
+const TASK_TOOLTIP_ID='task-overflow-tooltip';
+let taskTooltipAnchor=null;
+let taskTooltipOpenTimer=0;
+let taskTooltipCloseTimer=0;
+let taskTooltipResizeObserver=null;
+let taskTooltipInitialized=false;
+function taskOverflowText(value){
+  return `<span class="task-overflow-text" data-task-tooltip>${escapeHtml(value||'-')}</span>`;
+}
+function taskTooltipElement(){
+  let tooltip=document.getElementById(TASK_TOOLTIP_ID);
+  if(!tooltip){
+    tooltip=document.createElement('div'); tooltip.id=TASK_TOOLTIP_ID; tooltip.className='task-overflow-tooltip';
+    tooltip.setAttribute('role','tooltip'); tooltip.setAttribute('dir','rtl'); document.body.appendChild(tooltip);
+  }
+  return tooltip;
+}
+function clearTaskTooltipTimers(){ clearTimeout(taskTooltipOpenTimer); clearTimeout(taskTooltipCloseTimer); }
+function closeTaskTooltip(){
+  clearTaskTooltipTimers();
+  if(taskTooltipAnchor) taskTooltipAnchor.removeAttribute('aria-describedby');
+  taskTooltipAnchor=null;
+  const tooltip=document.getElementById(TASK_TOOLTIP_ID);
+  if(tooltip){ tooltip.classList.remove('is-visible'); tooltip.textContent=''; }
+}
+function positionTaskTooltip(anchor,tooltip){
+  const margin=12,gap=7,anchorRect=anchor.getBoundingClientRect(),tipRect=tooltip.getBoundingClientRect();
+  const left=Math.max(margin,Math.min(anchorRect.right-tipRect.width,window.innerWidth-tipRect.width-margin));
+  const fitsBelow=anchorRect.bottom+gap+tipRect.height<=window.innerHeight-margin;
+  const top=fitsBelow?anchorRect.bottom+gap:Math.max(margin,anchorRect.top-gap-tipRect.height);
+  tooltip.style.left=`${Math.round(left)}px`; tooltip.style.top=`${Math.round(top)}px`;
+}
+function openTaskTooltip(anchor){
+  if(!anchor?.classList.contains('is-clipped')) return;
+  clearTaskTooltipTimers();
+  const tooltip=taskTooltipElement();
+  if(taskTooltipAnchor&&taskTooltipAnchor!==anchor) taskTooltipAnchor.removeAttribute('aria-describedby');
+  taskTooltipAnchor=anchor; tooltip.textContent=anchor.textContent; tooltip.classList.add('is-visible');
+  anchor.setAttribute('aria-describedby',TASK_TOOLTIP_ID); positionTaskTooltip(anchor,tooltip);
+}
+function scheduleTaskTooltipOpen(anchor){
+  clearTimeout(taskTooltipCloseTimer); clearTimeout(taskTooltipOpenTimer);
+  taskTooltipOpenTimer=setTimeout(()=>openTaskTooltip(anchor),200);
+}
+function scheduleTaskTooltipClose(){ clearTimeout(taskTooltipOpenTimer); clearTimeout(taskTooltipCloseTimer); taskTooltipCloseTimer=setTimeout(closeTaskTooltip,90); }
+function refreshTaskOverflowState(){
+  requestAnimationFrame(()=>document.querySelectorAll('#taskTable [data-task-tooltip]').forEach(el=>{
+    const clipped=el.scrollWidth>el.clientWidth+1;
+    el.classList.toggle('is-clipped',clipped);
+    if(clipped) el.tabIndex=0;
+    else{ el.removeAttribute('tabindex'); if(taskTooltipAnchor===el) closeTaskTooltip(); }
+  }));
+}
+function initTaskOverflowTooltips(){
+  if(taskTooltipInitialized) return; taskTooltipInitialized=true;
+  const table=document.getElementById('taskTable'),card=table?.closest('.task-table-card'); if(!table) return;
+  document.addEventListener('pointerover',e=>{const anchor=e.target.closest?.('#taskTable [data-task-tooltip].is-clipped'); if(anchor&&e.pointerType!=='touch') scheduleTaskTooltipOpen(anchor);});
+  document.addEventListener('pointerout',e=>{const anchor=e.target.closest?.('#taskTable [data-task-tooltip].is-clipped'); if(anchor&&!anchor.contains(e.relatedTarget)) scheduleTaskTooltipClose();});
+  document.addEventListener('focusin',e=>{const anchor=e.target.closest?.('#taskTable [data-task-tooltip].is-clipped'); if(anchor) openTaskTooltip(anchor);});
+  document.addEventListener('focusout',e=>{if(e.target.closest?.('#taskTable [data-task-tooltip]')) scheduleTaskTooltipClose();});
+  document.addEventListener('pointerup',e=>{const anchor=e.target.closest?.('#taskTable [data-task-tooltip].is-clipped'); if(!anchor||e.pointerType!=='touch') return; e.preventDefault(); e.stopPropagation(); taskTooltipAnchor===anchor?closeTaskTooltip():openTaskTooltip(anchor);},true);
+  document.addEventListener('click',e=>{const anchor=e.target.closest?.('#taskTable [data-task-tooltip].is-clipped'); const tooltip=e.target.closest?.(`#${TASK_TOOLTIP_ID}`); if(anchor){e.stopPropagation();return;} if(!tooltip) closeTaskTooltip();},true);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape') closeTaskTooltip();});
+  document.addEventListener('scroll',e=>{if(!e.target.closest?.(`#${TASK_TOOLTIP_ID}`)) closeTaskTooltip();},true);
+  const tooltip=taskTooltipElement(); tooltip.addEventListener('pointerenter',()=>clearTimeout(taskTooltipCloseTimer)); tooltip.addEventListener('pointerleave',scheduleTaskTooltipClose);
+  window.addEventListener('resize',()=>{closeTaskTooltip();refreshTaskOverflowState();},{passive:true});
+  if(window.ResizeObserver){taskTooltipResizeObserver=new ResizeObserver(refreshTaskOverflowState);taskTooltipResizeObserver.observe(table);if(card)taskTooltipResizeObserver.observe(card);}
+}
 const TIMELINE_FILTER_IDS=['tlSearch','tlPhase','tlOwner','tlType','tlMonth'];
 let timelineFiltersTouchedInSession=false;
 let timelinePageVisitToken=0;
@@ -3773,6 +3851,7 @@ function returnToAnonymousLogin(error){
   setLoginVisualState('idle'); updateLoginButtonState(false); if(error) showLoginError(error);
 }
 function showPage(id){
+  closeTaskTooltip();
   if(!document.getElementById(id)) id='overview';
   if(!canAccessPage(id)){alert(id==='executiveBoard'?EXECUTIVE_BOARD_ACCESS_DENIED:'ليست لديك صلاحية فتح هذه الصفحة.');return;}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -6339,6 +6418,7 @@ function isOverdueTasksView(){
 }
 
 function applyFilters(){
+  closeTaskTooltip();
   const q=(document.getElementById('searchTask')||{value:''}).value.toLowerCase();
   const ph=(document.getElementById('filterPhase')||{value:''}).value;
   const ow=(document.getElementById('filterOwner')||{value:''}).value;
@@ -6396,9 +6476,11 @@ function applyFilters(){
     const sc=s==='مكتملة'?'green':isTaskStatusOverdue(r)?'red':taskStatusFamily(r)==='قيد التنفيذ'?'blue':taskStatusFamily(r)==='لم تبدأ'?'gray':'';
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td class="task-col-code">${escapeHtml(r.code||'-')}</td><td class="task-col-name" title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td class="task-col-path">${escapeHtml(r.mainPath||'-')}</td><td class="task-col-path-owner">${escapeHtml(r.executionOwner||'-')}</td><td class="task-col-phase">${escapeHtml(r.phase||'-')}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-owner">${escapeHtml(r.owner||'-')}</td><td class="task-col-status"><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${escapeHtml(s||'—')}</span></td><td class="task-col-progress"><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-follow-up">${escapeHtml(r.followUpOwner||'-')}</td><td class="task-col-deliverable">${escapeHtml(r.operationalDeliverable||'-')}</td><td class="task-col-approval">${escapeHtml(r.approvalEntity||'-')}</td><td class="task-col-dependency">${escapeHtml(r.predecessor||'-')}</td><td class="task-col-dependency-type">${escapeHtml(r.dependencyType||'-')}</td><td class="task-col-lag">${escapeHtml(r.lag||'-')}</td><td class="task-col-duration">${escapeHtml(r.plannedDurationDays||'-')}</td><td class="task-col-date">${fmt(r.start)}</td><td class="task-col-date">${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-date">${fmt(r.actualStart)}</td><td class="task-col-date">${fmt(r.actualEnd)}</td><td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td class="task-col-code">${escapeHtml(r.code||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-owner">${taskOverflowText(r.owner)}</td><td class="task-col-status"><span class="pill ${sc}">${escapeHtml(s||'—')}</span></td><td class="task-col-progress"><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-deliverable">${taskOverflowText(r.operationalDeliverable)}</td><td class="task-col-approval">${taskOverflowText(r.approvalEntity)}</td><td class="task-col-dependency">${taskOverflowText(r.predecessor)}</td><td class="task-col-dependency-type">${taskOverflowText(r.dependencyType)}</td><td class="task-col-lag">${escapeHtml(r.lag||'-')}</td><td class="task-col-duration">${escapeHtml(r.plannedDurationDays||'-')}</td><td class="task-col-date">${fmt(r.start)}</td><td class="task-col-date">${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-date">${fmt(r.actualStart)}</td><td class="task-col-date">${fmt(r.actualEnd)}</td><td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
+  initTaskOverflowTooltips();
+  refreshTaskOverflowState();
 }
 
 
