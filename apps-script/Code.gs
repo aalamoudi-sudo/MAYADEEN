@@ -1796,9 +1796,11 @@ function requireOverdueTaskEscalationUser_(session) {
 }
 
 function isTaskOverdueForEscalation_(task) {
-  const status = String(getField_(task, WBS_FIELD_ALIASES.status) || getField_(task, WBS_FIELD_ALIASES.computedStatus) || '').toLowerCase();
-  if (status.match(/مكتمل|completed|done|closed/)) return false;
-  if (status.match(/متأخر|متاخر|overdue|late|delayed/)) return true;
+  const status = String(getField_(task, WBS_FIELD_ALIASES.status) || '').trim().toLowerCase();
+  const normalizedStatus = status.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+  const inProgress = ['قيد التنفيذ', 'جاري التنفيذ', 'in progress', 'active'].indexOf(normalizedStatus) !== -1;
+  const notStarted = ['لم تبدا', 'not started', 'pending'].indexOf(normalizedStatus) !== -1;
+  if (!inProgress && !notStarted) return false;
   const dueRaw = getField_(task, WBS_FIELD_ALIASES.plannedEnd);
   if (!dueRaw) return false;
   const due = new Date(dueRaw);

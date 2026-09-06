@@ -1854,7 +1854,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <select id="filterPath" onchange="applyFilters()"><option value="">كل المسارات الرسمية</option></select>
           <select id="filterOwner" onchange="applyFilters()"><option value="">كل المسؤولين</option></select>
           <select id="filterType" onchange="applyFilters()"><option value="">كل الأنواع</option><option value="Task">Task</option><option value="Milestone">Milestone</option></select>
-          <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="متأخرة">متأخرة</option><option value="لم تبدأ">لم تبدأ</option></select>
+          <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="قيد التنفيذ - متأخرة">قيد التنفيذ - متأخرة</option><option value="لم تبدأ">لم تبدأ</option><option value="لم تبدأ - متأخرة">لم تبدأ - متأخرة</option><option value="متأخرة">متأخرة</option></select>
         </div>
         <div class="task-date-filter" id="taskDateFilter" aria-label="فلتر تاريخ استحقاق المهام">
           <button type="button" class="task-date-chip active" data-date-filter="all" onclick="setTaskDateFilter('all')"><span>كل المهام</span><b id="taskDateAllCount">0</b></button>
@@ -1864,7 +1864,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
-              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرئيسي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>الحالة الأصلية</th><th>الحالة المحسوبة</th><th>نسبة الإنجاز</th><th id="taskEvidenceHeader">دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th id="taskEscalationHeader" style="display:none">الإجراءات</th>
+              <th>كود المهمة</th><th>اسم المهمة</th><th>المسار الرئيسي</th><th>مسؤول المسار</th><th>المرحلة</th><th>نوع المهمة</th><th>المسؤول المباشر</th><th>الحالة</th><th>نسبة الإنجاز</th><th id="taskEvidenceHeader">دليل الإنجاز</th><th>الأولوية</th><th>آخر تحديث</th><th>مصدر البيانات</th><th>مسؤول المتابعة</th><th>المخرج المطلوب</th><th>المعتمد</th><th>المهمة السابقة</th><th>نوع الاعتمادية</th><th>Lag</th><th>مدة التنفيذ</th><th>البداية المخططة</th><th>النهاية المخططة</th><th>البداية الفعلية</th><th>النهاية الفعلية</th><th id="taskEscalationHeader" style="display:none">الإجراءات</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -4769,7 +4769,7 @@ function itemStatus(item,type){
   return item.status||'-';
 }
 function itemRisk(item,type){
-  if(type==='task') return classifyStatus(item)==='متأخرة'?'مرتفع':'متوسط';
+  if(type==='task') return isTaskStatusOverdue(item)?'مرتفع':'متوسط';
   if(type==='procurement') return item.priority==='عاجل'?'مرتفع':item.priority||'متوسط';
   if(type==='permit') return item.end&&daysBetween(futureDate(0),item.end)<=3?'مرتفع':'متوسط';
   if(type==='changeOrder') return item.risk||'متوسط';
@@ -4844,7 +4844,7 @@ function suggestEscalationReason(item,type){
   if(type==='permit') return delay<0?'تصريح متأخر أو منتهي':'تصريح يقترب من الانتهاء';
   if(type==='procurement') return !item.attachment?'نقص مستندات':'تأخر طلب شراء أو اعتماد';
   if(type==='changeOrder') return ['حرج','مرتفع'].includes(item.risk)?'أمر تغيير عالي الخطورة':'تأثير على الوقت أو النطاق';
-  if(type==='task') return classifyStatus(item)==='متأخرة'?'تأخير':'تحتاج متابعة';
+  if(type==='task') return isTaskStatusOverdue(item)?'تأخير':'تحتاج متابعة';
   return 'قرار عاجل مطلوب';
 }
 // مزامنة سجلات التصعيد مع الشيت (Escalations Log) دون حظر واجهة المستخدم — نفس آلية
@@ -5195,17 +5195,19 @@ function dateKeyToUtcDay_(dateKey){
 function getTaskPlannedEndDateKey(task){return getTaskPlannedEndDate(task);}
 function isTaskOverdue(task){
   if(!isTaskRecord_(task)||isTaskCancelled(task)||isTaskCompleted(task)) return false;
+  const sheetStatus=normalizeTaskStatus(getSheetStatus(task));
+  if(sheetStatus!=='قيد التنفيذ'&&sheetStatus!=='لم تبدأ') return false;
   const endKey=getTaskPlannedEndDate(task);
   if(!endKey) return false;
   return dateKeyToUtcDay_(endKey)<dateKeyToUtcDay_(riyadhTodayKey());
 }
 function getTaskDelayDays(task){
+  if(!isTaskOverdue(task)) return 0;
   const rawDelay=valueOf(task,WBS_FIELD_ALIASES.delayDays)||task?.sheetDelayDays;
   if(rawDelay!==''&&rawDelay!==null&&rawDelay!==undefined){
     const n=Number(String(rawDelay).replace(',', '.'));
     if(Number.isFinite(n)) return Math.max(0,Math.round(n));
   }
-  if(!isTaskOverdue(task)) return 0;
   const days=Math.round((dateKeyToUtcDay_(riyadhTodayKey())-dateKeyToUtcDay_(getTaskPlannedEndDate(task)))/86400000);
   return Math.max(0,days);
 }
@@ -5214,7 +5216,7 @@ function getTaskStatusReason(task){
   const sheetStatus=normalizeTaskStatus(getSheetStatus(task));
   if(sheetStatus==='مكتملة') return 'الحالة الأصلية من الشيت مكتملة ولا يعاد تصنيفها بسبب الدليل أو التاريخ الفعلي';
   if(sheetStatus==='ملغاة') return 'الحالة الأصلية من الشيت ملغاة';
-  if(isTaskOverdue(task)) return `تاريخ النهاية المخطط قبل اليوم بتوقيت الرياض (${getTaskDelayDays(task)} يوم تأخير) والحالة الأصلية ليست مكتملة أو ملغاة`;
+  if(isTaskOverdue(task)) return `تاريخ النهاية المخطط قبل اليوم بتوقيت الرياض (${getTaskDelayDays(task)} يوم تأخير)`;
   if(!getTaskPlannedEndDate(task)) return 'لا يوجد تاريخ نهاية مخطط صالح';
   return `الحالة الأصلية من الشيت: ${sheetStatus}`;
 }
@@ -5222,15 +5224,31 @@ function computeTaskStatus(task){
   if(!isOfficialWbsRecord_(task)) return 'غير مكتملة البيانات';
   const sheetStatus=normalizeTaskStatus(getSheetStatus(task));
   if(sheetStatus==='مكتملة') return 'مكتملة';
-  if(sheetStatus==='ملغاة') return 'ملغاة';
-  if(isTaskOverdue(task)) return 'متأخرة';
+  if(isTaskOverdue(task)) return `${sheetStatus} - متأخرة`;
   return sheetStatus;
 }
 function classifyStatus(r){return computeTaskStatus(r);}
+function isTaskStatusOverdue(task){return ['قيد التنفيذ - متأخرة','لم تبدأ - متأخرة'].includes(classifyStatus(task));}
+function taskStatusFamily(task){
+  const status=classifyStatus(task);
+  if(status==='قيد التنفيذ - متأخرة') return 'قيد التنفيذ';
+  if(status==='لم تبدأ - متأخرة') return 'لم تبدأ';
+  return status;
+}
+function taskMatchesStatusFilter(task,filter){
+  if(!filter) return true;
+  if(filter==='متأخرة') return isTaskStatusOverdue(task);
+  if(filter==='قيد التنفيذ'||filter==='لم تبدأ') return taskStatusFamily(task)===filter;
+  return classifyStatus(task)===filter;
+}
+function taskStatusSummary(taskList){
+  const list=Array.isArray(taskList)?taskList:[];
+  return {total:list.length,done:list.filter(t=>classifyStatus(t)==='مكتملة').length,inprog:list.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length,notStarted:list.filter(t=>taskStatusFamily(t)==='لم تبدأ').length,late:list.filter(isTaskStatusOverdue).length};
+}
 function enrichComputedTaskStatuses(){[rows,tasks,milestones].forEach(list=>(list||[]).forEach(t=>{t.computed_status=computeTaskStatus(t);t.delay_days=getTaskDelayDays(t);t.status_reason=getTaskStatusReason(t);}));}
 function logTaskStatusDiagnostics(){
   if(!isOfficialKpiReady()||!Array.isArray(tasks)||!tasks.length) return;
-  const overdue=tasks.filter(t=>computeTaskStatus(t)==='متأخرة');
+  const overdue=tasks.filter(isTaskStatusOverdue);
   const candidates=tasks.filter(t=>getTaskPlannedEndDate(t)&&dateKeyToUtcDay_(getTaskPlannedEndDate(t))<dateKeyToUtcDay_(riyadhTodayKey()));
   const rowsDiag=candidates.map(t=>({task_code:t.code||'',task_title:t.name||'',sheet_status:t.sheet_status||'',computed_status:computeTaskStatus(t),planned_end_date:getTaskPlannedEndDate(t),actual_start_date:getTaskActualStartDate(t),actual_end_date:getTaskActualEndDate(t),progress:getTaskProgress(t),evidence:getTaskEvidence(t)||'',delay_days:getTaskDelayDays(t),reason:getTaskStatusReason(t)}));
   console.groupCollapsed(`تشخيص حالات المهام: المتأخرة المحسوبة ${overdue.length}`);
@@ -5493,8 +5511,8 @@ function renderHealth(){
     const total=phaseTasks.length;
     if(!total) return null;
     const done=phaseTasks.filter(t=>classifyStatus(t)==='مكتملة').length;
-    const inprog=phaseTasks.filter(t=>classifyStatus(t)==='قيد التنفيذ').length;
-    const late=phaseTasks.filter(t=>classifyStatus(t)==='متأخرة').length;
+    const inprog=phaseTasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length;
+    const late=phaseTasks.filter(t=>isTaskStatusOverdue(t)).length;
     const pct=Math.round((done/total)*100);
     let color='blue'; let statusLabel='لم تبدأ';
     if(done===total){color='green';statusLabel='مكتملة';}
@@ -5586,7 +5604,7 @@ function renderTimeline(options={}){
     const st=classifyStatus(r);
     if(st==='مكتملة') return '#10e87a';
     if(st==='قيد التنفيذ') return '#3b82f6';
-    if(st==='متأخرة') return '#ff4d6a';
+    if(st==='قيد التنفيذ - متأخرة'||st==='لم تبدأ - متأخرة') return '#ff4d6a';
     if(st==='لم تبدأ') return '#6b7280';
     if(r.type==='Milestone') return '#a07dff';
     return '#7c5cff';
@@ -5695,9 +5713,9 @@ function getProjectPhaseStats(){
       tasks:phaseTasks,
       total:phaseTasks.length,
       done,
-      late:phaseTasks.filter(task=>classifyStatus(task)==='متأخرة').length,
-      inprog:phaseTasks.filter(task=>classifyStatus(task)==='قيد التنفيذ').length,
-      notStarted:phaseTasks.filter(task=>classifyStatus(task)==='لم تبدأ').length,
+      late:phaseTasks.filter(task=>isTaskStatusOverdue(task)).length,
+      inprog:phaseTasks.filter(task=>taskStatusFamily(task)==='قيد التنفيذ').length,
+      notStarted:phaseTasks.filter(task=>taskStatusFamily(task)==='لم تبدأ').length,
       pct:phaseTasks.length?Math.round(done/phaseTasks.length*100):0
     };
   });
@@ -5910,8 +5928,8 @@ function updateExecSummary(){
   if(!rows || !rows.length) return;
   const total = tasks.length;
   const done = tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
-  const inprog = tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ').length;
-  const late = tasks.filter(t=>classifyStatus(t)==='متأخرة').length;
+  const inprog = tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length;
+  const late = tasks.filter(t=>isTaskStatusOverdue(t)).length;
   const pct = total>0 ? Math.round((done/total)*100) : 0;
 
   // نسبة الإنجاز
@@ -5991,7 +6009,7 @@ function openDetail(code){
         ${predecessors.map(p=>`<div onclick="openDetail(${JSON.stringify(p.code)})" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer;margin-bottom:4px">
           <span style="font-size:10px;color:var(--muted)">${escapeHtml(p.code)}</span>
           <span style="font-size:12px;color:#c4d0f0;flex:1">${escapeHtml(p.name)}</span>
-          <span class="pill ${classifyStatus(p)==='مكتملة'?'green':classifyStatus(p)==='متأخرة'?'red':'blue'}" style="font-size:10px">${classifyStatus(p)}</span>
+          <span class="pill ${classifyStatus(p)==='مكتملة'?'green':isTaskStatusOverdue(p)?'red':'blue'}" style="font-size:10px">${classifyStatus(p)}</span>
         </div>`).join('')}
       </div>`:''}
       ${successors.length?`<div>
@@ -5999,7 +6017,7 @@ function openDetail(code){
         ${successors.map(s=>`<div onclick="openDetail(${JSON.stringify(s.code)})" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer;margin-bottom:4px">
           <span style="font-size:10px;color:var(--muted)">${escapeHtml(s.code)}</span>
           <span style="font-size:12px;color:#c4d0f0;flex:1">${escapeHtml(s.name)}</span>
-          <span class="pill ${classifyStatus(s)==='مكتملة'?'green':classifyStatus(s)==='متأخرة'?'red':'blue'}" style="font-size:10px">${classifyStatus(s)}</span>
+          <span class="pill ${classifyStatus(s)==='مكتملة'?'green':isTaskStatusOverdue(s)?'red':'blue'}" style="font-size:10px">${classifyStatus(s)}</span>
         </div>`).join('')}
       </div>`:''}
     </div>`;
@@ -6337,7 +6355,7 @@ function applyFilters(){
     if(ph&&r.phase!==ph) return false;
     if(path&&r.mainPath!==path) return false;
     if(!taskMatchesOwnerFilter(r,ow)) return false;
-    if(st&&classifyStatus(r)!==st) return false;
+    if(!taskMatchesStatusFilter(r,st)) return false;
     return true;
   });
   const dateCounts={
@@ -6365,16 +6383,16 @@ function applyFilters(){
   if(!tbody) return;
   if(!data.length){
     const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا.':'لا توجد مهام مطابقة لمعايير البحث الحالية';
-    const visibleColumns=(canViewCompletionEvidence()?25:24)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
+    const visibleColumns=(canViewCompletionEvidence()?24:23)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
     tbody.innerHTML=`<tr><td colspan="${visibleColumns}" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>{
     const s=classifyStatus(r);
-    const sc=s==='مكتملة'?'green':s==='قيد التنفيذ'?'blue':s==='متأخرة'?'red':s==='لم تبدأ'?'gray':'';
-    const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&s==='متأخرة';
+    const sc=s==='مكتملة'?'green':isTaskStatusOverdue(r)?'red':taskStatusFamily(r)==='قيد التنفيذ'?'blue':taskStatusFamily(r)==='لم تبدأ'?'gray':'';
+    const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td>${escapeHtml(r.sheet_status||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${s||'—'}</span></td><td><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td>${escapeHtml(r.code||'-')}</td><td title="${escapeHtml(r.name||'-')}">${escapeHtml(r.name||'-')}</td><td>${escapeHtml(r.mainPath||'-')}</td><td>${escapeHtml(r.executionOwner||'-')}</td><td>${escapeHtml(r.phase||'-')}</td><td><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td>${escapeHtml(r.owner||'-')}</td><td><span class="pill ${sc}" title="السبب: ${escapeHtml(getTaskStatusReason(r)||'-')}">${escapeHtml(s||'—')}</span></td><td><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td>${escapeHtml(r.priority||'-')}</td><td>${fmt(r.lastUpdate)}</td><td>${escapeHtml(r.dataSource||r._source||'-')}</td><td>${escapeHtml(r.followUpOwner||'-')}</td><td>${escapeHtml(r.operationalDeliverable||'-')}</td><td>${escapeHtml(r.approvalEntity||'-')}</td><td>${escapeHtml(r.predecessor||'-')}</td><td>${escapeHtml(r.dependencyType||'-')}</td><td>${escapeHtml(r.lag||'-')}</td><td>${escapeHtml(r.plannedDurationDays||'-')}</td><td>${fmt(r.start)}</td><td>${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td>${fmt(r.actualStart)}</td><td>${fmt(r.actualEnd)}</td><td style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
 }
@@ -6413,7 +6431,7 @@ function refreshOverdueEscalationPreview(){
 }
 function confirmOverdueTaskEscalation(taskId){
   const task=tasks.find(t=>String(t.code)===String(taskId));
-  if(!task||classifyStatus(task)!=='متأخرة'||!canEscalateOverdueTask()||!isOverdueTasksView()) return;
+  if(!task||!isTaskStatusOverdue(task)||!canEscalateOverdueTask()||!isOverdueTasksView()) return;
   const modal=document.getElementById('modal'),content=document.getElementById('modalContent'),box=modal?.querySelector('.modal-box'); if(!modal||!content||!box) return;
   const isAtheer=String(currentUser.username).toLowerCase()==='atheer';
   const options=(overdueEscalationConfig.recipients||[]).map(r=>`<option value="${escapeHtml(r.username)}">${escapeHtml(r.display_name)}</option>`).join('');
@@ -6427,7 +6445,7 @@ async function submitOverdueTaskEscalation(taskId){
   if(!reason) return setOverdueEscalationModalError('سبب التصعيد إلزامي.');
   if(!recipient) return setOverdueEscalationModalError('اختيار المستلم إلزامي.');
   if(recipient.username===String(currentUser.username).toLowerCase()) return setOverdueEscalationModalError('لا يجوز التصعيد إلى نفسك.');
-  if(!task||classifyStatus(task)!=='متأخرة') return setOverdueEscalationModalError('لا يمكن التصعيد لأن المهمة لم تعد متأخرة.');
+  if(!task||!isTaskStatusOverdue(task)) return setOverdueEscalationModalError('لا يمكن التصعيد لأن المهمة لم تعد متأخرة.');
   overdueEscalationSubmitting=true; submitBtn.disabled=true; submitBtn.textContent='جارٍ الإرسال...';
   try{ const res=await postApi(getConfiguredApiUrl(),{action:'escalate_overdue_task',task_id:task.code,reason,notes,escalated_to:recipient.username,task_url:task.evidence||''}); const data=await res.json(); if(!data.ok) throw new Error(data.message||data.error||'failed'); closeModal(); showAppToast(`تم إرسال التصعيد إلى ${recipient.display_name}.`); await loadExternal(false); }
   catch(e){ submitBtn.disabled=false; submitBtn.textContent='تأكيد وإرسال'; setOverdueEscalationModalError(sanitizeUserError(e,'تعذر تنفيذ التصعيد')); }
@@ -6534,7 +6552,7 @@ function renderLineChart(){
 function renderInsights(){
   const el=document.getElementById('insights'); if(!el) return;
 
-  const overdueTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة');
+  const overdueTasks=tasks.filter(t=>isTaskStatusOverdue(t));
   const noOwnerTasks=tasks.filter(t=>!String(t.owner||'').trim());
   const ownerCounts=countBy(tasks.filter(t=>String(t.owner||'').trim()),'owner');
   const topOwner=topEntries(ownerCounts,1)[0];
@@ -6711,7 +6729,7 @@ function renderSchedulePressure(rowsId, statusId){
     return m.end && days>=0 && days<=30;
   }).length;
 
-  const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة').length;
+  const lateTasks=tasks.filter(t=>isTaskStatusOverdue(t)).length;
 
   // تصنيف الضغط العام: مرتفع — متوسط — منخفض، بناءً على المهام المستحقة قريباً والمتأخرة
   let level,levelColor,levelBg,levelBorder;
@@ -6747,12 +6765,8 @@ function renderSchedulePressure(rowsId, statusId){
 }
 
 function renderExecutiveAdditions(){
-  const statusCount=countBy(tasks,classifyStatus);
-  const late=statusCount['متأخرة']||0;
-  const done=statusCount['مكتملة']||0;
-  const inprog=statusCount['قيد التنفيذ']||0;
-  const notStarted=statusCount['لم تبدأ']||0;
-  const total=tasks.length;
+  const statusCount=taskStatusSummary(tasks);
+  const {late,done,inprog,notStarted,total}=statusCount;
   const actual=total?Math.round(done/total*100):0;
   const planned=plannedProgressPct();
   const diff=actual-planned;
@@ -6877,9 +6891,9 @@ function showOwnerTasks(name){
 function renderUrgentTasks(){
   const el=document.getElementById('urgentTasks'); if(!el) return;
   const today=riyadhTodayKey();
-  const late=tasks.filter(t=>classifyStatus(t)==='متأخرة').slice(0,4);
+  const late=tasks.filter(t=>isTaskStatusOverdue(t)).slice(0,4);
   const soon=tasks.filter(t=>{
-    if(classifyStatus(t)!=='لم تبدأ') return false;
+    if(taskStatusFamily(t)!=='لم تبدأ') return false;
     const ds=d(t.start);
     if(!ds) return false;
     const diff=daysBetween(today, t.start);
@@ -6892,7 +6906,7 @@ function renderUrgentTasks(){
   }
   el.innerHTML=all.map(r=>{
     const st=classifyStatus(r);
-    const isLate=st==='متأخرة';
+    const isLate=isTaskStatusOverdue(r);
     const color=isLate?'#ff4d6a':'#f5b800';
     const rgb=isLate?'255,77,106':'245,184,0';
     const label=isLate?'متأخرة':'خلال '+daysBetween(today,r.start)+' يوم';
@@ -6911,18 +6925,14 @@ function renderTasksKpis(){
   const el=document.getElementById('kpis2');
   if(!el) return;
   if(!isOfficialKpiReady()){el.innerHTML=['نسبة الإنجاز','متأخرة','لم تبدأ','قيد التنفيذ','مكتملة'].map(x=>noKpiCardHtml(x)).join(''); return;}
-  const statusCount=countBy(tasks,classifyStatus);
-  const done=statusCount['مكتملة']||0;
-  const inprog=statusCount['قيد التنفيذ']||0;
-  const late=statusCount['متأخرة']||0;
-  const notStarted=statusCount['لم تبدأ']||0;
+  const {done,inprog,late,notStarted}=taskStatusSummary(tasks);
   const pct=tasks.length>0?Math.round((done/tasks.length)*100):0;
   const k=[
-    {label:'نسبة الإنجاز',value:pct+'%',hint:'حسب عمود Status',color:'#f5b800',rgb:'245,184,0',page:'tasks'},
+    {label:'نسبة الإنجاز',value:pct+'%',hint:'المكتملة حسب حالة الشيت ÷ الإجمالي',color:'#f5b800',rgb:'245,184,0',page:'tasks'},
     {label:'متأخرة',value:late,hint:'تحتاج متابعة عاجلة',color:'#ff4d6a',rgb:'255,77,106',page:'tasks',filterStatus:'متأخرة'},
-    {label:'لم تبدأ',value:notStarted,hint:'مجدولة مستقبلاً',color:'#a07dff',rgb:'160,125,255',page:'tasks'},
-    {label:'قيد التنفيذ',value:inprog,hint:'تُنفَّذ الآن',color:'#3b82f6',rgb:'59,130,246',page:'tasks'},
-    {label:'مكتملة',value:done,hint:pct+'% من إجمالي المهام',color:'#10e87a',rgb:'16,232,122',page:'tasks'},
+    {label:'لم تبدأ',value:notStarted,hint:'تشمل المهام المتأخرة',color:'#a07dff',rgb:'160,125,255',page:'tasks',filterStatus:'لم تبدأ'},
+    {label:'قيد التنفيذ',value:inprog,hint:'تشمل المهام المتأخرة',color:'#3b82f6',rgb:'59,130,246',page:'tasks',filterStatus:'قيد التنفيذ'},
+    {label:'مكتملة',value:done,hint:pct+'% من إجمالي المهام',color:'#10e87a',rgb:'16,232,122',page:'tasks',filterStatus:'مكتملة'},
   ];
   el.innerHTML=k.map(x=>`
     <div class="kpi-card clickable" style="--kpi-color:${x.color};--kpi-rgb:${x.rgb}" onclick="${x.filterStatus?`goToTasksFiltered('${x.filterStatus}')`:`showPage('${x.page}')`}">
@@ -7131,7 +7141,7 @@ function renderAnalytics(){
   }
 
   /* ── 4. DELAY ANALYSIS ── */
-  const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة');
+  const lateTasks=tasks.filter(t=>isTaskStatusOverdue(t));
   const delayByPhase={};
   const delayByOwner={};
   lateTasks.forEach(t=>{
@@ -7978,7 +7988,7 @@ function buildEscalationItems(){
 }
 function projectHealthScore(){
   const total=Math.max(tasks.length,1);
-  const late=tasks.filter(t=>classifyStatus(t)==='متأخرة').length;
+  const late=tasks.filter(t=>isTaskStatusOverdue(t)).length;
   const openApprovals=(window._approvalsData||[]).filter(a=>!['معتمد','مرفوض'].includes(a.status)).length;
   const overdueAssignments=(window._assignmentsData||[]).filter(a=>assignmentPressure(a)==='overdue').length;
   const missingOwner=tasks.filter(t=>!t.owner).length;
@@ -8143,7 +8153,7 @@ function renderProjectHealth(){
 
   const a=document.getElementById('health-actions');
   if(a){
-    const lateOwners=tasks.filter(t=>classifyStatus(t)==='متأخرة');
+    const lateOwners=tasks.filter(t=>isTaskStatusOverdue(t));
     const openApprovalsList=(window._approvalsData||[]).filter(x=>!['معتمد','مرفوض'].includes(x.status));
     const overdueList=(window._assignmentsData||[]).filter(x=>assignmentPressure(x)==='overdue');
     const priorityOf=n=>n===0?{label:'منخفض',color:'#10e87a'}:n<=3?{label:'متوسط',color:'#f5b800'}:{label:'مرتفع',color:'#ff4d6a'};
@@ -8223,7 +8233,7 @@ function renderCommitmentsHub(){
 function buildSmartReminders(){
   const items=[];
   const today=futureDate(0);
-  tasks.filter(t=>classifyStatus(t)==='متأخرة').slice(0,4).forEach(t=>items.push({type:'مهمة متأخرة',title:t.name,to:t.owner||'-',page:'tasks'}));
+  tasks.filter(t=>isTaskStatusOverdue(t)).slice(0,4).forEach(t=>items.push({type:'مهمة متأخرة',title:t.name,to:t.owner||'-',page:'tasks'}));
   (window._approvalsData||[]).filter(a=>approvalPressure(a)!=='normal'&&approvalPressure(a)!=='closed').slice(0,4).forEach(a=>items.push({type:'اعتماد',title:a.title,to:a.approver||'-',page:'approvals'}));
   (window._assignmentsData||[]).filter(a=>assignmentPressure(a)!=='normal'&&assignmentPressure(a)!=='closed').slice(0,4).forEach(a=>items.push({type:'تكليف PMO',title:a.title,to:a.owner||'-',page:'assignments'}));
   procurementRequests.filter(p=>p.stageDue&&daysBetween(today,p.stageDue)<0&&!['أرشفة','مغلق'].includes(p.status)).slice(0,3).forEach(p=>items.push({type:'مشتريات',title:p.title,to:p.owner||'-',page:'procurementCenter'}));
@@ -8304,9 +8314,9 @@ function renderActions(){
   const risks=riskMetrics.risks;
 
   /* ── KPIs ── */
-  const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة');
+  const lateTasks=tasks.filter(t=>isTaskStatusOverdue(t));
   const dueTodayMs=milestones.filter(m=>d(m.end)&&daysBetween(todayStr,m.end)<=7&&isOnOrAfterDay(m.end,today));
-  const criticalTasks=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=14&&isOnOrAfterDay(t.end,today));
+  const criticalTasks=tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=14&&isOnOrAfterDay(t.end,today));
   const criticalRisks=riskMetrics.critical;
   const openCriticalRiskCount=riskMetrics.openCritical;
 
@@ -8452,7 +8462,7 @@ function renderActions(){
   renderItem('ac-today',todayItems,'لا إجراءات مطلوبة اليوم');
 
   /* ── TASKS NEEDING ATTENTION (sorted by nearest due date, accurate labels) ── */
-  const cpItems=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=21&&isOnOrAfterDay(t.end,today))
+  const cpItems=tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ'&&d(t.end)&&daysBetween(todayStr,t.end)<=21&&isOnOrAfterDay(t.end,today))
     .sort((a,b)=>d(a.end)-d(b.end)).slice(0,5).map(t=>{
     const days=daysBetween(todayStr,t.end);
     let label,col,cls;
@@ -8850,7 +8860,7 @@ function personPerformance(name){
   const profile=ownerProfile(name);
   const taskList=tasks.filter(t=>normalizeArabic(t.owner)===n);
   const openTasks=taskList.filter(t=>classifyStatus(t)!=='مكتملة');
-  const lateTasks=taskList.filter(t=>classifyStatus(t)==='متأخرة');
+  const lateTasks=taskList.filter(t=>isTaskStatusOverdue(t));
   const proc=procurementRequests.filter(r=>normalizeArabic(r.owner)===n&&!['أرشفة','مغلق'].includes(r.status));
   const permits=permitsRegister.filter(r=>normalizeArabic(r.approver)===n&&!['منتهي','ملغى','مرفوض'].includes(r.status));
   const co=changeOrders.filter(r=>normalizeArabic(changeOrderAuthorityName(r.requester,'المشرف العام'))===n&&!['مغلق','مرفوض'].includes(r.status));
@@ -8878,7 +8888,7 @@ function personCardHtml(p){
 function buildCommandCriticalItems(){
   const today=futureDate(0);
   const items=[];
-  tasks.filter(t=>classifyStatus(t)==='متأخرة').slice(0,6).forEach(t=>items.push({type:'مهمة',title:t.name,owner:t.owner||'-',detail:`استحقاق: ${t.end||'-'}`,page:'tasks',severity:'مرتفع'}));
+  tasks.filter(t=>isTaskStatusOverdue(t)).slice(0,6).forEach(t=>items.push({type:'مهمة',title:t.name,owner:t.owner||'-',detail:`استحقاق: ${t.end||'-'}`,page:'tasks',severity:'مرتفع'}));
   procurementRequests.filter(p=>p.stageDue&&daysBetween(today,p.stageDue)<0&&!['أرشفة','مغلق'].includes(p.status)).slice(0,5).forEach(p=>items.push({type:'مشتريات',title:p.title,owner:p.owner||'-',detail:`المورد: ${p.supplier||'-'}`,page:'procurementCenter',severity:'مرتفع'}));
   permitsRegister.filter(p=>p.status==='نشط'&&p.end&&daysBetween(today,p.end)<=3).slice(0,5).forEach(p=>items.push({type:'تصريح',title:p.subject||p.party,owner:p.approver||'-',detail:`ينتهي: ${p.end||'-'}`,page:'permitsCenter',severity:daysBetween(today,p.end)<0?'حرج':'مرتفع'}));
   changeOrders.filter(c=>['حرج','مرتفع'].includes(c.risk)&&!['مرفوض','مغلق'].includes(c.status)).slice(0,5).forEach(c=>items.push({type:'أمر تغيير',title:c.title,owner:`${changeOrderCurrentResponsible(c)} ← ${changeOrderEscalationTarget(changeOrderCurrentResponsible(c))}`,detail:`الأثر: ${c.timeImpact} يوم / ${money(c.costImpact)}`,page:'changeOrdersCenter',severity:c.risk}));
@@ -8911,7 +8921,7 @@ function renderCommandControlCenter(){
   const highestLevel=active.length?active.map(e=>e.level).sort().reverse()[0]:'—';
   if(k) k.innerHTML=[
     {label:'مهام مفتوحة',val:tasks.filter(t=>classifyStatus(t)!=='مكتملة').length,hint:'من WBS',color:'#3b82f6'},
-    {label:'مهام متأخرة',val:tasks.filter(t=>classifyStatus(t)==='متأخرة').length,hint:'تحتاج متابعة',color:'#ff4d6a'},
+    {label:'مهام متأخرة',val:tasks.filter(t=>isTaskStatusOverdue(t)).length,hint:'تحتاج متابعة',color:'#ff4d6a'},
     {label:'أشخاص متأخرون',val:people.filter(p=>p.delayed).length,hint:'لديهم عناصر متأخرة',color:'#ff8c42'},
     {label:'تصعيدات نشطة',val:active.length,hint:'مركز التصعيدات',color:'#f5b800'},
     {label:'تصعيدات حرجة',val:active.filter(e=>e.status==='حرج'||e.level==='Level 4').length,hint:'تدخل فوري',color:'#111827'},
@@ -8963,7 +8973,7 @@ function renderCommandControlCenter(){
   const map=document.getElementById('cc-controlMap');
   if(map){
     const nodes=[
-      {title:'المهام',value:`${tasks.filter(t=>classifyStatus(t)==='متأخرة').length} متأخرة`,detail:'WBS ومسارات التنفيذ',color:tasks.some(t=>classifyStatus(t)==='متأخرة')?'#ff8c42':'#10e87a'},
+      {title:'المهام',value:`${tasks.filter(t=>isTaskStatusOverdue(t)).length} متأخرة`,detail:'WBS ومسارات التنفيذ',color:tasks.some(t=>isTaskStatusOverdue(t))?'#ff8c42':'#10e87a'},
       {title:'المشتريات',value:`${m.delayedProc} متأخرة`,detail:`${m.openProc} طلب مفتوح`,color:m.delayedProc?'#ff4d6a':'#10e87a'},
       {title:'التصاريح',value:`${m.expiringPermits} تنتهي قريباً`,detail:`${m.activePermits} تصريح نشط`,color:m.expiringPermits?'#f5b800':'#10e87a'},
       {title:'أوامر التغيير',value:`${m.highRiskCo} عالي الخطورة`,detail:'الاختصاص: مالك المشروع والمشرف العام',color:m.highRiskCo?'#ff4d6a':'#10e87a'},
@@ -9403,7 +9413,7 @@ function smartReadinessScore(){
   const m=operationalMetrics();
   const vendorAvg=vendorNames().map(vendorStats);
   const avgVendor=vendorAvg.length?Math.round(vendorAvg.reduce((s,v)=>s+v.score,0)/vendorAvg.length):100;
-  const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة').length;
+  const lateTasks=tasks.filter(t=>isTaskStatusOverdue(t)).length;
   const active=activeEscalations().length;
   const criticalEsc=activeEscalations().filter(e=>e.level==='Level 4'||e.status==='حرج').length;
   const openIssues=issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length;
@@ -9461,9 +9471,9 @@ function buildBatch4ReportSections(type){
   const activeEsc=activeEscalations();
   const approvalsData=(window._approvalsData||approvals||[]);
   const sections={
-    pmoDaily:{title:'التقرير اليومي لـ PMO',scope:'اليوم الحالي / PMO',rows:baseTasks.filter(t=>[today,tomorrow].includes(String(t.end||'').slice(0,10))||classifyStatus(t)==='متأخرة').map(reportTaskRow)},
+    pmoDaily:{title:'التقرير اليومي لـ PMO',scope:'اليوم الحالي / PMO',rows:baseTasks.filter(t=>[today,tomorrow].includes(String(t.end||'').slice(0,10))||isTaskStatusOverdue(t)).map(reportTaskRow)},
     tomorrowTasks:{title:'تقرير مهام الغد',scope:'مهام مستحقة غداً',rows:baseTasks.filter(t=>String(t.end||'').slice(0,10)===tomorrow).map(reportTaskRow)},
-    overdueTasks:{title:'تقرير المهام المتأخرة',scope:'كل المهام غير المكتملة بعد تاريخ الاستحقاق',rows:baseTasks.filter(t=>classifyStatus(t)==='متأخرة').map(reportTaskRow)},
+    overdueTasks:{title:'تقرير المهام المتأخرة',scope:'كل المهام غير المكتملة بعد تاريخ الاستحقاق',rows:baseTasks.filter(t=>isTaskStatusOverdue(t)).map(reportTaskRow)},
     criticalPath:{title:'تقرير المسار الحرج',scope:'Critical Path Analysis من Google Sheets',rows:(criticalPathAnalysis.tasks||[]).map(t=>({الكود:t.task_code||t.code||'',المهمة:t.task_name||t.name||'',حرج:t.is_critical?'نعم':'لا','Total Float':t.total_float??'',المسار:t.path||'',المرحلة:normalizeProjectPhase(t.phase)})).sort((a,b)=>phaseOrderIndex(a.المرحلة)-phaseOrderIndex(b.المرحلة))},
     decisionsApprovals:{title:'تقرير القرارات والاعتمادات',scope:'Decision Log + Approvals Register',rows:[...decisionLogRecords.map(d=>({النوع:'قرار',العنوان:d.title||d.decision||'',المسؤول:d.owner||d.decisionOwner||'',الحالة:d.status||'',الاعتماد:d.approval||''})),...approvalsData.map(a=>({النوع:'اعتماد',العنوان:a.title||'',المسؤول:a.owner||a.approver||'',الحالة:a.status||'',الاعتماد:a.reference||a.id||''}))]},
     risks:{title:'تقرير المخاطر',scope:'Risk Governance Register',rows:riskGovernanceRegister.map(r=>({الخطر:r.title||r.risk||'',المسؤول:r.owner||'',الشدة:r.severity||r.level||'',الحالة:r.status||'',المسار:r.path||''}))},
@@ -9484,8 +9494,8 @@ function buildReportData(type='daily'){
   const m=operationalMetrics();
   const totalTasks=tasks.length;
   const doneTasks=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
-  const lateTasks=tasks.filter(t=>classifyStatus(t)==='متأخرة').length;
-  const inProgressTasks=tasks.filter(t=>classifyStatus(t)==='قيد التنفيذ').length;
+  const lateTasks=tasks.filter(t=>isTaskStatusOverdue(t)).length;
+  const inProgressTasks=tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length;
   const completionPct=totalTasks?Math.round((doneTasks/totalTasks)*100):null;
   const openIssues=issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length;
   const openViolations=vendorViolations.filter(v=>!['مغلق','مغلقة'].includes(v.status)).length;
