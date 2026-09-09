@@ -5189,6 +5189,16 @@ function getSheetStatus(task){return task?.sheet_status ?? task?.status ?? getFi
 function getFirstTaskField_(task,field){return valueOf(task,TASK_FIELD_ALIASES[field]||[]);}
 function getTaskPlannedStartDate(task){return riyadhDateKey(task?.rawStart||getFirstTaskField_(task,'plannedStart')||task?.start);}
 function getTaskPlannedEndDate(task){return riyadhDateKey(task?.rawEnd||getFirstTaskField_(task,'plannedEnd')||task?.end);}
+function getTaskTableDurationDays(task){
+  const startDay=dateKeyToUtcDay_(getTaskPlannedStartDate(task));
+  const endDay=dateKeyToUtcDay_(getTaskPlannedEndDate(task));
+  if(!Number.isFinite(startDay)||!Number.isFinite(endDay)||endDay<startDay) return null;
+  return Math.round((endDay-startDay)/86400000)+1;
+}
+function formatTaskTableDuration(task){
+  const duration=getTaskTableDurationDays(task);
+  return duration===null?'—':`${duration} يوم`;
+}
 function getTaskActualStartDate(task){return riyadhDateKey(task?.rawActualStart||getFirstTaskField_(task,'actualStart')||task?.actualStart);}
 function getTaskActualEndDate(task){return riyadhDateKey(task?.rawActualEnd||getFirstTaskField_(task,'actualEnd')||task?.actualEnd);}
 function getTaskProgress(task){
@@ -6473,7 +6483,7 @@ function applyFilters(){
     const sc=s==='مكتملة'?'green':isTaskStatusOverdue(r)?'red':taskStatusFamily(r)==='قيد التنفيذ'?'blue':taskStatusFamily(r)==='لم تبدأ'?'gray':'';
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})">
-      <td class="task-col-code">${escapeHtml(r.code||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-status"><span class="pill ${sc}">${escapeHtml(s||'—')}</span></td><td class="task-col-progress"><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-dependency-type">${taskOverflowText(r.dependencyType)}</td><td class="task-col-duration">${escapeHtml(r.plannedDurationDays||'-')}</td><td class="task-col-date">${fmt(r.start)}</td><td class="task-col-date">${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-date">${fmt(r.actualStart)}</td><td class="task-col-date">${fmt(r.actualEnd)}</td><td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td class="task-col-code">${escapeHtml(r.code||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-status"><span class="pill ${sc}">${escapeHtml(s||'—')}</span></td><td class="task-col-progress"><span class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</span></td>${canViewCompletionEvidence()?`<td>${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-dependency-type">${taskOverflowText(r.dependencyType)}</td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td><td class="task-col-date">${fmt(r.start)}</td><td class="task-col-date">${fmt(r.end)}${getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-date">${fmt(r.actualStart)}</td><td class="task-col-date">${fmt(r.actualEnd)}</td><td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
   initTaskOverflowTooltips();
