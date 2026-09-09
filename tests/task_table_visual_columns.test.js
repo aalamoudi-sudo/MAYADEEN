@@ -36,7 +36,20 @@ test('task table omits direct owner while retaining the path owner', () => {
 });
 
 test('empty task results span exactly the remaining visible columns', () => {
-  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?20:19\)/);
+  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?17:16\)/);
+});
+
+test('task table hides approval, predecessor, and lag without removing their data logic', () => {
+  const table = sectionBetween('<table class="data-table task-table" id="taskTable">', '</table>');
+  const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
+
+  assert.doesNotMatch(table, /task-col-approval|task-col-dependency(?:"|>)|task-col-lag|>المعتمد<|>المهمة السابقة<|>Lag</);
+  assert.doesNotMatch(renderedRows, /task-col-approval|task-col-dependency(?:"|>)|task-col-lag/);
+  assert.match(table, /<th class="task-col-dependency-type">نوع الاعتمادية<\/th>/);
+  assert.match(renderedRows, /task-col-dependency-type[^\n]+taskOverflowText\(r\.dependencyType\)/);
+  assert.match(html, /predecessor:\['المهمة السابقة','predecessor_task','predecessor','previous_task','dependency'\]/);
+  assert.match(html, /lag:\['Lag','lag','فترة التأخير','الفاصل'\]/);
+  assert.match(html, /approvalEntity:\['جهة الاعتماد','approval_entity','approver','approving_party','المعتمد'\]/);
 });
 
 test('operational deliverable remains normalized, searchable, and integrated', () => {
