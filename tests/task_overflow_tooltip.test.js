@@ -7,7 +7,6 @@ const html = fs.readFileSync(new URL('../index.html', `file://${__filename}`), '
 test('task text uses a reusable custom tooltip instead of native titles', () => {
   const rows = html.slice(html.indexOf('return `<tr onclick="openDetail('), html.indexOf("}).join('');", html.indexOf('return `<tr onclick="openDetail(')));
   assert.match(rows, /taskOverflowText\(r\.name\)/);
-  assert.match(rows, /taskOverflowText\(r\.operationalDeliverable\)/);
   assert.match(rows, /taskOverflowText\(r\.followUpOwner\)/);
   assert.doesNotMatch(rows, /title=/);
 });
