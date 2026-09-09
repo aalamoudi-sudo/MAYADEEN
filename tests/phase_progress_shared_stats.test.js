@@ -4,7 +4,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const source = fs.readFileSync(new URL('../index.html', `file://${__filename}`), 'utf8');
-const phases = ['البدء', 'التخطيط', 'التنفيذ', 'المراقبة والتحكم', 'الإغلاق'];
+const phases = ['البدء', 'التخطيط', 'التنفيذ', 'التشغيل', 'الإغلاق'];
 
 function bodyOf(name) {
   const start = source.indexOf(`function ${name}(`);
@@ -27,7 +27,7 @@ const plannedBody = bodyOf('plannedProgressPct');
 const navigationBody = bodyOf('renderPageIfNeeded');
 
 phases.forEach(phase => assert.match(source, new RegExp(`data-project-phase=\\"\\$\\{stat.phase\\}`), `${phase}: stage renderer missing`));
-assert.match(source, /const PROJECT_PHASE_ORDER=\['البدء','التخطيط','التنفيذ','المراقبة والتحكم','الإغلاق'\]/);
+assert.match(source, /const PROJECT_PHASE_ORDER=\['البدء','التخطيط','التنفيذ','التشغيل','الإغلاق'\]/);
 assert.match(renderBody, /phaseStats\.map/);
 assert.doesNotMatch(renderBody, /if\(!active\) return|offsetParent|getBoundingClientRect|canvas|Chart/);
 assert.doesNotMatch(renderBody, /getScheduleProgressMetrics\(\)/);
@@ -79,10 +79,30 @@ const normalize = new Function('normalizeArabic', 'PROJECT_PHASE_UNSPECIFIED', '
 assert.equal(normalize({ phase: 'Initiation' }), 'البدء');
 assert.equal(normalize({ stage: 'Planning' }), 'التخطيط');
 assert.equal(normalize({ project_phase: 'Execution' }), 'التنفيذ');
-assert.equal(normalize({ المرحلة: 'المراقبة والتحكم' }), 'المراقبة والتحكم');
+assert.equal(normalize({ المرحلة: 'المراقبة والتحكم' }), 'التشغيل');
+assert.equal(normalize({ phase: 'التشغيل' }), 'التشغيل');
 assert.equal(normalize({ raw: { 'مرحلة المشروع': 'Closure' } }), 'الإغلاق');
 assert.equal(normalize({ code: 'WBS-Planning-12' }), 'التخطيط');
 assert.equal(normalize({ code: 'WBS-12', mainPath: 'اللوجستيات' }), 'غير مصنفة');
+
+// Old, new, and mixed source values are one canonical stage without dropping or duplicating tasks.
+const PROJECT_PHASE_ORDER = phases;
+const mixedPhaseTasks = [
+  { code: 'OLD-1', phase: 'المراقبة والتحكم', status: 'مكتملة' },
+  { code: 'NEW-1', phase: 'التشغيل', status: 'قيد التنفيذ' },
+  { code: 'OLD-2', raw: { 'مرحلة المشروع': 'المراقبة والتحكم' }, status: 'لم تبدأ' },
+  { code: 'PLAN-1', phase: 'التخطيط', status: 'مكتملة' }
+];
+const runStats = new Function('tasks', 'PROJECT_PHASE_ORDER', 'isExecutiveTask_', 'normalizeProjectPhase', 'classifyStatus', 'isTaskStatusOverdue', 'taskStatusFamily', `return function getProjectPhaseStats(){${statsBody}}`) (
+  mixedPhaseTasks, PROJECT_PHASE_ORDER, () => true, normalize, task => task.status, () => false, task => task.status
+);
+const mixedStats = runStats();
+const operations = mixedStats.find(stat => stat.phase === 'التشغيل');
+assert.equal(mixedStats.length, 5);
+assert.deepEqual(operations.tasks.map(task => task.code), ['OLD-1', 'NEW-1', 'OLD-2']);
+assert.deepEqual({ total: operations.total, done: operations.done, inprog: operations.inprog, notStarted: operations.notStarted }, { total: 3, done: 1, inprog: 1, notStarted: 1 });
+assert.equal(mixedStats.find(stat => stat.phase === 'التخطيط').total, 1);
+assert.doesNotMatch(source.slice(0, source.indexOf('function normalizeProjectPhase')), /المراقبة والتحكم/);
 
 // Production calculations remain unchanged and shared by home and phase page.
 assert.match(metricsBody, /plannedProgressPct\(\)/);
