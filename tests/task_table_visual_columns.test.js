@@ -20,7 +20,8 @@ test('task table omits update and source columns from its header and rendered ro
   assert.doesNotMatch(table, /آخر تحديث|مصدر البيانات/);
   assert.doesNotMatch(renderedRows, /r\.lastUpdate|r\.dataSource|r\._source/);
   assert.match(renderedRows, /task-col-follow-up/);
-  assert.match(renderedRows, /task-col-deliverable/);
+  assert.doesNotMatch(table, /المخرج المطلوب|task-col-deliverable/);
+  assert.doesNotMatch(renderedRows, /task-col-deliverable|taskOverflowText\(r\.operationalDeliverable\)/);
 });
 
 test('task table omits direct owner while retaining the path owner', () => {
@@ -35,7 +36,13 @@ test('task table omits direct owner while retaining the path owner', () => {
 });
 
 test('empty task results span exactly the remaining visible columns', () => {
-  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?21:20\)/);
+  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?20:19\)/);
+});
+
+test('operational deliverable remains normalized, searchable, and integrated', () => {
+  assert.match(html, /const operationalDeliverable=valueOf\(raw,WBS_FIELD_ALIASES\.operationalDeliverable\)/);
+  assert.match(html, /const haystack=\[r\.code,r\.name,r\.mainPath,r\.executionOwner,r\.phase,r\.taskType,r\.owner,r\.followUpOwner,r\.operationalDeliverable,/);
+  assert.match(appsScript, /operationalDeliverable:\['المخرج المطلوب','المخرج التشغيلي','operational_deliverable','deliverable','المخرج'\]/);
 });
 
 test('update and source fields remain in normalization and Google Sheets integration', () => {
@@ -52,6 +59,6 @@ test('long task columns receive dedicated widths without positional selectors', 
   const taskStyles = sectionBetween('#tasks .task-table{', '/* لوحة مراحل المشروع التنفيذية');
   assert.doesNotMatch(taskStyles, /\.task-col-owner/);
   assert.match(taskStyles, /\.task-col-follow-up\{width:190px/);
-  assert.match(taskStyles, /\.task-col-deliverable\{width:260px/);
+  assert.doesNotMatch(taskStyles, /\.task-col-deliverable/);
   assert.doesNotMatch(taskStyles, /nth-child/);
 });
