@@ -3247,9 +3247,9 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
 <script>
 const NO_KPI_DATA_TEXT='لا توجد بيانات كافية لاحتساب المؤشر';
-const PROJECT_PHASE_ORDER=['البدء','التخطيط','التنفيذ','المراقبة والتحكم','الإغلاق'];
+const PROJECT_PHASE_ORDER=['البدء','التخطيط','التنفيذ','التشغيل','الإغلاق'];
 const PROJECT_PHASE_UNSPECIFIED='غير مصنفة';
-const PROJECT_PHASE_COLORS={'البدء':'#10e87a','التخطيط':'#00d4ff','التنفيذ':'#7c5cff','المراقبة والتحكم':'#3b82f6','الإغلاق':'#f5b800'};
+const PROJECT_PHASE_COLORS={'البدء':'#10e87a','التخطيط':'#00d4ff','التنفيذ':'#7c5cff','التشغيل':'#3b82f6','الإغلاق':'#f5b800'};
 const OFFICIAL_PATHS=['الضيافة','التشغيل','تجربة الضيوف','المحتوى','اللوجستيات والنقل','التنفيذ','التصميم','البروتوكول والحشود'];
 let officialDataReady=false;
 let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[]; let projectMasterRows=[];
@@ -5101,7 +5101,8 @@ function normalizeProjectPhase(task){
     'البدء':'البدء','بدء':'البدء','مرحله البدء':'البدء','initiation':'البدء','initiating':'البدء','start':'البدء',
     'التخطيط':'التخطيط','مرحله التخطيط':'التخطيط','planning':'التخطيط','plan':'التخطيط',
     'التنفيذ':'التنفيذ','مرحله التنفيذ':'التنفيذ','execution':'التنفيذ','executing':'التنفيذ','implementation':'التنفيذ',
-    'المراقبه والتحكم':'المراقبة والتحكم','المراقبه و التحكم':'المراقبة والتحكم','المراقبه':'المراقبة والتحكم','التحكم':'المراقبة والتحكم','المتابعه والتحكم':'المراقبة والتحكم','الرصد والتحكم':'المراقبة والتحكم','monitoring and control':'المراقبة والتحكم','monitoring and controlling':'المراقبة والتحكم','monitoring':'المراقبة والتحكم','control':'المراقبة والتحكم',
+    'التشغيل':'التشغيل','مرحله التشغيل':'التشغيل','operations':'التشغيل','operation':'التشغيل',
+    'المراقبه والتحكم':'التشغيل','المراقبه و التحكم':'التشغيل','المراقبه':'التشغيل','التحكم':'التشغيل','المتابعه والتحكم':'التشغيل','الرصد والتحكم':'التشغيل','monitoring and control':'التشغيل','monitoring and controlling':'التشغيل','monitoring':'التشغيل','control':'التشغيل',
     'الاغلاق':'الإغلاق','مرحله الاغلاق':'الإغلاق','closing':'الإغلاق','closure':'الإغلاق','closeout':'الإغلاق'
   };
   const match=value=>{
