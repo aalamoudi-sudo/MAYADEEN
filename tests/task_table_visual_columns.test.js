@@ -23,8 +23,19 @@ test('task table omits update and source columns from its header and rendered ro
   assert.match(renderedRows, /task-col-deliverable/);
 });
 
+test('task table omits direct owner while retaining the path owner', () => {
+  const table = sectionBetween('<table class="data-table task-table" id="taskTable">', '</table>');
+  const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
+
+  assert.doesNotMatch(table, /المسؤول المباشر|task-col-owner/);
+  assert.doesNotMatch(renderedRows, /task-col-owner|taskOverflowText\(r\.owner\)/);
+  assert.match(table, /<th class="task-col-path-owner">مسؤول المسار<\/th>/);
+  assert.match(renderedRows, /task-col-path-owner[^\n]+taskOverflowText\(r\.executionOwner\)/);
+  assert.match(html, /if\(!taskMatchesOwnerFilter\(r,ow\)\) return false/);
+});
+
 test('empty task results span exactly the remaining visible columns', () => {
-  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?22:21\)/);
+  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?21:20\)/);
 });
 
 test('update and source fields remain in normalization and Google Sheets integration', () => {
@@ -39,7 +50,7 @@ test('update and source fields remain in normalization and Google Sheets integra
 
 test('long task columns receive dedicated widths without positional selectors', () => {
   const taskStyles = sectionBetween('#tasks .task-table{', '/* لوحة مراحل المشروع التنفيذية');
-  assert.match(taskStyles, /\.task-col-owner\{width:190px/);
+  assert.doesNotMatch(taskStyles, /\.task-col-owner/);
   assert.match(taskStyles, /\.task-col-follow-up\{width:190px/);
   assert.match(taskStyles, /\.task-col-deliverable\{width:260px/);
   assert.doesNotMatch(taskStyles, /nth-child/);
