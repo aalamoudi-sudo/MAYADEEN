@@ -36,7 +36,19 @@ test('task table omits direct owner while retaining the path owner', () => {
 });
 
 test('empty task results span exactly the remaining visible columns', () => {
-  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?17:16\)/);
+  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?16:15\)/);
+});
+
+test('task table hides actual start while retaining adjacent dates and data logic', () => {
+  const table = sectionBetween('<table class="data-table task-table" id="taskTable">', '</table>');
+  const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
+
+  assert.doesNotMatch(table, /البداية الفعلية/);
+  assert.doesNotMatch(renderedRows, /fmt\(r\.actualStart\)/);
+  assert.match(table, />البداية المخططة<[^\n]+>النهاية المخططة<[^\n]+>النهاية الفعلية</);
+  assert.match(renderedRows, /fmt\(r\.start\)[^\n]+fmt\(r\.end\)[^\n]+fmt\(r\.actualEnd\)/);
+  assert.match(html, /actualStart:isoDate\(rawActualStart\)/);
+  assert.match(html, /r\.start,r\.end,r\.actualStart,r\.actualEnd/);
 });
 
 test('task table hides approval, predecessor, and lag without removing their data logic', () => {
