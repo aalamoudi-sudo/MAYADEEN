@@ -1531,6 +1531,9 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 @media(max-width:1250px){#phases .phase-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:900px){#phases .phase-stage-track{overflow-x:auto;grid-template-columns:repeat(5,130px)}#phases .phase-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){#phases .phase-cards{grid-template-columns:1fr}#phases .phase-summary-card.is-expanded{grid-column:auto}#phases .phase-card-details{grid-template-columns:1fr}}
+
+/* مركز الاستفسارات */
+.inquiry-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}.inquiry-summary button,.inquiry-tabs button{background:var(--card);border:1px solid var(--line);border-radius:14px;color:var(--text);padding:13px;cursor:pointer;font-family:inherit}.inquiry-summary small{color:var(--muted);font-weight:700}.inquiry-summary b{display:block;font-size:24px;color:#c4b5fd;margin-top:5px}.inquiry-head{display:flex;justify-content:space-between;align-items:center}.inquiry-tabs{display:flex;gap:8px;margin-bottom:12px}.inquiry-tabs button.active{border-color:var(--brand);background:rgba(124,92,255,.15)}.inquiry-filters{grid-template-columns:2fr 1fr 1fr}.inquiry-list-card{overflow:auto}.inquiry-state{text-align:center;color:var(--muted);padding:28px}.inquiry-table{width:100%;min-width:920px;border-collapse:collapse}.inquiry-table th,.inquiry-table td{padding:11px;border-bottom:1px solid var(--line);text-align:right;font-size:12px}.inquiry-table tbody tr{cursor:pointer}.inquiry-table tbody tr:hover{background:rgba(124,92,255,.06)}.inquiry-unread{width:8px;height:8px;border-radius:50%;display:inline-block;background:#00d4ff;margin-left:7px}.inquiry-nav-badge{background:#ff4d6a;color:white;border-radius:99px;padding:1px 6px;font-size:10px}.inquiry-form{display:grid;gap:10px}.inquiry-form label{display:grid;gap:5px;color:var(--muted);font-size:12px}.inquiry-form textarea,.inquiry-reply textarea{background:rgba(8,11,26,.8);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:11px;font-family:inherit;resize:vertical}.inquiry-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.inquiry-message{padding:12px;border:1px solid var(--line);border-radius:12px;margin:8px 0;white-space:pre-wrap}.inquiry-message small{display:block;color:var(--muted);margin-bottom:6px}.inquiry-event{font-size:11px;color:var(--muted);padding:5px 0}.inquiry-task-btn{margin-top:14px}@media(max-width:700px){.inquiry-summary{grid-template-columns:1fr}.inquiry-head{align-items:flex-start;gap:10px}.inquiry-filters{grid-template-columns:1fr}.inquiry-tabs{overflow:auto}.inquiry-tabs button{white-space:nowrap}}
 </style>
 <link rel="stylesheet" href="theme.css"/>
 </head>
@@ -1590,6 +1593,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
     <nav class="sidebar-nav">
       <div class="nav-group" data-nav-group="tracking"><button class="nav-group-toggle" type="button" onclick="toggleNavGroup(this)"><span>متابعة المشروع</span><span class="chev">⌄</span></button><div class="nav-group-items">
       <button class="nav-item" data-page="overview" title="الرئيسية" aria-label="فتح صفحة الرئيسية"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-text">الرئيسية</span></button>
+      <button class="nav-item" data-page="inquiries" title="الاستفسارات" aria-label="فتح مركز الاستفسارات"><span class="nav-icon" aria-hidden="true">؟</span><span class="nav-text">الاستفسارات</span><span id="inquiryNavBadge" class="inquiry-nav-badge" hidden></span></button>
       <button class="nav-item" data-page="tasks" title="المهام" aria-label="فتح صفحة المهام"><span class="nav-icon" aria-hidden="true">✓</span><span class="nav-text">المهام</span></button>
       <button class="nav-item" data-page="phases" title="مراحل المشروع" aria-label="فتح صفحة مراحل المشروع"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-text">مراحل المشروع</span></button>
       <button class="nav-item" data-page="timeline" title="الجدول الزمني" aria-label="فتح صفحة الجدول الزمني"><span class="nav-icon" aria-hidden="true">◷</span><span class="nav-text">الجدول الزمني</span></button>
@@ -1692,6 +1696,11 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="page-header">
           <h1 id="pageTitle">الرئيسية</h1>
           <p id="pageSubtitle">نظرة تنفيذية على مسار ميادين في حفل افتتاح حدائق الملك عبدالله</p>
+        </div>
+
+        <div class="inquiry-summary" id="inquirySummary" aria-live="polite">
+          <button onclick="openInquiryScope('assigned')"><small>استفسارات تحتاج ردك</small><b id="inquiryNeedsReply">—</b></button>
+          <button onclick="openInquiryScope('mine')"><small>استفسارات عليها ردود جديدة</small><b id="inquiryNewReplies">—</b></button>
         </div>
 
         <!-- EXECUTIVE STATUS BAR -->
@@ -3206,6 +3215,14 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         </div>
       </section>
 
+      <!-- INQUIRIES PAGE -->
+      <section class="page" id="inquiries">
+        <div class="page-header inquiry-head"><div><h1>مركز الاستفسارات</h1><p>استفسارات محفوظة وآمنة بين مستخدمي المشروع</p></div><button class="ops-primary-btn" onclick="openInquiryComposer()">+ استفسار جديد</button></div>
+        <div class="inquiry-tabs" role="tablist"><button data-scope="mine" onclick="openInquiryScope('mine')">استفساراتي</button><button data-scope="assigned" onclick="openInquiryScope('assigned')">مطلوب مني الرد</button><button data-scope="all" id="inquiryAllTab" onclick="openInquiryScope('all')">جميع الاستفسارات</button></div>
+        <div class="filters inquiry-filters"><input id="inquirySearch" placeholder="بحث بالعنوان" oninput="renderInquiryList()"><select id="inquiryStatusFilter" onchange="renderInquiryList()"><option value="">كل الحالات</option><option>جديد</option><option>قيد المعالجة</option><option>تمت الإجابة</option><option>مغلق</option></select><select id="inquiryPriorityFilter" onchange="renderInquiryList()"><option value="">كل الأولويات</option><option>عادي</option><option>عاجل</option></select></div>
+        <div class="card inquiry-list-card"><div id="inquiryList" class="inquiry-state">جارٍ تحميل الاستفسارات…</div></div>
+      </section>
+
       <!-- SETUP PAGE -->
       <section class="page" id="setup">
         <div class="page-header"><h1>الإعدادات</h1><p>إعداد مصدر البيانات</p></div>
@@ -3388,6 +3405,7 @@ const PAGE_RENDERERS={
   projectHealth:['renderProjectHealth'],
   executiveBoard:['renderExecutiveBoard'],
   supervisorDaily:['renderSupervisorDaily'],
+  inquiries:['loadInquiries'],
   baselineManagement:['renderBaselineManagement'],
   raciWorkload:['renderRaciWorkload'],
   criticalPath:['renderCriticalPath'],
@@ -3623,6 +3641,7 @@ function isExecutiveBoardAllowedUser(user=currentUser){
 }
 function canAccessPage(id){
   if(id==='urgentTasksPage') return canAccessPage('overview');
+  if(id==='inquiries') return !!currentUser.username;
   if(id==='executiveBoard') return isExecutiveBoardAllowedUser();
   const pages=normalizePageList(currentUser.allowed_pages);
   if(id==='supervisorDaily') return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id)||String(currentUser.role||'').toLowerCase().includes('pmo')||normalizeArabic(currentUser.display_name||currentUser.username||'').includes(normalizeArabic('أحمد العامودي'));
@@ -3659,6 +3678,7 @@ function syncTaskEvidenceColumn(){
 }
 
 function clearCompletionEvidenceState(){
+  stopInquiryPolling(); inquiryItems=[]; inquiryBootstrap=null; inquiryCurrent=null;
   rows=[]; tasks=[]; milestones=[]; evidenceRecords=[];
   const body=document.querySelector('#taskTable tbody'); if(body) body.replaceChildren();
   document.getElementById('taskEvidenceHeader')?.remove();
@@ -3734,6 +3754,7 @@ async function login(){
   setLoginTransitionStatus('جارٍ تجهيز لوحة القيادة.',72);
   startClock();
   revealAuthenticatedApp();
+  loadInquiryBootstrap();
   markPerf('dashboard_shell_ready');
   measurePerf('dashboard_shell_duration','session_ready','dashboard_shell_ready');
   setLoginVisualState('idle');
@@ -3818,7 +3839,7 @@ async function bootstrapSession(){
   try{
     const user=await validatePersistedSession();
     dispatchAuth({type:'AUTHENTICATED',token:saved.token,user,expiresAt:saved.expiresAt});
-    currentUser=authState.user; MayadeenAuth.write(sessionStorage,authState); revealAuthenticatedApp(); setSyncLoadingState(); loadExternal(true).catch(e=>console.warn('Refresh data sync failed',e));
+    currentUser=authState.user; MayadeenAuth.write(sessionStorage,authState); revealAuthenticatedApp(); setSyncLoadingState(); loadInquiryBootstrap(); loadExternal(true).catch(e=>console.warn('Refresh data sync failed',e));
   }catch(e){
     console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage);
     dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
@@ -6139,7 +6160,7 @@ function openDetail(code){
   <div><small>ملاحظات</small><b>${escapeHtml(r.notes||'-')}</b></div>
 </div>
 ${ownershipHtml(own)}
-${depHtml}`; document.getElementById('modal').classList.add('active');}
+${depHtml}<button class="ops-primary-btn inquiry-task-btn" onclick="openInquiryComposer(${JSON.stringify(r.code)})">اسأل عن هذه المهمة</button>`; document.getElementById('modal').classList.add('active');}
 function openPhase(p){const arr=tasks.filter(t=>t.phase===p); document.getElementById('drawerContent').innerHTML=`<h2>مرحلة ${escapeHtml(p)}</h2><p class="heroText">عدد المهام: ${arr.length}</p><table><thead><tr><th>الكود</th><th>المهمة</th><th>المسؤول</th><th>النهاية</th></tr></thead><tbody>${arr.map(r=>`<tr onclick='openDetail(${JSON.stringify(r.code)})'><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.owner||'-')}</td><td>${fmt(r.end)}</td></tr>`).join('')}</tbody></table>`; document.getElementById('drawer').classList.add('active');}
 function closeModal(){document.getElementById('modal').classList.remove('active');document.getElementById('modal')?.querySelector('.modal-box')?.classList.remove('escalation-preview-modal')} function closeDrawer(){document.getElementById('drawer').classList.remove('active')}
 function getConfiguredApiUrl(){
@@ -10089,6 +10110,25 @@ function renderAutomationCenter(){
     ].map(x=>`<div class="ops-link-card"><b>${escapeHtml(x[0])}</b><span>${escapeHtml(x[1])}</span><span>${escapeHtml(x[2])}</span></div>`).join('');
   }
 }
+
+let inquiryItems=[],inquiryBootstrap=null,inquiryScope='mine',inquiryCurrent=null,inquiryPollTimer=null,inquiryLoading=false;
+function inquiryRequestId(){return (crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random()).toString();}
+async function inquiryApi(payload){const res=await withTimeout(postApi(getConfiguredApiUrl(),payload),20000,'inquiry timeout');if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();if(!data.ok)throw new Error(data.error||data.message||'فشل الطلب');return data;}
+function inquiryError(e){if(isSessionExpiredError(e)){returnToLoginForExpiredSession();return 'انتهت الجلسة.'}return sanitizeUserError(e,String(e.message||'تعذر تحميل الاستفسارات.'));}
+async function loadInquiryBootstrap(){try{inquiryBootstrap=await inquiryApi({action:'inquiry_bootstrap'});updateInquirySummary(inquiryBootstrap.summary);document.getElementById('inquiryAllTab').style.display=inquiryBootstrap.can_admin?'':'none';startInquiryPolling();}catch(e){document.getElementById('inquiryList').innerHTML=`تعذر تحميل مركز الاستفسارات. <button onclick="loadInquiries()">إعادة المحاولة</button>`;}}
+function updateInquirySummary(x={}){const a=document.getElementById('inquiryNeedsReply'),b=document.getElementById('inquiryNewReplies'),badge=document.getElementById('inquiryNavBadge');if(a)a.textContent=x.needs_reply??'—';if(b)b.textContent=x.new_replies??'—';const n=(x.needs_reply||0)+(x.new_replies||0);if(badge){badge.hidden=!n;badge.textContent=n;}}
+async function loadInquiries(){if(inquiryLoading)return;if(!inquiryBootstrap)await loadInquiryBootstrap();inquiryLoading=true;const el=document.getElementById('inquiryList');if(!inquiryItems.length)el.textContent='جارٍ تحميل الاستفسارات…';try{const d=await inquiryApi({action:'inquiry_list',scope:inquiryScope});inquiryItems=d.items||[];updateInquirySummary(d.summary);renderInquiryList();}catch(e){el.innerHTML=`${escapeHtml(inquiryError(e))} <button onclick="loadInquiries()">إعادة المحاولة</button>`;}finally{inquiryLoading=false;}}
+function openInquiryScope(scope){inquiryScope=scope;showPage('inquiries');document.querySelectorAll('.inquiry-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.scope===scope));loadInquiries();}
+function renderInquiryList(){const el=document.getElementById('inquiryList');if(!el)return;const q=(document.getElementById('inquirySearch')?.value||'').trim().toLowerCase(),st=document.getElementById('inquiryStatusFilter')?.value||'',pr=document.getElementById('inquiryPriorityFilter')?.value||'',items=inquiryItems.filter(x=>(!q||x.title.toLowerCase().includes(q))&&(!st||x.status===st)&&(!pr||x.priority===pr));if(!items.length){el.innerHTML='<div class="inquiry-state">لا توجد استفسارات مطابقة.</div>';return;}el.innerHTML=`<table class="inquiry-table"><thead><tr><th>العنوان</th><th>المرسل</th><th>المسؤول عن الرد</th><th>المهمة</th><th>الأولوية</th><th>الحالة</th><th>آخر نشاط</th></tr></thead><tbody>${items.map(x=>`<tr onclick="openInquiryDetail('${escapeHtml(x.inquiry_id)}')"><td>${x.unread?'<i class="inquiry-unread"></i>':''}${escapeHtml(x.title)}</td><td>${escapeHtml(x.sender_name)}</td><td>${escapeHtml(x.recipient_name)}</td><td>${escapeHtml(x.task_title||'—')}</td><td><span class="pill ${x.priority==='عاجل'?'red':'gray'}">${escapeHtml(x.priority)}</span></td><td>${escapeHtml(x.status)}</td><td>${new Date(x.updated_at).toLocaleString('ar-SA')}</td></tr>`).join('')}</tbody></table>`;}
+function recipientOptions(selected,taskId){const task=taskId&&inquiryBootstrap.tasks.find(t=>t.id===taskId);return inquiryBootstrap.users.filter(u=>!task||(task.eligible_recipients||[]).includes(u.username)).map(u=>`<option value="${escapeHtml(u.username)}" ${u.username===selected?'selected':''}>${escapeHtml(u.display_name)} — ${escapeHtml(u.role)}</option>`).join('');}
+function openInquiryComposer(taskId=''){if(!inquiryBootstrap){loadInquiryBootstrap().then(()=>openInquiryComposer(taskId));return;}const task=inquiryBootstrap.tasks.find(t=>t.id===taskId),suggested=task?.suggested_recipient||'';document.getElementById('modalContent').innerHTML=`<h2>استفسار جديد</h2><form class="inquiry-form" data-request-id="${inquiryRequestId()}" onsubmit="submitInquiry(event)"><label>العنوان<input id="iqTitle" maxlength="150" required></label><label>تفاصيل الاستفسار<textarea id="iqDetails" maxlength="5000" rows="6" required></textarea></label><label>موجّه إلى<select id="iqRecipient" required><option value="">اختر مستخدمًا</option>${recipientOptions(suggested,taskId)}</select></label><label>المهمة المرتبطة (اختيارية)<select id="iqTask"><option value="">بدون مهمة</option>${inquiryBootstrap.tasks.map(t=>`<option value="${escapeHtml(t.id)}" ${t.id===taskId?'selected':''}>${escapeHtml(t.id+' — '+t.title)}</option>`).join('')}</select></label><label>الأولوية<select id="iqPriority"><option>عادي</option><option>عاجل</option></select></label><div id="iqError" class="inquiry-state"></div><button class="ops-primary-btn" type="submit">إرسال الاستفسار</button></form>`;document.getElementById('modal').classList.add('active');}
+async function submitInquiry(e){e.preventDefault();const btn=e.submitter,err=document.getElementById('iqError');btn.disabled=true;err.textContent='جارٍ الحفظ…';try{const d=await inquiryApi({action:'inquiry_create',request_id:e.currentTarget.dataset.requestId,title:iqTitle.value,details:iqDetails.value,recipient_username:iqRecipient.value,task_id:iqTask.value,priority:iqPriority.value});closeModal();await loadInquiries();openInquiryDetail(d.inquiry.inquiry_id);}catch(x){err.textContent=inquiryError(x);btn.disabled=false;}}
+async function openInquiryDetail(id){try{const d=await inquiryApi({action:'inquiry_detail',inquiry_id:id});inquiryCurrent=d.inquiry;updateInquirySummary(d.summary);renderInquiryDetail();}catch(e){alert(inquiryError(e));}}
+function renderInquiryDetail(){const q=inquiryCurrent;if(!q)return;const canRecipient=q.recipient_username===currentUser.username||q.can_admin,canSender=q.sender_username===currentUser.username||q.can_admin;document.getElementById('drawerContent').innerHTML=`<h2>${escapeHtml(q.title)}</h2><p style="white-space:pre-wrap">${escapeHtml(q.details)}</p><div class="detail-grid"><div><small>المرسل</small><b>${escapeHtml(q.sender_name)}</b></div><div><small>المستلم</small><b>${escapeHtml(q.recipient_name)}</b></div><div><small>الأولوية</small><b>${escapeHtml(q.priority)}</b></div><div><small>الحالة</small><b>${escapeHtml(q.status)}</b></div>${q.task_id?`<div><small>المهمة</small><b><button onclick="closeDrawer();openDetail('${escapeHtml(q.task_id)}')">${escapeHtml(q.task_title)}</button></b></div>`:''}</div><h3>الردود</h3>${q.replies.length?q.replies.map(r=>`<div class="inquiry-message"><small>${escapeHtml(r.author_name)} · ${new Date(r.created_at).toLocaleString('ar-SA')}</small>${escapeHtml(r.body)}</div>`).join(''):'<div class="inquiry-state">لا توجد ردود بعد.</div>'}<h3>سجل الإجراءات</h3>${q.events.map(x=>`<div class="inquiry-event">${escapeHtml(x.event_type)} — ${escapeHtml(x.actor_name)} · ${new Date(x.created_at).toLocaleString('ar-SA')}</div>`).join('')}${q.can_reply?`<form class="inquiry-reply" data-request-id="${inquiryRequestId()}" onsubmit="submitInquiryReply(event)"><textarea id="iqReply" maxlength="5000" rows="4" required placeholder="اكتب ردك…"></textarea><div id="iqReplyError" class="inquiry-state"></div><div class="inquiry-actions"><button class="ops-primary-btn" type="submit">إرسال الرد</button>${canRecipient?'<button class="ops-primary-btn" type="button" onclick="submitInquiryReply(event,true)">إرسال الرد ووضع الحالة تمت الإجابة</button>':''}</div></form>`:''}<div class="inquiry-actions">${q.status==='جديد'&&canRecipient?'<button onclick="changeInquiryStatus(\'قيد المعالجة\')">بدء المعالجة</button>':''}${q.status!=='مغلق'&&canSender?'<button onclick="changeInquiryStatus(\'مغلق\')">إغلاق</button>':''}${q.status==='مغلق'&&canSender?'<button onclick="changeInquiryStatus(\'قيد المعالجة\')">إعادة فتح</button>':''}${q.can_admin&&q.status!=='مغلق'?`<select id="iqRedirect"><option value="">إعادة توجيه إلى…</option>${recipientOptions('',q.task_id)}</select><button onclick="redirectInquiry()">إعادة توجيه</button>`:''}</div>`;document.getElementById('drawer').classList.add('active');}
+async function submitInquiryReply(e,answer=false){e.preventDefault?.();const body=document.getElementById('iqReply')?.value||'',buttons=document.querySelectorAll('.inquiry-reply button');buttons.forEach(b=>b.disabled=true);try{const d=await inquiryApi({action:answer?'inquiry_answer':'inquiry_reply',inquiry_id:inquiryCurrent.inquiry_id,body,request_id:document.querySelector('.inquiry-reply').dataset.requestId});inquiryCurrent=d.inquiry;renderInquiryDetail();loadInquiries();}catch(x){document.getElementById('iqReplyError').textContent=inquiryError(x);buttons.forEach(b=>b.disabled=false);}}
+async function changeInquiryStatus(status){try{const d=await inquiryApi({action:'inquiry_status',inquiry_id:inquiryCurrent.inquiry_id,status,request_id:inquiryRequestId()});inquiryCurrent=d.inquiry;renderInquiryDetail();loadInquiries();}catch(e){alert(inquiryError(e));}}
+async function redirectInquiry(){const user=document.getElementById('iqRedirect').value;if(!user)return;try{const d=await inquiryApi({action:'inquiry_redirect',inquiry_id:inquiryCurrent.inquiry_id,recipient_username:user,request_id:inquiryRequestId()});inquiryCurrent=d.inquiry;renderInquiryDetail();loadInquiries();}catch(e){alert(inquiryError(e));}}
+function startInquiryPolling(){stopInquiryPolling();inquiryPollTimer=setInterval(()=>{if(document.visibilityState==='visible'&&authState.phase===MayadeenAuth.phases.AUTHENTICATED){loadInquiryBootstrap();if(getActivePageId()==='inquiries')loadInquiries();}},45000)}function stopInquiryPolling(){if(inquiryPollTimer)clearInterval(inquiryPollTimer);inquiryPollTimer=null;}
 
 </script>
 

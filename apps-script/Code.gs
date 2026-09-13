@@ -97,6 +97,11 @@ const KAG_CONFIG = {
   contentVersionsSheetName: 'Content Versions',
   assetsGiftsSheetName: 'Assets & Gifts',
   guestJourneySheetName: 'Guest Journey',
+  inquiriesSheetName: 'Inquiries',
+  inquiryRepliesSheetName: 'Inquiry Replies',
+  inquiryEventsSheetName: 'Inquiry Events',
+  inquiryReadsSheetName: 'Inquiry Reads',
+  inquiryNotificationsSheetName: 'Inquiry Notifications',
   defaultProjectStatus: 'بانتظار اعتماد PMO',
   approvedPrefixStatus: 'معتمد',
   codeEntityTypes: ['path', 'task', 'deliverable', 'file', 'version', 'approval', 'decision', 'risk', 'assignment', 'escalation', 'meeting_minutes', 'change_order'],
@@ -244,6 +249,10 @@ function doPost(e) {
     if (payload.action === 'data_sync') {
       requireExecutiveBoardRequestAccess_(session, payload);
       return json_(buildDashboardData_(session));
+    }
+
+    if (String(payload.action || '').indexOf('inquiry_') === 0) {
+      return json_(handleInquiryAction_(payload, session));
     }
 
     if (String(payload.page_id || payload.page || payload.target_page || '').trim() === 'executiveBoard') {
@@ -1796,6 +1805,7 @@ function requireOverdueTaskEscalationUser_(session) {
 }
 
 function isTaskOverdueForEscalation_(task) {
+  if (/مكتمل|completed|done|closed/i.test(String(getField_(task, WBS_FIELD_ALIASES.status) || ''))) return false;
   const status = String(getField_(task, WBS_FIELD_ALIASES.status) || '').trim().toLowerCase();
   const normalizedStatus = status.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
   const inProgress = ['قيد التنفيذ', 'جاري التنفيذ', 'in progress', 'active'].indexOf(normalizedStatus) !== -1;
