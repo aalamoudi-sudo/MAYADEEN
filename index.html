@@ -5133,10 +5133,23 @@ function taskOwnerFilterValues(task){
     .map(v=>String(v||'').trim())
     .filter(Boolean);
 }
+function isProjectOwnerName(name){
+  const value=String(name||'').trim();
+  return Boolean(value)&&normalizeArabic(value)!==normalizeArabic('غير محدد');
+}
+function projectOwnerGroups(taskRows=tasks){
+  const ownerCounts=new Map();
+  (Array.isArray(taskRows)?taskRows:[]).forEach(task=>{
+    // الاسم المطابق وحده يمثل الشخص نفسه؛ لا نوحّد تهجئات قد تخص أشخاصاً مختلفين.
+    const taskOwners=new Set(taskOwnerFilterValues(task).filter(isProjectOwnerName));
+    taskOwners.forEach(name=>ownerCounts.set(name,(ownerCounts.get(name)||0)+1));
+  });
+  return [...ownerCounts].map(([name,count])=>({name,count}));
+}
 function taskMatchesOwnerFilter(task, selectedOwner){
   if(!selectedOwner) return true;
-  const wanted=normalizeArabic(selectedOwner);
-  return taskOwnerFilterValues(task).some(v=>normalizeArabic(v)===wanted);
+  const wanted=String(selectedOwner).trim();
+  return taskOwnerFilterValues(task).some(v=>v===wanted);
 }
 const TASK_STATUS_VALUES=['مكتملة','متأخرة','قيد التنفيذ','لم تبدأ','ملغاة','غير مكتملة البيانات'];
 const WBS_FIELD_ALIASES={
@@ -5568,7 +5581,7 @@ function renderAll(){
 function renderKpis(){
   if(!isOfficialKpiReady()){const el=document.getElementById('kpis'); if(el) el.innerHTML=['إجمالي المهام','معالم رئيسية','المسؤولون','مدة المشروع','مراحل المشروع'].map(x=>noKpiCardHtml(x)).join(''); return;}
   const byPhase=countBy(tasks,'phase');
-  const owners=[...new Set(tasks.map(r=>r.owner).filter(Boolean))];
+  const owners=projectOwnerGroups(tasks);
   const start=tasks.map(r=>d(r.start)).filter(Boolean).sort((a,b)=>a-b)[0];
   const end=tasks.map(r=>d(r.end)).filter(Boolean).sort((a,b)=>b-a)[0];
   const durationDays=start&&end?Math.round((end-start)/(1000*60*60*24)):0;
@@ -6556,7 +6569,7 @@ document.addEventListener('input',event=>{ if(['overdue-escalation-recipient','o
 /* ══ FILL FILTERS ══ */
 function fillFilters(){
   const phases=[...PROJECT_PHASE_ORDER,PROJECT_PHASE_UNSPECIFIED];
-  const owners=[...new Map(rows.flatMap(taskOwnerFilterValues).map(name=>[normalizeArabic(name),name])).values()].sort((a,b)=>a.localeCompare(b,'ar'));
+  const owners=projectOwnerGroups(rows).map(owner=>owner.name).sort((a,b)=>a.localeCompare(b,'ar'));
   const officialUsed=OFFICIAL_PATHS.filter(path=>rows.some(r=>r.mainPath===path));
   const pSel=document.getElementById('filterPhase');
   const pathSel=document.getElementById('filterPath');
@@ -6960,18 +6973,7 @@ function renderMilestonesPage(){
 }
 function renderOwnersPage(){
   const el=document.getElementById('ownersList'); if(!el) return;
-  const ownerCounts={};
-  tasks.forEach(t=>{
-    const seen=new Set();
-    taskOwnerFilterValues(t).forEach(name=>{
-      const key=normalizeArabic(name);
-      if(!key||seen.has(key)) return;
-      seen.add(key);
-      if(!ownerCounts[key]) ownerCounts[key]={name,count:0};
-      ownerCounts[key].count++;
-    });
-  });
-  const owners=Object.values(ownerCounts).filter(o=>o.name&&o.name!=='غير محدد').sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ar')).slice(0,200);
+  const owners=projectOwnerGroups(tasks).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ar')).slice(0,200);
   el.innerHTML=owners.map(({name,count})=>`<div class="owner-card" onclick="showOwnerTasks(${JSON.stringify(name)})"><b>${escapeHtml(name)}</b><span>${count} مهمة مرتبطة</span></div>`).join('');
 }
 function showOwnerTasks(name){
