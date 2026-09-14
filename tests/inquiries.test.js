@@ -92,6 +92,19 @@ test('القائمة والملخص متطابقان بعد القراءة',()=>
   assert.equal(list.summary.needs_reply,list.items.filter(x=>['جديد','قيد المعالجة'].includes(x.status)).length);
 });
 
+test('تفاصيل المحادثة تحد آخر مئة رد وتتيح طلب الأقدم دون تغيير العقد',()=>{
+  const h=harness(),id=create(h),sheet=h.sheets['Inquiry Replies'];
+  for(let i=0;i<150;i++)sheet.appendRow([`r-${i}`,id,'KAG','recipient',`رد ${i}`,new Date(2026,0,1,0,0,i).toISOString(),`req-${i}`]);
+  const first=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
+  assert.equal(first.inquiry.replies.length,100);
+  assert.equal(first.inquiry.reply_count,150);
+  assert.equal(first.inquiry.has_older_replies,true);
+  assert.equal(first.summary,undefined,'التفاصيل لا تعيد حساب ملخص القائمة غير المستخدم');
+  const expanded=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id,message_limit:200});
+  assert.equal(expanded.inquiry.replies.length,150);
+  assert.equal(expanded.inquiry.has_older_replies,false);
+});
+
 
 test('رد محفوظ ثم استجابة متأخرة مع polling وdata_sync وهميين لا يتكرر وتتحرر القراءة النهائية من القفل',()=>{
   const h=harness(),id=create(h),request={inquiry_id:id,body:'رد حُفظ قبل انتهاء مهلة العميل',request_id:'timeout-stable-id'};
