@@ -8,6 +8,7 @@ const KAG_INQUIRY_CONFIG = Object.freeze({
 });
 let kagInquiryContext = null;
 const INQUIRY_DETAIL_PAGE_SIZE = 100;
+const INQUIRY_DETAIL_CHUNK_SIZE = 100;
 const INQUIRY_SCHEMA_CACHE_KEY = "kag-inquiry-schema-v1";
 const INQUIRY_SCHEMA_CACHE_TTL_SECONDS = 21600;
 const INQUIRY_STATUS = ["جديد", "قيد المعالجة", "تمت الإجابة", "مغلق"];
@@ -20,6 +21,7 @@ function inquiryPerfStart_(action) {
     spreadsheet_accesses: 0,
     sheet_reads: 0,
     rows_read: 0,
+    response_size_chars: 0,
     cache_hits: 0,
     cache_misses: 0,
     timings_ms: {},
@@ -64,11 +66,17 @@ function inquiryPerfFinish_() {
         rows_read: perf.rows_read,
         spreadsheet_accesses: perf.spreadsheet_accesses,
         sheet_reads: perf.sheet_reads,
+        response_size_chars: perf.response_size_chars,
         cache_hits: perf.cache_hits,
         cache_misses: perf.cache_misses,
         timings_ms: perf.timings_ms,
       }),
   );
+}
+function inquiryPerfResponse_(response) {
+  const perf = kagInquiryContext && kagInquiryContext.perf;
+  if (perf) perf.response_size_chars = JSON.stringify(response).length;
+  return response;
 }
 function inquirySpreadsheet_() {
   if (!kagInquiryContext) {
@@ -193,6 +201,44 @@ function inquiryRows_(name, headers) {
             });
   if (kagInquiryContext) kagInquiryContext.rows[name] = rows;
   return rows;
+}
+// Detail reads are deliberately independent of inquiryRows_: they walk append-only
+// history sheets from the newest rows backwards and never populate the full-sheet
+// request cache.
+function inquiryTailRows_(name, headers, inquiryId, limit) {
+  const s = inquirySheet_(name, headers),
+    lastRow = s.getLastRow(),
+    wanted = Math.max(1, Math.min(Number(limit) || INQUIRY_DETAIL_PAGE_SIZE, 1000)),
+    chunkSize = Math.max(INQUIRY_DETAIL_CHUNK_SIZE, wanted);
+  let endRow = lastRow,
+    rows = [],
+    stoppedEarly = false;
+  while (endRow >= 2 && rows.length < wanted) {
+    const startRow = Math.max(2, endRow - chunkSize + 1),
+      values = inquiryPerfRead_(
+        s.getRange(startRow, 1, endRow - startRow + 1, headers.length),
+        name,
+      );
+    for (let i = values.length - 1; i >= 0 && rows.length < wanted; i--) {
+      const value = values[i],
+        row = { _row: startRow + i };
+      headers.forEach(function (header, column) {
+        row[header] =
+          value[column] instanceof Date
+            ? value[column].toISOString()
+            : String(value[column] === undefined ? "" : value[column]);
+      });
+      if (
+        row.project_id === INQUIRY_PROJECT_ID &&
+        row.inquiry_id === String(inquiryId)
+      )
+        rows.push(row);
+    }
+    endRow = startRow - 1;
+    stoppedEarly = rows.length >= wanted && endRow >= 2;
+  }
+  rows.reverse();
+  return { rows: rows, has_older: stoppedEarly };
 }
 function inquirySafeCell_(v) {
   return typeof v === "string" && /^[=+@-]/.test(v) ? "'" + v : v;
@@ -440,13 +486,13 @@ function inquiryNotify_(q, username, kind, key) {
     request_key: key,
   });
 }
-function inquiryReadCursor_(q, u) {
-  const replies = inquiryRows_(
+function inquiryReadCursor_(q, u, replies) {
+  replies = replies || inquiryTailRows_(
     KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
     inquiryReplyHeaders_(),
-  ).filter(function (r) {
-    return r.inquiry_id === q.inquiry_id;
-  });
+    q.inquiry_id,
+    1,
+  ).rows;
   const notifications = inquiryRows_(
     KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
     inquiryNotificationHeaders_(),
@@ -470,6 +516,33 @@ function inquiryReadCursor_(q, u) {
     }),
   };
 }
+function inquiryReplyBoundaryExists_(inquiryId, through) {
+  const headers = inquiryReplyHeaders_(),
+    sheet = inquirySheet_(KAG_INQUIRY_CONFIG.inquiryRepliesSheetName, headers),
+    createdAtColumn = headers.indexOf("created_at"),
+    inquiryIdColumn = headers.indexOf("inquiry_id"),
+    projectIdColumn = headers.indexOf("project_id");
+  let endRow = sheet.getLastRow();
+  while (endRow >= 2) {
+    const startRow = Math.max(2, endRow - INQUIRY_DETAIL_CHUNK_SIZE + 1),
+      values = inquiryPerfRead_(
+        sheet.getRange(startRow, 1, endRow - startRow + 1, headers.length),
+        KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
+      );
+    if (values.some(function (row) {
+      const createdAt = row[createdAtColumn] instanceof Date
+        ? row[createdAtColumn].toISOString()
+        : String(row[createdAtColumn] === undefined ? "" : row[createdAtColumn]);
+      return (
+        String(row[inquiryIdColumn] || "") === String(inquiryId) &&
+        String(row[projectIdColumn] || "") === INQUIRY_PROJECT_ID &&
+        createdAt === through
+      );
+    })) return true;
+    endRow = startRow - 1;
+  }
+  return false;
+}
 function inquiryMarkRead_(q, u, cursor) {
   const through = String((cursor && cursor.through_at) || ""),
     ids = Array.isArray(cursor && cursor.notification_ids)
@@ -479,19 +552,7 @@ function inquiryMarkRead_(q, u, cursor) {
     nowMs = Date.now();
   if (!through || !isFinite(parsed) || parsed > nowMs)
     throw new Error("حد القراءة غير صالح");
-  const validBoundaries = [q.created_at].concat(
-    inquiryRows_(
-      KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
-      inquiryReplyHeaders_(),
-    )
-      .filter(function (r) {
-        return r.inquiry_id === q.inquiry_id;
-      })
-      .map(function (r) {
-        return r.created_at;
-      }),
-  );
-  if (validBoundaries.indexOf(through) < 0)
+  if (through !== q.created_at && !inquiryReplyBoundaryExists_(q.inquiry_id, through))
     throw new Error("حد القراءة لم يعد صالحًا");
   const h = inquiryReadHeaders_(),
     s = inquirySheet_(KAG_INQUIRY_CONFIG.inquiryReadsSheetName, h),
@@ -525,7 +586,7 @@ function inquiryMarkRead_(q, u, cursor) {
   ids.forEach(function (id) {
     allowed[id] = true;
   });
-  inquiryRows_(KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName, nh)
+  const notificationRows = inquiryRows_(KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName, nh)
     .filter(function (n) {
       return (
         allowed[n.notification_id] &&
@@ -535,9 +596,11 @@ function inquiryMarkRead_(q, u, cursor) {
         Date.parse(n.created_at) <= nowMs
       );
     })
-    .forEach(function (n) {
-      ns.getRange(n._row, nh.indexOf("read_at") + 1).setValue(inquiryNow_());
+    .map(function (n) {
+      return "G" + n._row;
     });
+  if (notificationRows.length)
+    ns.getRangeList(notificationRows).setValue(inquiryNow_());
   if (kagInquiryContext) {
     delete kagInquiryContext.rows[KAG_INQUIRY_CONFIG.inquiryReadsSheetName];
     delete kagInquiryContext.rows[
@@ -550,26 +613,17 @@ function inquiryMarkRead_(q, u, cursor) {
 function inquirySerializeImpl_(q, u, detail, detailLimit) {
   const names = inquiryDisplayNameMap_(),
     read = inquiryUserReadMap_(u.username)[q.inquiry_id],
-    rawReplies = inquiryGroupBy_(
-      KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
-      inquiryReplyHeaders_(),
-      "inquiry_id",
-    )[q.inquiry_id] || [],
+    limit = Math.max(1, Math.min(Number(detailLimit) || INQUIRY_DETAIL_PAGE_SIZE, 1000)),
+    replyPage = detail
+      ? inquiryTailRows_(KAG_INQUIRY_CONFIG.inquiryRepliesSheetName, inquiryReplyHeaders_(), q.inquiry_id, limit)
+      : null,
+    eventPage = detail
+      ? inquiryTailRows_(KAG_INQUIRY_CONFIG.inquiryEventsSheetName, inquiryEventHeaders_(), q.inquiry_id, limit)
+      : null,
     replies = detail
-      ? rawReplies.slice().sort(function (a, b) {
-          return a.created_at.localeCompare(b.created_at);
-        })
-      : rawReplies,
-    events = detail
-      ? (inquiryGroupBy_(
-          KAG_INQUIRY_CONFIG.inquiryEventsSheetName,
-          inquiryEventHeaders_(),
-          "inquiry_id",
-        )[q.inquiry_id] || []).slice()
-          .sort(function (a, b) {
-            return a.created_at.localeCompare(b.created_at);
-          })
-      : [],
+      ? replyPage.rows
+      : (inquiryGroupBy_(KAG_INQUIRY_CONFIG.inquiryRepliesSheetName, inquiryReplyHeaders_(), "inquiry_id")[q.inquiry_id] || []),
+    events = detail ? eventPage.rows : [],
     notifications = inquiryGroupBy_(
       KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
       inquiryNotificationHeaders_(),
@@ -596,26 +650,23 @@ function inquirySerializeImpl_(q, u, detail, detailLimit) {
   }
   delete out._row;
   if (detail) {
-    const limit = Math.max(1, Math.min(Number(detailLimit) || INQUIRY_DETAIL_PAGE_SIZE, 1000));
-    const visibleReplies = replies.slice(-limit);
-    const visibleEvents = events.slice(-limit);
-    out.replies = visibleReplies.map(function (r) {
+    out.replies = replies.map(function (r) {
       return Object.assign({}, r, {
         author_name: names[r.author_username] || r.author_username,
       });
     });
-    out.events = visibleEvents.map(function (e) {
+    out.events = events.map(function (e) {
       return Object.assign({}, e, {
         actor_name: names[e.actor_username] || e.actor_username,
       });
     });
     out.can_admin = inquiryIsAdmin_(u);
     out.can_reply = q.status !== "مغلق";
-    out.read_cursor = inquiryReadCursor_(q, u);
+    out.read_cursor = inquiryReadCursor_(q, u, replies);
     out.reply_count = replies.length;
     out.event_count = events.length;
-    out.has_older_replies = visibleReplies.length < replies.length;
-    out.has_older_events = visibleEvents.length < events.length;
+    out.has_older_replies = replyPage.has_older;
+    out.has_older_events = eventPage.has_older;
   }
   return out;
 }
@@ -636,7 +687,22 @@ function inquiryList_(u, scope) {
       return true;
     })
     .map(function (q) {
-      return inquirySerialize_(q, u, false);
+      const item = inquirySerialize_(q, u, false);
+      return {
+        inquiry_id: item.inquiry_id,
+        project_id: item.project_id,
+        title: item.title,
+        sender_username: item.sender_username,
+        sender_name: item.sender_name,
+        recipient_username: item.recipient_username,
+        recipient_name: item.recipient_name,
+        task_id: item.task_id,
+        task_title: item.task_title,
+        priority: item.priority,
+        status: item.status,
+        updated_at: item.updated_at,
+        unread: item.unread,
+      };
     })
     .sort(function (a, b) {
       return b.updated_at.localeCompare(a.updated_at);
@@ -1016,22 +1082,22 @@ function handleInquiryAction_(payload, session) {
       const scope = String(payload.scope || "mine");
       if (["mine", "assigned", "all"].indexOf(scope) < 0)
         throw new Error("نطاق استفسارات غير صالح");
-      return inquiryPerfTimed_("inquiryList", function () {
+      return inquiryPerfResponse_(inquiryPerfTimed_("inquiryList", function () {
         return {
           ok: true,
           items: inquiryList_(user, scope),
           summary: inquirySummary_(user),
         };
-      });
+      }));
     }
     if (payload.action === "inquiry_detail") {
-      return inquiryPerfTimed_("inquiryDetail", function () {
+      return inquiryPerfResponse_(inquiryPerfTimed_("inquiryDetail", function () {
         const q = inquiryRequire_(payload.inquiry_id, user);
         return {
           ok: true,
           inquiry: inquirySerialize_(q, user, true, payload.message_limit),
         };
-      });
+      }));
     }
     lock = LockService.getScriptLock();
     if (!lock.tryLock(1000))
@@ -1045,11 +1111,11 @@ function handleInquiryAction_(payload, session) {
       });
       lock.releaseLock();
       lock = null;
-      return {
+      return inquiryPerfResponse_({
         ok: true,
         last_read_at: result.last_read_at,
         summary: inquirySummary_(user),
-      };
+      });
     }
     if (payload.action === "inquiry_create")
       return inquiryCreate_(payload, user);
