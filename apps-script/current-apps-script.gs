@@ -3097,6 +3097,9 @@ const INQUIRY_DETAIL_PAGE_SIZE = 100;
 const INQUIRY_DETAIL_CHUNK_SIZE = 100;
 const INQUIRY_SCHEMA_CACHE_KEY = "kag-inquiry-schema-v1";
 const INQUIRY_SCHEMA_CACHE_TTL_SECONDS = 21600;
+const INQUIRY_STATE_CACHE_VERSION = 1;
+const INQUIRY_STATE_CACHE_TTL_SECONDS = 90;
+const INQUIRY_GENERATION_CACHE_TTL_SECONDS = 21600;
 const INQUIRY_STATUS = ["جديد", "قيد المعالجة", "تمت الإجابة", "مغلق"];
 const INQUIRY_PRIORITY = ["عادي", "عاجل"];
 
@@ -3110,7 +3113,13 @@ function inquiryPerfStart_(action) {
     response_size_chars: 0,
     cache_hits: 0,
     cache_misses: 0,
+    compact_state_size_chars: 0,
+    cache_put_success: 0,
+    cache_put_failed: 0,
+    cache_get_failed: 0,
+    cache_remove_failed: 0,
     timings_ms: {},
+    measurements: {},
   };
 }
 function inquiryPerfTimed_(name, callback) {
@@ -3122,6 +3131,44 @@ function inquiryPerfTimed_(name, callback) {
     if (perf)
       perf.timings_ms[name] =
         (perf.timings_ms[name] || 0) + (Date.now() - started);
+  }
+}
+function inquiryPerfMeasure_(name, callback) {
+  const perf = kagInquiryContext && kagInquiryContext.perf,
+    started = Date.now(),
+    before = perf
+      ? {
+          rows_read: perf.rows_read,
+          sheet_reads: perf.sheet_reads,
+          spreadsheet_accesses: perf.spreadsheet_accesses,
+          cache_hits: perf.cache_hits,
+          cache_misses: perf.cache_misses,
+        }
+      : null;
+  try {
+    return callback();
+  } finally {
+    if (perf && before) {
+      const measurement = perf.measurements[name] || {
+        duration_ms: 0,
+        rows_read: 0,
+        sheet_reads: 0,
+        spreadsheet_accesses: 0,
+        cache_hits: 0,
+        cache_misses: 0,
+      };
+      measurement.duration_ms += Date.now() - started;
+      [
+        "rows_read",
+        "sheet_reads",
+        "spreadsheet_accesses",
+        "cache_hits",
+        "cache_misses",
+      ].forEach(function (key) {
+        measurement[key] += perf[key] - before[key];
+      });
+      perf.measurements[name] = measurement;
+    }
   }
 }
 function inquiryPerfCache_(hit) {
@@ -3155,7 +3202,13 @@ function inquiryPerfFinish_() {
         response_size_chars: perf.response_size_chars,
         cache_hits: perf.cache_hits,
         cache_misses: perf.cache_misses,
+        compact_state_size_chars: perf.compact_state_size_chars,
+        cache_put_success: perf.cache_put_success,
+        cache_put_failed: perf.cache_put_failed,
+        cache_get_failed: perf.cache_get_failed,
+        cache_remove_failed: perf.cache_remove_failed,
         timings_ms: perf.timings_ms,
+        measurements: perf.measurements,
       }),
   );
 }
@@ -3184,6 +3237,126 @@ function inquiryRequestCacheGet_(key) {
   }
   inquiryPerfCache_(true);
   return kagInquiryContext.rows[key];
+}
+function inquiryScriptCache_() {
+  if (typeof CacheService === "undefined" || !CacheService.getScriptCache)
+    return null;
+  try {
+    return CacheService.getScriptCache();
+  } catch (error) {
+    const perf = kagInquiryContext && kagInquiryContext.perf;
+    if (perf) perf.cache_get_failed++;
+    return null;
+  }
+}
+function inquiryCacheHash_(value) {
+  const text = String(value || "");
+  if (
+    typeof Utilities !== "undefined" &&
+    Utilities.computeDigest &&
+    Utilities.DigestAlgorithm
+  ) {
+    return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text)
+      .map(function (byte) {
+        return (byte + 256).toString(16).slice(-2);
+      })
+      .join("")
+      .slice(0, 32);
+  }
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+function inquiryGenerationCacheKey_(u) {
+  const suffix = u
+    ? ":user:" + inquiryCacheHash_(String(u.username || "").trim().toLowerCase())
+    : ":global";
+  return "kag:inquiry:generation:" + INQUIRY_PROJECT_ID + suffix;
+}
+function inquiryNewGeneration_() {
+  return Date.now().toString(36) + "-" + Utilities.getUuid();
+}
+function inquiryCacheGet_(cache, key) {
+  try {
+    const value = cache.get(key);
+    inquiryPerfCache_(!!value);
+    return { ok: true, value: value };
+  } catch (error) {
+    const perf = kagInquiryContext && kagInquiryContext.perf;
+    if (perf) perf.cache_get_failed++;
+    inquiryPerfCache_(false);
+    return { ok: false, value: null };
+  }
+}
+function inquiryCachePut_(cache, key, value, ttl) {
+  try {
+    cache.put(key, value, ttl);
+    const perf = kagInquiryContext && kagInquiryContext.perf;
+    if (perf) perf.cache_put_success++;
+    return true;
+  } catch (error) {
+    const perf = kagInquiryContext && kagInquiryContext.perf;
+    if (perf) perf.cache_put_failed++;
+    return false;
+  }
+}
+function inquiryCacheRemove_(cache, key) {
+  if (!cache.remove) return true;
+  try {
+    cache.remove(key);
+    return true;
+  } catch (error) {
+    const perf = kagInquiryContext && kagInquiryContext.perf;
+    if (perf) perf.cache_remove_failed++;
+    return false;
+  }
+}
+function inquiryGeneration_(cache, u) {
+  if (!cache) return null;
+  const key = inquiryGenerationCacheKey_(u),
+    result = inquiryCacheGet_(cache, key);
+  if (!result.ok) return null;
+  if (result.value) return result.value;
+  const generation = inquiryNewGeneration_();
+  return inquiryCachePut_(
+    cache,
+    key,
+    generation,
+    INQUIRY_GENERATION_CACHE_TTL_SECONDS,
+  )
+    ? generation
+    : null;
+}
+function inquiryStateCacheKey_(u, globalGeneration, userGeneration) {
+  const permissionScope = JSON.stringify([
+    String(u.username || "").trim().toLowerCase(),
+    inquiryIsAdmin_(u),
+    inquiryCanViewTask_(u),
+  ]);
+  return [
+    "kag:inquiry:state:v" + INQUIRY_STATE_CACHE_VERSION,
+    INQUIRY_PROJECT_ID,
+    inquiryCacheHash_(permissionScope),
+    globalGeneration,
+    userGeneration,
+  ].join(":");
+}
+function inquiryInvalidateStateCache_(u, userOnly) {
+  const cache = inquiryScriptCache_();
+  if (!cache) return;
+  const key = inquiryGenerationCacheKey_(userOnly ? u : null);
+  if (
+    !inquiryCachePut_(
+      cache,
+      key,
+      inquiryNewGeneration_(),
+      INQUIRY_GENERATION_CACHE_TTL_SECONDS,
+    )
+  )
+    inquiryCacheRemove_(cache, key);
 }
 
 function inquiryHeaders_() {
@@ -3694,6 +3867,7 @@ function inquiryMarkRead_(q, u, cursor) {
     ];
     kagInquiryContext.indexes = {};
   }
+  inquiryInvalidateStateCache_(u, true);
   return { last_read_at: next };
 }
 function inquirySerializeImpl_(q, u, detail, detailLimit) {
@@ -3761,67 +3935,217 @@ function inquirySerialize_(q, u, detail, detailLimit) {
     return inquirySerializeImpl_(q, u, detail, detailLimit);
   });
 }
-function inquiryList_(u, scope) {
-  if (scope === "all" && !inquiryIsAdmin_(u))
-    throw new Error("Forbidden: administration required");
-  return inquiryRows_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_())
-    .filter(function (q) {
-      if (q.project_id !== INQUIRY_PROJECT_ID || !inquiryCanAccess_(q, u))
-        return false;
-      if (scope === "mine") return q.sender_username === u.username;
-      if (scope === "assigned") return q.recipient_username === u.username;
-      return true;
-    })
-    .map(function (q) {
-      const item = inquirySerialize_(q, u, false);
-      return {
-        inquiry_id: item.inquiry_id,
-        project_id: item.project_id,
-        title: item.title,
-        sender_username: item.sender_username,
-        sender_name: item.sender_name,
-        recipient_username: item.recipient_username,
-        recipient_name: item.recipient_name,
-        task_id: item.task_id,
-        task_title: item.task_title,
-        priority: item.priority,
-        status: item.status,
-        updated_at: item.updated_at,
-        unread: item.unread,
-      };
-    })
-    .sort(function (a, b) {
-      return b.updated_at.localeCompare(a.updated_at);
+function inquiryListStateCalculate_(u) {
+  const inquiries = inquiryPerfMeasure_("inquiryListInquiries", function () {
+      return inquiryRows_(
+        KAG_INQUIRY_CONFIG.inquiriesSheetName,
+        inquiryHeaders_(),
+      ).filter(function (q) {
+        return inquiryCanAccess_(q, u);
+      });
+    }),
+    names = inquiryPerfMeasure_("inquiryListUsers", inquiryDisplayNameMap_),
+    reads = inquiryPerfMeasure_("inquiryListReads", function () {
+      return inquiryUserReadMap_(u.username);
+    }),
+    replies = inquiryPerfMeasure_("inquiryListReplies", function () {
+      return inquiryGroupBy_(
+        KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
+        inquiryReplyHeaders_(),
+        "inquiry_id",
+      );
+    }),
+    notifications = inquiryPerfMeasure_("inquiryListNotifications", function () {
+      return inquiryGroupBy_(
+        KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
+        inquiryNotificationHeaders_(),
+        "inquiry_id",
+      );
     });
-}
-function inquirySummary_(u) {
-  const all = inquiryRows_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_())
-      .filter(function (q) { return inquiryCanAccess_(q, u); }),
-    reads = inquiryUserReadMap_(u.username),
-    replies = inquiryGroupBy_(
-      KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
-      inquiryReplyHeaders_(),
-      "inquiry_id",
-    );
-  return {
-    needs_reply: all.filter(function (q) {
-      return (
+  return inquiryPerfMeasure_("inquiryListStateCalculation", function () {
+    const unreadByInquiry = {};
+    let needsReply = 0,
+      newReplies = 0;
+    inquiries.forEach(function (q) {
+      const read = reads[q.inquiry_id],
+        last = read ? read.last_read_at : "",
+        hasNewReply = (replies[q.inquiry_id] || []).some(function (r) {
+          return r.author_username !== u.username && (!last || r.created_at > last);
+        }),
+        hasUnreadNotification = (notifications[q.inquiry_id] || []).some(
+          function (n) {
+            return n.username === u.username && !n.read_at;
+          },
+        );
+      unreadByInquiry[q.inquiry_id] = hasUnreadNotification || hasNewReply;
+      if (
         q.recipient_username === u.username &&
         (q.status === "جديد" || q.status === "قيد المعالجة")
-      );
-    }).length,
-    new_replies: all.filter(function (q) {
-      if (q.sender_username !== u.username) return false;
-      const read = reads[q.inquiry_id],
-        last = read ? read.last_read_at : "";
-      return (replies[q.inquiry_id] || []).some(function (r) {
-        return (
-          r.author_username !== u.username &&
-          (!last || r.created_at > last)
-        );
-      });
-    }).length,
+      )
+        needsReply++;
+      if (q.sender_username === u.username && hasNewReply) newReplies++;
+    });
+    return {
+      inquiries: inquiries,
+      names: names,
+      reads: reads,
+      replies: replies,
+      notifications: notifications,
+      unread_by_inquiry: unreadByInquiry,
+      summary: { needs_reply: needsReply, new_replies: newReplies },
+    };
+  });
+}
+function inquiryCompactListState_(state) {
+  const names = {};
+  return {
+    version: INQUIRY_STATE_CACHE_VERSION,
+    inquiries: state.inquiries.map(function (q) {
+      names[q.sender_username] = state.names[q.sender_username] || q.sender_username;
+      names[q.recipient_username] =
+        state.names[q.recipient_username] || q.recipient_username;
+      return {
+        inquiry_id: q.inquiry_id,
+        project_id: q.project_id,
+        title: q.title,
+        sender_username: q.sender_username,
+        recipient_username: q.recipient_username,
+        task_id: q.task_id,
+        task_title: q.task_title,
+        priority: q.priority,
+        status: q.status,
+        updated_at: q.updated_at,
+      };
+    }),
+    names: names,
+    unread_by_inquiry: state.unread_by_inquiry,
+    summary: state.summary,
   };
+}
+function inquiryAuthoritativeCompactListState_(u) {
+  const compact = inquiryCompactListState_(inquiryListStateCalculate_(u)),
+    perf = kagInquiryContext && kagInquiryContext.perf;
+  if (perf) perf.compact_state_size_chars = JSON.stringify(compact).length;
+  return compact;
+}
+function inquiryCachedListStateValid_(state) {
+  return !!(
+    state &&
+    state.version === INQUIRY_STATE_CACHE_VERSION &&
+    Array.isArray(state.inquiries) &&
+    state.names &&
+    state.unread_by_inquiry &&
+    state.summary &&
+    typeof state.summary.needs_reply === "number" &&
+    typeof state.summary.new_replies === "number"
+  );
+}
+function inquiryEnsureListMeasurements_() {
+  [
+    "inquiryListInquiries",
+    "inquiryListUsers",
+    "inquiryListReads",
+    "inquiryListReplies",
+    "inquiryListNotifications",
+    "inquiryListStateCalculation",
+  ].forEach(function (name) {
+    const perf = kagInquiryContext && kagInquiryContext.perf;
+    if (perf && !perf.measurements[name])
+      inquiryPerfMeasure_(name, function () {});
+  });
+}
+function inquiryListState_(u) {
+  const cache = inquiryScriptCache_();
+  if (!cache) {
+    inquiryPerfCache_(false);
+    return inquiryAuthoritativeCompactListState_(u);
+  }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const globalGenerationBefore = inquiryGeneration_(cache),
+      userGenerationBefore = inquiryGeneration_(cache, u);
+    if (!globalGenerationBefore || !userGenerationBefore)
+      return inquiryAuthoritativeCompactListState_(u);
+    const key = inquiryStateCacheKey_(
+        u,
+        globalGenerationBefore,
+        userGenerationBefore,
+      ),
+      cachedResult = inquiryCacheGet_(cache, key),
+      cached = cachedResult.value;
+    if (!cachedResult.ok)
+      return inquiryAuthoritativeCompactListState_(u);
+    if (cached) {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(cached);
+      } catch (error) {
+        parsed = null;
+      }
+      const globalGenerationAfter = inquiryGeneration_(cache),
+        userGenerationAfter = inquiryGeneration_(cache, u);
+      if (
+        globalGenerationBefore === globalGenerationAfter &&
+        userGenerationBefore === userGenerationAfter &&
+        inquiryCachedListStateValid_(parsed)
+      ) {
+        inquiryEnsureListMeasurements_();
+        return parsed;
+      }
+    }
+    const calculated = inquiryCompactListState_(inquiryListStateCalculate_(u)),
+      serialized = JSON.stringify(calculated),
+      perf = kagInquiryContext && kagInquiryContext.perf,
+      globalGenerationAfterCalculation = inquiryGeneration_(cache),
+      userGenerationAfterCalculation = inquiryGeneration_(cache, u);
+    if (perf) perf.compact_state_size_chars = serialized.length;
+    if (
+      globalGenerationBefore === globalGenerationAfterCalculation &&
+      userGenerationBefore === userGenerationAfterCalculation
+    ) {
+      inquiryCachePut_(cache, key, serialized, INQUIRY_STATE_CACHE_TTL_SECONDS);
+      return calculated;
+    }
+  }
+  return inquiryAuthoritativeCompactListState_(u);
+}
+function inquiryList_(u, scope, state) {
+  if (scope === "all" && !inquiryIsAdmin_(u))
+    throw new Error("Forbidden: administration required");
+  state = state || inquiryListState_(u);
+  return inquiryPerfMeasure_("inquiryListSerialization", function () {
+    return state.inquiries
+      .filter(function (q) {
+        if (scope === "mine") return q.sender_username === u.username;
+        if (scope === "assigned") return q.recipient_username === u.username;
+        return true;
+      })
+      .map(function (q) {
+        const canViewTask = !q.task_id || inquiryCanViewTask_(u);
+        return {
+          inquiry_id: q.inquiry_id,
+          project_id: q.project_id,
+          title: q.title,
+          sender_username: q.sender_username,
+          sender_name: state.names[q.sender_username] || q.sender_username,
+          recipient_username: q.recipient_username,
+          recipient_name: state.names[q.recipient_username] || q.recipient_username,
+          task_id: canViewTask ? q.task_id : "",
+          task_title: canViewTask ? q.task_title : "",
+          priority: q.priority,
+          status: q.status,
+          updated_at: q.updated_at,
+          unread: !!state.unread_by_inquiry[q.inquiry_id],
+        };
+      })
+      .sort(function (a, b) {
+        return b.updated_at.localeCompare(a.updated_at);
+      });
+  });
+}
+function inquirySummary_(u, state) {
+  return inquiryPerfMeasure_("inquirySummary", function () {
+    return (state || inquiryListState_(u)).summary;
+  });
 }
 function inquiryBootstrap_(u) {
   const active = inquiryUsers_(),
@@ -3927,6 +4251,7 @@ function inquiryCreate_(p, u) {
     "استفسار جديد",
     "create:" + q.inquiry_id,
   );
+  inquiryInvalidateStateCache_();
   return { ok: true, inquiry: inquirySerialize_(q, u, true) };
 }
 function inquiryReply_(p, u, answer, deferSerialization) {
@@ -3975,6 +4300,7 @@ function inquiryReply_(p, u, answer, deferSerialization) {
   const other =
     u.username === q.sender_username ? q.recipient_username : q.sender_username;
   inquiryNotify_(q, other, "رد جديد", "reply:" + requestId);
+  inquiryInvalidateStateCache_();
   return {
     ok: true,
     inquiry: deferSerialization ? q : inquirySerialize_(q, u, true),
@@ -4029,6 +4355,7 @@ function inquiryStatus_(p, u) {
     .forEach(function (x) {
       inquiryNotify_(q, x, to, "status:" + req + ":" + x);
     });
+  inquiryInvalidateStateCache_();
   return { ok: true, inquiry: inquirySerialize_(q, u, true) };
 }
 function inquiryRedirect_(p, u) {
@@ -4067,19 +4394,18 @@ function inquiryRedirect_(p, u) {
   });
   inquiryEvent_(q, "إعادة توجيه", u, from, next.username, req);
   inquiryNotify_(q, next.username, "إعادة توجيه", "redirect:" + req);
+  inquiryInvalidateStateCache_();
   return { ok: true, inquiry: inquirySerialize_(q, u, true) };
 }
 function inquiryValidateTables_() {
-  const cache =
-    typeof CacheService !== "undefined" && CacheService.getScriptCache
-      ? CacheService.getScriptCache()
-      : null;
-  if (cache && cache.get(INQUIRY_SCHEMA_CACHE_KEY) === "valid") {
-    inquiryPerfCache_(true);
+  const cache = inquiryScriptCache_(),
+    cachedSchema = cache
+      ? inquiryCacheGet_(cache, INQUIRY_SCHEMA_CACHE_KEY)
+      : { ok: false, value: null };
+  if (cachedSchema.value === "valid") {
     if (kagInquiryContext) kagInquiryContext.schemaValidated = true;
     return;
   }
-  inquiryPerfCache_(false);
   inquirySheet_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_());
   inquirySheet_(
     KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
@@ -4098,7 +4424,8 @@ function inquiryValidateTables_() {
     inquiryNotificationHeaders_(),
   );
   if (cache)
-    cache.put(
+    inquiryCachePut_(
+      cache,
       INQUIRY_SCHEMA_CACHE_KEY,
       "valid",
       INQUIRY_SCHEMA_CACHE_TTL_SECONDS,
@@ -4169,10 +4496,11 @@ function handleInquiryAction_(payload, session) {
       if (["mine", "assigned", "all"].indexOf(scope) < 0)
         throw new Error("نطاق استفسارات غير صالح");
       return inquiryPerfResponse_(inquiryPerfTimed_("inquiryList", function () {
+        const state = inquiryListState_(user);
         return {
           ok: true,
-          items: inquiryList_(user, scope),
-          summary: inquirySummary_(user),
+          items: inquiryList_(user, scope, state),
+          summary: inquirySummary_(user, state),
         };
       }));
     }
