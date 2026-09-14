@@ -3368,6 +3368,7 @@ function dispatchAuth(event){
 }
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
+let sessionBootstrapSyncData=null;
 let syncRequestSequence=0;
 const loginPerfCounters={authLoginRequests:0,dataSyncRequests:0,mainRenders:0};
 let syncBackoffMs=30000;
@@ -3755,7 +3756,6 @@ async function login(){
   setLoginTransitionStatus('جارٍ تجهيز لوحة القيادة.',72);
   startClock();
   revealAuthenticatedApp();
-  loadInquiryBootstrap();
   markPerf('dashboard_shell_ready');
   measurePerf('dashboard_shell_duration','session_ready','dashboard_shell_ready');
   setLoginVisualState('idle');
@@ -3840,7 +3840,7 @@ async function bootstrapSession(){
   try{
     const user=await validatePersistedSession();
     dispatchAuth({type:'AUTHENTICATED',token:saved.token,user,expiresAt:saved.expiresAt});
-    currentUser=authState.user; MayadeenAuth.write(sessionStorage,authState); revealAuthenticatedApp(); setSyncLoadingState(); loadInquiryBootstrap(); loadExternal(true).catch(e=>console.warn('Refresh data sync failed',e));
+    currentUser=authState.user; MayadeenAuth.write(sessionStorage,authState); revealAuthenticatedApp(); setSyncLoadingState(); loadExternal(true).catch(e=>console.warn('Refresh data sync failed',e));
   }catch(e){
     console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage);
     dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
@@ -3860,6 +3860,9 @@ async function validatePersistedSession(){
   const fallbackResponse=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'session compatibility timeout');
   const fallback=await fallbackResponse.json();
   if(!fallbackResponse.ok||!fallback.ok||!fallback.user) throw new Error(fallback.error||fallback.message||'تعذر التحقق من صلاحيات الجلسة.');
+  // Reuse the compatibility response for the initial render. Without this handoff,
+  // restoring an old deployment immediately requested the same full data_sync twice.
+  sessionBootstrapSyncData=fallback;
   return fallback.user;
 }
 function returnToAnonymousLogin(error){
@@ -3879,6 +3882,12 @@ function showPage(id){
   safeLocalSet('mayadeen.lastPage',id);
   if(isMobileShell()) closeSidebarDrawer();
   renderPageIfNeeded(id);
+  if(id==='inquiries'){
+    loadInquiries();
+    startInquiryPolling();
+  }else{
+    stopInquiryPolling(false);
+  }
 }
 function goToTasksFiltered(status){
   showPage('tasks');
@@ -6242,11 +6251,18 @@ async function loadExternal(initial=true){
     const _syncStart=performance.now();
     const _syncStartedAt=new Date();
     console.log(`⏱️ [Sync] بدء طلب البيانات: ${_syncStartedAt.toLocaleTimeString('ar-SA')}`);
-    const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
+    let data;
+    if(initial&&sessionBootstrapSyncData){
+      data=sessionBootstrapSyncData;
+      sessionBootstrapSyncData=null;
+      console.info('⏱️ [Sync] reused session compatibility data_sync response');
+    }else{
+      const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      data=await res.json();
+    }
     const _syncFetchMs=Math.round(performance.now()-_syncStart);
     console.log(`⏱️ [Sync] وصل الرد بعد ${_syncFetchMs} ms`);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data=await res.json();
     if(!data.ok) throw new Error(data.error||'sync failed');
     if(requestSequence!==syncRequestSequence) return false;
     const normalized=normalizeRows(data);
@@ -6373,9 +6389,8 @@ async function loadExternal(initial=true){
   return syncRequestInFlight;
 }
 
-// مزامنة تلقائية كل 30 ثانية بدون الحاجة لتحديث الصفحة
-// loadExternal called after login
-setInterval(()=>{ if(hasCompletedInitialSync&&!document.hidden&&!syncRequestInFlight&&Date.now()>=nextSyncAllowedAt&&document.getElementById("app").classList.contains("visible")) loadExternal(false); },30000);
+// Full dashboard data is intentionally refreshed only on entry, after mutations,
+// or through the manual refresh button. Never poll every sheet in the background.
 
 /* ══ CLOCK ══ */
 let clockTimer=null;
@@ -10130,6 +10145,7 @@ function renderAutomationCenter(){
 let inquiryItems=[],inquiryBootstrap=null,inquiryScope='mine',inquiryCurrent=null,inquiryPollTimer=null,inquiryLoading=false;
 let inquiryViewSeq=0,inquirySelectedId='',inquiryDetailInFlight=new Map(),inquiryBootstrapSeq=0,inquiryWriteInFlight=0;
 let inquiryListPage=1,inquiryFilterFrame=0,inquiryMessageLimit=100;
+let inquiryBootstrapInFlight=null,inquiryListInFlight=null;
 const INQUIRY_LIST_PAGE_SIZE=50;
 const inquiryReplyDrafts=new Map();
 function inquiryRequestId(){return (crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random()).toString();}
@@ -10140,9 +10156,9 @@ async function inquiryApi(payload){const action=String(payload?.action||'inquiry
 function inquiryError(e){if(isSessionExpiredError(e)){returnToLoginForExpiredSession();return 'انتهت الجلسة.'}const kind=e?.inquiryKind;if(kind==='busy')return 'الخدمة مشغولة مؤقتًا. سنحاول مرة أخرى.';if(kind==='timeout')return e?.inquiryAction==='inquiry_reply'||e?.inquiryAction==='inquiry_answer'?'انتهت مهلة إرسال الرد. قد يكون حُفظ في الخادم؛ تحقّق من وصوله قبل إعادة الإرسال.':'انتهت مهلة طلب الاستفسار. حاول مرة أخرى.';if(kind==='network')return 'تعذر الاتصال بالشبكة.';if(kind==='permission')return 'لا تملك صلاحية تنفيذ هذا الإجراء أو انتهت الجلسة.';if(kind==='server')return 'تعذر إكمال الطلب بسبب خطأ في الخادم.';return sanitizeUserError(e,String(e?.message||'تعذر تحميل الاستفسارات.'));}
 function inquiryTransient(e){return ['busy','timeout','network','server'].includes(e?.inquiryKind);}
 async function inquiryReadWithRetry(payload,attempts=3){let last;for(let i=0;i<attempts;i++){try{return await inquiryApi(payload);}catch(e){last=e;if(!inquiryTransient(e)||i===attempts-1)throw e;await wait([350,900][i]+Math.floor(Math.random()*150));}}throw last;}
-async function loadInquiryBootstrap(){const seq=++inquiryBootstrapSeq,identity=inquiryIdentity();try{const data=await inquiryReadWithRetry({action:'inquiry_bootstrap'},2);if(seq!==inquiryBootstrapSeq||!inquiryIdentityMatches(identity))return;inquiryBootstrap=data;updateInquirySummary(data.summary);document.getElementById('inquiryAllTab').style.display=data.can_admin?'':'none';startInquiryPolling();}catch(e){if(seq!==inquiryBootstrapSeq||!inquiryIdentityMatches(identity))return;const el=document.getElementById('inquiryList');if(el)el.innerHTML=`${escapeHtml(inquiryError(e))} <button onclick="loadInquiryBootstrap()">إعادة المحاولة</button>`;}}
+async function loadInquiryBootstrap(){if(inquiryBootstrap)return inquiryBootstrap;if(inquiryBootstrapInFlight)return inquiryBootstrapInFlight;const seq=++inquiryBootstrapSeq,identity=inquiryIdentity();const task=(async()=>{try{const data=await inquiryReadWithRetry({action:'inquiry_bootstrap'},2);if(seq!==inquiryBootstrapSeq||!inquiryIdentityMatches(identity))return null;inquiryBootstrap=data;updateInquirySummary(data.summary);document.getElementById('inquiryAllTab').style.display=data.can_admin?'':'none';return data;}catch(e){if(seq!==inquiryBootstrapSeq||!inquiryIdentityMatches(identity))return null;const el=document.getElementById('inquiryList');if(el)el.innerHTML=`${escapeHtml(inquiryError(e))} <button onclick="loadInquiryBootstrap()">إعادة المحاولة</button>`;return null;}finally{if(inquiryBootstrapInFlight===task)inquiryBootstrapInFlight=null;}})();inquiryBootstrapInFlight=task;return task;}
 function updateInquirySummary(x={}){const a=document.getElementById('inquiryNeedsReply'),b=document.getElementById('inquiryNewReplies'),badge=document.getElementById('inquiryNavBadge');if(a)a.textContent=x.needs_reply??'—';if(b)b.textContent=x.new_replies??'—';const n=(x.needs_reply||0)+(x.new_replies||0);if(badge){badge.hidden=!n;badge.textContent=n;}}
-async function loadInquiries(){if(inquiryLoading)return;if(!inquiryBootstrap){await loadInquiryBootstrap();if(!inquiryBootstrap)return;}inquiryLoading=true;const identity=inquiryIdentity(),el=document.getElementById('inquiryList');if(!inquiryItems.length&&el)el.textContent='جارٍ تحميل الاستفسارات…';try{const d=await inquiryReadWithRetry({action:'inquiry_list',scope:inquiryScope},2);if(!inquiryIdentityMatches(identity))return;inquiryItems=d.items||[];inquiryListPage=1;updateInquirySummary(d.summary);renderInquiryList();}catch(e){if(inquiryIdentityMatches(identity)&&el)el.innerHTML=`${escapeHtml(inquiryError(e))} <button onclick="loadInquiries()">إعادة المحاولة</button>`;}finally{inquiryLoading=false;}}
+async function loadInquiries(){if(getActivePageId()!=='inquiries')return null;if(inquiryListInFlight)return inquiryListInFlight;const task=(async()=>{if(!inquiryBootstrap){await loadInquiryBootstrap();if(!inquiryBootstrap)return null;}inquiryLoading=true;const identity=inquiryIdentity(),el=document.getElementById('inquiryList');if(!inquiryItems.length&&el)el.textContent='جارٍ تحميل الاستفسارات…';try{const d=await inquiryReadWithRetry({action:'inquiry_list',scope:inquiryScope},2);if(!inquiryIdentityMatches(identity)||getActivePageId()!=='inquiries')return null;inquiryItems=d.items||[];inquiryListPage=1;updateInquirySummary(d.summary);renderInquiryList();return d;}catch(e){if(inquiryIdentityMatches(identity)&&getActivePageId()==='inquiries'&&el)el.innerHTML=`${escapeHtml(inquiryError(e))} <button onclick="loadInquiries()">إعادة المحاولة</button>`;return null;}finally{inquiryLoading=false;}})();inquiryListInFlight=task;try{return await task;}finally{if(inquiryListInFlight===task)inquiryListInFlight=null;}}
 function openInquiryScope(scope){inquiryScope=scope;inquiryListPage=1;showPage('inquiries');document.querySelectorAll('.inquiry-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.scope===scope));loadInquiries();}
 function scheduleInquiryFilter(){if(inquiryFilterFrame)cancelAnimationFrame(inquiryFilterFrame);inquiryFilterFrame=requestAnimationFrame(()=>{inquiryFilterFrame=0;applyInquiryFilter();});}
 function applyInquiryFilter(){inquiryListPage=1;renderInquiryList();}
@@ -10166,7 +10182,7 @@ async function verifyInquiryReply(id,answer=false){const d=inquiryReplyDrafts.ge
 async function changeInquiryStatus(status){const id=inquiryCurrent?.inquiry_id,identity=inquiryIdentity();if(!id)return;setInquiryNotice('جارٍ تحديث الحالة…');try{const d=await inquiryApi({action:'inquiry_status',inquiry_id:id,status,request_id:inquiryRequestId()});if(!inquiryIdentityMatches(identity)||inquirySelectedId!==id)return;inquiryCurrent=d.inquiry;renderInquiryDetail();loadInquiries();}catch(e){if(inquiryIdentityMatches(identity)&&inquirySelectedId===id)setInquiryNotice(inquiryError(e),'error');}}
 async function redirectInquiry(){const id=inquiryCurrent?.inquiry_id,user=document.getElementById('iqRedirect')?.value,identity=inquiryIdentity();if(!id||!user)return;setInquiryNotice('جارٍ إعادة التوجيه…');try{const d=await inquiryApi({action:'inquiry_redirect',inquiry_id:id,recipient_username:user,request_id:inquiryRequestId()});if(!inquiryIdentityMatches(identity)||inquirySelectedId!==id)return;inquiryCurrent=d.inquiry;renderInquiryDetail();loadInquiries();}catch(e){if(inquiryIdentityMatches(identity)&&inquirySelectedId===id)setInquiryNotice(inquiryError(e),'error');}}
 function closeInquiryViewState(){inquirySelectedId='';inquiryCurrent=null;inquiryViewSeq++;}
-function startInquiryPolling(){stopInquiryPolling(false);const identity=inquiryIdentity();inquiryPollTimer=setInterval(()=>{if(inquiryIdentityMatches(identity)&&document.visibilityState==='visible'&&!inquiryWriteInFlight){if(getActivePageId()==='inquiries')loadInquiries();else loadInquiryBootstrap();}},45000);}
+function startInquiryPolling(){stopInquiryPolling(false);if(getActivePageId()!=='inquiries')return;const identity=inquiryIdentity();inquiryPollTimer=setInterval(()=>{if(inquiryIdentityMatches(identity)&&getActivePageId()==='inquiries'&&document.visibilityState==='visible'&&!inquiryWriteInFlight)loadInquiries();},45000);}
 function stopInquiryPolling(invalidate=true){if(inquiryPollTimer)clearInterval(inquiryPollTimer);inquiryPollTimer=null;if(invalidate){inquiryBootstrapSeq++;inquiryViewSeq++;inquiryDetailInFlight.clear();}}
 
 
