@@ -115,29 +115,32 @@ function doGet(e) {
 function buildDashboardData_(session) {
   const syncStartedAt = new Date();
   const syncVersion = Utilities.getUuid();
+  const profile = { spreadsheet_open_ms: 0, datasets: [] };
+  const spreadsheetOpenStartedAt = new Date().getTime();
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const taskRead = readOfficialWbsTasks_(spreadsheet);
+  profile.spreadsheet_open_ms = new Date().getTime() - spreadsheetOpenStartedAt;
+  const taskRead = timedDashboardOperation_(profile, 'wbs', function() { return readOfficialWbsTasks_(spreadsheet); });
   const rows = taskRead.rows;
   const taskHeaders = taskRead.headers;
-  const approvals = getApprovalRows_(spreadsheet);
-  const approvalChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName);
-  const escalationChain = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName);
-  const escalations = deduplicateEscalationsById_(getExistingEscalationRows_(spreadsheet));
-  const riskGovernance = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName);
-  const assignments = getAssignmentRows_(spreadsheet);
-  const meetings = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.meetingsSheetName);
-  const commitments = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.commitmentsSheetName);
-  const files = getExistingRegisterRows_(spreadsheet, KAG_CONFIG.filesSheetName);
-  const urgentTasks = getUrgentTaskRows_(spreadsheet);
-  const decisions = getDecisionRows_(spreadsheet);
-  const projectMaster = getProjectMasterRows_(spreadsheet);
-  const projectSettings = getProjectSettingsRows_(spreadsheet);
-  const employeeMaster = getEmployeeMasterRows_(spreadsheet);
-  const baselineManagement = buildBaselineManagement_(spreadsheet, rows);
-  const raci = buildRaciMatrix_(spreadsheet, rows, employeeMaster);
-  const workload = buildEmployeeWorkload_(spreadsheet, rows, employeeMaster);
-  const criticalPath = buildCriticalPathAnalysis_(spreadsheet, rows);
-  const dataQuality = buildDataQualityCenter_(spreadsheet, rows, employeeMaster, criticalPath);
+  const approvals = timedDashboardOperation_(profile, 'approvals', function() { return getApprovalRows_(spreadsheet); });
+  const approvalChain = timedDashboardOperation_(profile, 'approval_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName); });
+  const escalationChain = timedDashboardOperation_(profile, 'escalation_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName); });
+  const escalations = timedDashboardOperation_(profile, 'escalations', function() { return deduplicateEscalationsById_(getExistingEscalationRows_(spreadsheet)); });
+  const riskGovernance = timedDashboardOperation_(profile, 'risk_governance', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName); });
+  const assignments = timedDashboardOperation_(profile, 'assignments', function() { return getAssignmentRows_(spreadsheet); });
+  const meetings = timedDashboardOperation_(profile, 'meetings', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.meetingsSheetName); });
+  const commitments = timedDashboardOperation_(profile, 'commitments', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.commitmentsSheetName); });
+  const files = timedDashboardOperation_(profile, 'files', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.filesSheetName); });
+  const urgentTasks = timedDashboardOperation_(profile, 'urgent_tasks', function() { return getUrgentTaskRows_(spreadsheet); });
+  const decisions = timedDashboardOperation_(profile, 'decisions', function() { return getDecisionRows_(spreadsheet); });
+  const projectMaster = timedDashboardOperation_(profile, 'project_master', function() { return getProjectMasterRows_(spreadsheet); });
+  const projectSettings = timedDashboardOperation_(profile, 'project_settings', function() { return getProjectSettingsRows_(spreadsheet); });
+  const employeeMaster = timedDashboardOperation_(profile, 'employee_master', function() { return getEmployeeMasterRows_(spreadsheet); });
+  const baselineManagement = timedDashboardOperation_(profile, 'baseline_management', function() { return buildBaselineManagement_(spreadsheet, rows); });
+  const raci = timedDashboardOperation_(profile, 'raci_matrix', function() { return buildRaciMatrix_(spreadsheet, rows, employeeMaster); });
+  const criticalPath = timedDashboardOperation_(profile, 'critical_path', function() { return buildCriticalPathAnalysis_(spreadsheet, rows); });
+  const workload = timedDashboardOperation_(profile, 'employee_workload', function() { return buildEmployeeWorkload_(spreadsheet, rows, employeeMaster, criticalPath); });
+  const dataQuality = timedDashboardOperation_(profile, 'data_quality', function() { return buildDataQualityCenter_(spreadsheet, rows, employeeMaster, criticalPath); });
   const response = {
     ok: true,
     generated_at: new Date().toISOString(),
@@ -171,13 +174,32 @@ function buildDashboardData_(session) {
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
       risk_rows_read: riskGovernance.length,
-      connection_status: 'connected'
+      connection_status: 'connected',
+      performance: profile
     })
   };
+  const serializationStartedAt = new Date().getTime();
+  // Measure the real UTF-8 payload (Arabic text is not one byte per JS character).
+  response.sync_meta.response_bytes = Utilities.newBlob(JSON.stringify(response)).getBytes().length;
+  profile.serialization_ms = new Date().getTime() - serializationStartedAt;
+  response.sync_meta.sync_finished_at = new Date().toISOString();
+  response.sync_meta.duration_ms = new Date().getTime() - syncStartedAt.getTime();
+  // Include the newly attached measurement fields in the final payload estimate.
+  response.sync_meta.response_bytes = Utilities.newBlob(JSON.stringify(response)).getBytes().length;
+  Logger.log('[data_sync_profile] ' + JSON.stringify(profile));
   Logger.log('[data_sync] version=' + syncVersion + ' sheet=' + taskRead.diagnostics.sheet_name +
     ' raw=' + taskRead.diagnostics.raw_row_count + ' filtered=' + taskRead.diagnostics.valid_task_count +
     ' sent=' + rows.length + ' duration_ms=' + response.sync_meta.duration_ms);
   return response;
+}
+
+function timedDashboardOperation_(profile, name, operation) {
+  const startedAt = new Date().getTime();
+  const result = operation();
+  const elapsed = new Date().getTime() - startedAt;
+  const rows = Array.isArray(result) ? result.length : (result && Array.isArray(result.rows) ? result.rows.length : (result && Array.isArray(result.tasks) ? result.tasks.length : 0));
+  profile.datasets.push({ name: name, duration_ms: elapsed, rows_returned: rows });
+  return result;
 }
 
 function doPost(e) {
@@ -631,7 +653,10 @@ function readOfficialWbsTasks_(ss) {
     first_10_task_codes: [],
     last_10_task_codes: [],
     payload_task_total: 0,
-    home_task_total: 0
+    home_task_total: 0,
+    sheet_read_calls: 1,
+    cells_read: values.length * Math.max(headers.length, 1),
+    cells_read_before_optimization: values.length * Math.max(headers.length, 1)
   };
   if (values.length < 2) {
     logDataSyncDiagnostics_(diagnostics);
@@ -807,8 +832,8 @@ function buildRaciMatrix_(ss, rows, employees) {
   const idx=employeeByNameOrEmail_(employees); return rows.map(function(r){ const emp=findEmployee_(idx, taskOwner_(r), taskField_(r,'ownerEmail')); if(!emp) return {task_code:taskCode_(r),task_name:taskName_(r),responsible:'لا توجد بيانات كافية',accountable:'لا توجد بيانات كافية',consulted:'لا توجد بيانات كافية',informed:'لا توجد بيانات كافية',source:'Employee Master',data_status:'لا توجد بيانات كافية'}; return {task_code:taskCode_(r),task_name:taskName_(r),responsible:employeeField_(emp,['responsible','Responsible','R','name','employee_name','اسم الموظف'])||'لا توجد بيانات كافية',accountable:employeeField_(emp,['accountable','Accountable','A','manager','line_manager','المدير المباشر'])||'لا توجد بيانات كافية',consulted:employeeField_(emp,['consulted','Consulted','C','consulted_group','استشاري'])||'لا توجد بيانات كافية',informed:employeeField_(emp,['informed','Informed','I','informed_group','للعلم'])||'لا توجد بيانات كافية',source:'Employee Master',data_status:'ok'}; });
 }
 
-function buildEmployeeWorkload_(ss, rows, employees) {
-  const idx=employeeByNameOrEmail_(employees), today=dayNumber_(Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd')), critical=buildCriticalPathAnalysis_(ss, rows); const crit={}; (critical.tasks||[]).forEach(function(t){ if(t.is_critical) crit[normKey_(t.task_code)]=true; }); const agg={}; rows.forEach(function(r){ const emp=findEmployee_(idx, taskOwner_(r), taskField_(r,'ownerEmail')); if(!emp) return; const key=employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||employeeField_(emp,['name','employee_name','اسم الموظف']); if(!agg[key]) agg[key]={employee:employeeField_(emp,['name','employee_name','اسم الموظف'])||taskOwner_(r),email:employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||'',task_count:0,overdue_task_count:0,critical_task_count:0,total_duration_days:0,workload_limit_days:Number(employeeField_(emp,['workload_limit_days','capacity_days','حد العبء'])||0)}; agg[key].task_count++; agg[key].total_duration_days+=durationDays_(r); if(!isCompleteTask_(r)&&dayNumber_(taskEnd_(r))!==null&&dayNumber_(taskEnd_(r))<today) agg[key].overdue_task_count++; if(crit[normKey_(taskCode_(r))]) agg[key].critical_task_count++; }); return Object.keys(agg).map(function(k){ const a=agg[k]; a.alert=a.workload_limit_days&&a.total_duration_days>a.workload_limit_days?'تجاوز الحد':'ضمن الحد'; a.source='Employee Master + WBS'; return a; });
+function buildEmployeeWorkload_(ss, rows, employees, criticalPath) {
+  const idx=employeeByNameOrEmail_(employees), today=dayNumber_(Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd')), critical=criticalPath || buildCriticalPathAnalysis_(ss, rows); const crit={}; (critical.tasks||[]).forEach(function(t){ if(t.is_critical) crit[normKey_(t.task_code)]=true; }); const agg={}; rows.forEach(function(r){ const emp=findEmployee_(idx, taskOwner_(r), taskField_(r,'ownerEmail')); if(!emp) return; const key=employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||employeeField_(emp,['name','employee_name','اسم الموظف']); if(!agg[key]) agg[key]={employee:employeeField_(emp,['name','employee_name','اسم الموظف'])||taskOwner_(r),email:employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||'',task_count:0,overdue_task_count:0,critical_task_count:0,total_duration_days:0,workload_limit_days:Number(employeeField_(emp,['workload_limit_days','capacity_days','حد العبء'])||0)}; agg[key].task_count++; agg[key].total_duration_days+=durationDays_(r); if(!isCompleteTask_(r)&&dayNumber_(taskEnd_(r))!==null&&dayNumber_(taskEnd_(r))<today) agg[key].overdue_task_count++; if(crit[normKey_(taskCode_(r))]) agg[key].critical_task_count++; }); return Object.keys(agg).map(function(k){ const a=agg[k]; a.alert=a.workload_limit_days&&a.total_duration_days>a.workload_limit_days?'تجاوز الحد':'ضمن الحد'; a.source='Employee Master + WBS'; return a; });
 }
 
 function buildCriticalPathAnalysis_(ss, rows) {
