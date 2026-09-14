@@ -54,5 +54,9 @@ test('القائمة والمحادثة تحدان حجم DOM ولا تعيدا�
   assert.match(source,/loadOlderInquiryMessages/);
   const markRead=source.slice(source.indexOf('async function markInquiryRead'),source.indexOf('function setInquiryNotice'));
   assert.doesNotMatch(markRead,/loadInquiries\(\)/);
-  assert.match(source,/if\(getActivePageId\(\)==='inquiries'\)loadInquiries\(\);else loadInquiryBootstrap\(\)/);
+  assert.match(source,/if\(getActivePageId\(\)!=='inquiries'\)return/);
+  assert.match(source,/getActivePageId\(\)==='inquiries'.*loadInquiries\(\)/);
+  assert.doesNotMatch(source,/else loadInquiryBootstrap\(\)/);
+  assert.match(source,/if\(inquiryBootstrapInFlight\)return inquiryBootstrapInFlight/);
+  assert.match(source,/if\(inquiryListInFlight\)return inquiryListInFlight/);
 });
