@@ -8,6 +8,7 @@ const KAG_INQUIRY_CONFIG = Object.freeze({
   inquiryNotificationsSheetName: "Inquiry Notifications",
 });
 let kagInquiryContext = null;
+const INQUIRY_DETAIL_PAGE_SIZE = 100;
 const INQUIRY_STATUS = ["جديد", "قيد المعالجة", "تمت الإجابة", "مغلق"];
 const INQUIRY_PRIORITY = ["عادي", "عاجل"];
 
@@ -110,13 +111,40 @@ function inquiryRows_(name, headers) {
 function inquirySafeCell_(v) {
   return typeof v === "string" && /^[=+@-]/.test(v) ? "'" + v : v;
 }
+function inquiryGroupBy_(name, headers, key) {
+  const cache = kagInquiryContext && kagInquiryContext.indexes;
+  const cacheKey = name + ":" + key;
+  if (cache && cache[cacheKey]) return cache[cacheKey];
+  const grouped = {};
+  inquiryRows_(name, headers).forEach(function (row) {
+    const value = String(row[key] || "");
+    (grouped[value] || (grouped[value] = [])).push(row);
+  });
+  if (cache) cache[cacheKey] = grouped;
+  return grouped;
+}
+function inquiryUserReadMap_(username) {
+  const cache = kagInquiryContext && kagInquiryContext.indexes;
+  const cacheKey = "reads:" + username;
+  if (cache && cache[cacheKey]) return cache[cacheKey];
+  const result = {};
+  inquiryRows_(KAG_INQUIRY_CONFIG.inquiryReadsSheetName, inquiryReadHeaders_())
+    .forEach(function (row) {
+      if (row.username === username) result[row.inquiry_id] = row;
+    });
+  if (cache) cache[cacheKey] = result;
+  return result;
+}
 function inquiryAppend_(name, headers, obj) {
   inquirySheet_(name, headers).appendRow(
     headers.map(function (h) {
       return inquirySafeCell_(obj[h] === undefined ? "" : obj[h]);
     }),
   );
-  if (kagInquiryContext) delete kagInquiryContext.rows[name];
+  if (kagInquiryContext) {
+    delete kagInquiryContext.rows[name];
+    kagInquiryContext.indexes = {};
+  }
   return obj;
 }
 function inquiryNow_() {
@@ -252,10 +280,13 @@ function inquiryRequire_(id, u) {
   return q;
 }
 function inquiryDisplayNameMap_() {
+  if (kagInquiryContext && kagInquiryContext.indexes.displayNames)
+    return kagInquiryContext.indexes.displayNames;
   const m = {};
   inquiryUsers_().forEach(function (u) {
     m[u.username] = u.display_name || u.username;
   });
+  if (kagInquiryContext) kagInquiryContext.indexes.displayNames = m;
   return m;
 }
 function inquiryUpdateRow_(q, changes) {
@@ -271,6 +302,7 @@ function inquiryUpdateRow_(q, changes) {
   ]);
   if (kagInquiryContext)
     delete kagInquiryContext.rows[KAG_INQUIRY_CONFIG.inquiriesSheetName];
+  if (kagInquiryContext) kagInquiryContext.indexes = {};
   return q;
 }
 function inquiryEvent_(q, type, actor, from, to, requestId) {
@@ -414,47 +446,40 @@ function inquiryMarkRead_(q, u, cursor) {
     delete kagInquiryContext.rows[
       KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName
     ];
+    kagInquiryContext.indexes = {};
   }
   return { last_read_at: next };
 }
-function inquirySerialize_(q, u, detail) {
+function inquirySerialize_(q, u, detail, detailLimit) {
   const names = inquiryDisplayNameMap_(),
-    reads = inquiryRows_(
-      KAG_INQUIRY_CONFIG.inquiryReadsSheetName,
-      inquiryReadHeaders_(),
-    ),
-    read = reads.find(function (r) {
-      return r.inquiry_id === q.inquiry_id && r.username === u.username;
-    }),
-    replies = inquiryRows_(
+    read = inquiryUserReadMap_(u.username)[q.inquiry_id],
+    rawReplies = inquiryGroupBy_(
       KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
       inquiryReplyHeaders_(),
-    )
-      .filter(function (r) {
-        return r.inquiry_id === q.inquiry_id;
-      })
-      .sort(function (a, b) {
-        return a.created_at.localeCompare(b.created_at);
-      }),
+      "inquiry_id",
+    )[q.inquiry_id] || [],
+    replies = detail
+      ? rawReplies.slice().sort(function (a, b) {
+          return a.created_at.localeCompare(b.created_at);
+        })
+      : rawReplies,
     events = detail
-      ? inquiryRows_(
+      ? (inquiryGroupBy_(
           KAG_INQUIRY_CONFIG.inquiryEventsSheetName,
           inquiryEventHeaders_(),
-        )
-          .filter(function (e) {
-            return e.inquiry_id === q.inquiry_id;
-          })
+          "inquiry_id",
+        )[q.inquiry_id] || []).slice()
           .sort(function (a, b) {
             return a.created_at.localeCompare(b.created_at);
           })
       : [],
-    hasUnreadNotification = inquiryRows_(
+    notifications = inquiryGroupBy_(
       KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
       inquiryNotificationHeaders_(),
-    ).some(function (n) {
-      return (
-        n.inquiry_id === q.inquiry_id && n.username === u.username && !n.read_at
-      );
+      "inquiry_id",
+    )[q.inquiry_id] || [],
+    hasUnreadNotification = notifications.some(function (n) {
+      return n.username === u.username && !n.read_at;
     });
   const last = read ? read.last_read_at : "",
     out = Object.assign({}, q, {
@@ -474,12 +499,15 @@ function inquirySerialize_(q, u, detail) {
   }
   delete out._row;
   if (detail) {
-    out.replies = replies.map(function (r) {
+    const limit = Math.max(1, Math.min(Number(detailLimit) || INQUIRY_DETAIL_PAGE_SIZE, 1000));
+    const visibleReplies = replies.slice(-limit);
+    const visibleEvents = events.slice(-limit);
+    out.replies = visibleReplies.map(function (r) {
       return Object.assign({}, r, {
         author_name: names[r.author_username] || r.author_username,
       });
     });
-    out.events = events.map(function (e) {
+    out.events = visibleEvents.map(function (e) {
       return Object.assign({}, e, {
         actor_name: names[e.actor_username] || e.actor_username,
       });
@@ -487,6 +515,10 @@ function inquirySerialize_(q, u, detail) {
     out.can_admin = inquiryIsAdmin_(u);
     out.can_reply = q.status !== "مغلق";
     out.read_cursor = inquiryReadCursor_(q, u);
+    out.reply_count = replies.length;
+    out.event_count = events.length;
+    out.has_older_replies = visibleReplies.length < replies.length;
+    out.has_older_events = visibleEvents.length < events.length;
   }
   return out;
 }
@@ -509,14 +541,13 @@ function inquiryList_(u, scope) {
     });
 }
 function inquirySummary_(u) {
-  const all = inquiryList_(u, "visible"),
-    reads = inquiryRows_(
-      KAG_INQUIRY_CONFIG.inquiryReadsSheetName,
-      inquiryReadHeaders_(),
-    ),
-    replies = inquiryRows_(
+  const all = inquiryRows_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_())
+      .filter(function (q) { return inquiryCanAccess_(q, u); }),
+    reads = inquiryUserReadMap_(u.username),
+    replies = inquiryGroupBy_(
       KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
       inquiryReplyHeaders_(),
+      "inquiry_id",
     );
   return {
     needs_reply: all.filter(function (q) {
@@ -527,13 +558,10 @@ function inquirySummary_(u) {
     }).length,
     new_replies: all.filter(function (q) {
       if (q.sender_username !== u.username) return false;
-      const read = reads.find(function (r) {
-          return r.inquiry_id === q.inquiry_id && r.username === u.username;
-        }),
+      const read = reads[q.inquiry_id],
         last = read ? read.last_read_at : "";
-      return replies.some(function (r) {
+      return (replies[q.inquiry_id] || []).some(function (r) {
         return (
-          r.inquiry_id === q.inquiry_id &&
           r.author_username !== u.username &&
           (!last || r.created_at > last)
         );
@@ -821,7 +849,7 @@ function handleInquiryAction_(payload, session) {
   ];
   if (actions.indexOf(payload.action) < 0)
     throw new Error("Unsupported inquiry action");
-  kagInquiryContext = { rows: {}, users: null, tasks: null };
+  kagInquiryContext = { rows: {}, indexes: {}, users: null, tasks: null };
   let lock = null;
   try {
     inquiryValidateTables_();
@@ -844,14 +872,14 @@ function handleInquiryAction_(payload, session) {
       const q = inquiryRequire_(payload.inquiry_id, user);
       return {
         ok: true,
-        inquiry: inquirySerialize_(q, user, true),
-        summary: inquirySummary_(user),
+        inquiry: inquirySerialize_(q, user, true, payload.message_limit),
       };
     }
     lock = LockService.getScriptLock();
     if (!lock.tryLock(1000))
       throw new Error("الخدمة مشغولة الآن، أعد المحاولة بعد قليل");
     kagInquiryContext.rows = {};
+    kagInquiryContext.indexes = {};
     if (payload.action === "inquiry_mark_read") {
       const q = inquiryRequire_(payload.inquiry_id, user),
         result = inquiryMarkRead_(q, user, payload.read_cursor);
@@ -878,6 +906,7 @@ function handleInquiryAction_(payload, session) {
       lock.releaseLock();
       lock = null;
       kagInquiryContext.rows = {};
+      kagInquiryContext.indexes = {};
       result.inquiry = inquirySerialize_(
         inquiryRequire_(payload.inquiry_id, user),
         user,

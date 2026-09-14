@@ -46,3 +46,13 @@ test('عقد الواجهة يحافظ على المسودة ومعرف الرد
   assert.match(source,/renderInquiryDetail\(\);if\(!inquiryDetailValid[\s\S]*await markInquiryRead/);
   assert.doesNotMatch(source,/alert\(/);
 });
+
+test('القائمة والمحادثة تحدان حجم DOM ولا تعيدان تحميل القائمة بعد mark-read',()=>{
+  assert.match(source,/INQUIRY_LIST_PAGE_SIZE=50/);
+  assert.match(source,/visible=items\.slice/);
+  assert.match(source,/message_limit:inquiryMessageLimit/);
+  assert.match(source,/loadOlderInquiryMessages/);
+  const markRead=source.slice(source.indexOf('async function markInquiryRead'),source.indexOf('function setInquiryNotice'));
+  assert.doesNotMatch(markRead,/loadInquiries\(\)/);
+  assert.match(source,/if\(getActivePageId\(\)==='inquiries'\)loadInquiries\(\);else loadInquiryBootstrap\(\)/);
+});
