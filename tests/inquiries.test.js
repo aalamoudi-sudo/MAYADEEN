@@ -5,14 +5,15 @@ const fs=require('node:fs');
 
 class Range{
   constructor(sheet,r,c,nr,nc){Object.assign(this,{sheet,r,c,nr,nc});}
-  getValues(){if(this.sheet.metrics){this.sheet.metrics.reads++;if(this.r===1&&this.nr===1)this.sheet.metrics.headerReads++;if(this.sheet.metrics.lockState.held)this.sheet.metrics.readsWhileLocked++;}return Array.from({length:this.nr},(_,i)=>Array.from({length:this.nc},(_,j)=>this.sheet.data[this.r-1+i]?.[this.c-1+j]??''));}
+  getValues(){if(this.sheet.metrics){this.sheet.metrics.reads++;this.sheet.metrics.rowsRead+=this.nr;this.sheet.metrics.ranges.push({sheet:this.sheet.name,row:this.r,numRows:this.nr,numColumns:this.nc});if(this.r===1&&this.nr===1)this.sheet.metrics.headerReads++;if(this.sheet.metrics.lockState.held)this.sheet.metrics.readsWhileLocked++;}return Array.from({length:this.nr},(_,i)=>Array.from({length:this.nc},(_,j)=>this.sheet.data[this.r-1+i]?.[this.c-1+j]??''));}
   setValues(v){v.forEach((row,i)=>row.forEach((x,j)=>{this.sheet.data[this.r-1+i]??=[];this.sheet.data[this.r-1+i][this.c-1+j]=x;}));return this;}
   setValue(v){return this.setValues([[v]]);}
 }
 class Sheet{
-  constructor(headers=[]){this.data=[headers.slice()];}
+  constructor(headers=[],name=''){this.data=[headers.slice()];this.name=name;}
   getLastRow(){return this.data.length;}
   getRange(r,c,nr=1,nc=1){return new Range(this,r,c,nr,nc);}
+  getRangeList(a1){return {setValue:value=>{a1.forEach(cell=>{const match=/^([A-Z]+)(\d+)$/.exec(cell),column=match[1].split('').reduce((n,ch)=>n*26+ch.charCodeAt(0)-64,0);this.getRange(Number(match[2]),column).setValue(value);});}};}
   getDataRange(){return this.getRange(1,1,this.data.length,Math.max(1,...this.data.map(r=>r.length)));}
   appendRow(r){this.data.push(r.slice());}
 }
@@ -24,17 +25,17 @@ const headers={
   'Inquiry Notifications':['notification_id','project_id','inquiry_id','username','kind','created_at','read_at','request_key']
 };
 function harness(){
-  const sheets=Object.fromEntries(Object.entries(headers).map(([n,h])=>[n,new Sheet(h)]));
+  const sheets=Object.fromEntries(Object.entries(headers).map(([n,h])=>[n,new Sheet(h,n)]));
   const users=[
     {username:'creator',display_name:'المنشئ',status:'active',allowed_pages:'tasks',access_level:'workstream'},
     {username:'recipient',display_name:'المستلم',status:'active',allowed_pages:'tasks',access_level:'workstream'},
     {username:'outsider',display_name:'غير مخول',status:'active',allowed_pages:'overview',access_level:'workstream'},
     {username:'admin',display_name:'الإدارة',status:'active',allowed_pages:'*',access_level:'full',can_manage_users:'TRUE'}
   ];
-  sheets.Users=new Sheet(['username','display_name','status','allowed_pages','access_level','can_manage_users','email','role']);
+  sheets.Users=new Sheet(['username','display_name','status','allowed_pages','access_level','can_manage_users','email','role'],'Users');
   users.forEach(u=>sheets.Users.appendRow(sheets.Users.data[0].map(h=>u[h]??'')));
   const lockState={busy:false,held:false,tryCalls:0,releases:0};
-  const metrics={reads:0,headerReads:0,readsWhileLocked:0,spreadsheetOpens:0,lockState};Object.values(sheets).forEach(sheet=>sheet.metrics=metrics);
+  const metrics={reads:0,rowsRead:0,ranges:[],headerReads:0,readsWhileLocked:0,spreadsheetOpens:0,lockState};Object.values(sheets).forEach(sheet=>sheet.metrics=metrics);
   const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;const cacheData={},logs=[];
   const context={console,Date,RegExp,String,Object,Array,Error,Math,JSON,isFinite,
     KAG_CONFIG:{usersSheetName:'Users'},SPREADSHEET_ID:'test',
@@ -128,12 +129,41 @@ test('تفاصيل المحادثة تحد آخر مئة رد وتتيح طلب 
   for(let i=0;i<150;i++)sheet.appendRow([`r-${i}`,id,'KAG','recipient',`رد ${i}`,new Date(2026,0,1,0,0,i).toISOString(),`req-${i}`]);
   const first=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
   assert.equal(first.inquiry.replies.length,100);
-  assert.equal(first.inquiry.reply_count,150);
+  assert.equal(first.inquiry.reply_count,100);
   assert.equal(first.inquiry.has_older_replies,true);
   assert.equal(first.summary,undefined,'التفاصيل لا تعيد حساب ملخص القائمة غير المستخدم');
   const expanded=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id,message_limit:200});
   assert.equal(expanded.inquiry.replies.length,150);
   assert.equal(expanded.inquiry.has_older_replies,false);
+});
+
+test('inquiry_detail يقرأ Replies وEvents من النهاية في chunks ولا يحمل كامل التاريخ',()=>{
+  const h=harness(),id=create(h),replies=h.sheets['Inquiry Replies'],events=h.sheets['Inquiry Events'];
+  for(let i=0;i<3000;i++)replies.appendRow([`other-r-${i}`,'other','KAG','outsider',`نص ${i}`,new Date(2025,0,1,0,0,i).toISOString(),`other-${i}`]);
+  for(let i=0;i<100;i++)replies.appendRow([`mine-r-${i}`,id,'KAG','recipient',`رد ${i}`,new Date(2026,0,1,0,0,i).toISOString(),`mine-${i}`]);
+  for(let i=0;i<3000;i++)events.appendRow([`other-e-${i}`,'other','KAG','رد','outsider','','',new Date(2025,0,1,0,0,i).toISOString(),`other-e-${i}`]);
+  for(let i=0;i<100;i++)events.appendRow([`mine-e-${i}`,id,'KAG','رد','recipient','','',new Date(2026,0,1,0,0,i).toISOString(),`mine-e-${i}`]);
+  h.metrics.ranges=[];h.metrics.rowsRead=0;
+  const result=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
+  assert.equal(result.inquiry.replies.length,100);assert.equal(result.inquiry.events.length,100);
+  const replyReads=h.metrics.ranges.filter(x=>x.sheet==='Inquiry Replies'&&x.row>1);
+  const eventReads=h.metrics.ranges.filter(x=>x.sheet==='Inquiry Events'&&x.row>1);
+  assert.equal(replyReads.length,1);assert.equal(replyReads[0].numRows,100);
+  assert.equal(eventReads.length,1);assert.equal(eventReads[0].numRows,100);
+  assert.ok(replyReads[0].row>2900);assert.ok(eventReads[0].row>2900);
+  const perf=JSON.parse(h.logs.at(-1).replace(/^\[inquiry_perf\] /,''));
+  assert.equal(perf.action,'inquiry_detail');assert.equal(perf.rows_read,207);
+  assert.equal(perf.sheet_reads,5);assert.equal(perf.spreadsheet_accesses,1);
+  assert.ok(perf.duration_ms>=0);assert.ok(perf.response_size_chars>0);
+});
+
+test('inquiry_list يعيد حقول العرض فقط ويحافظ على عقد القائمة والصلاحيات وunread',()=>{
+  const h=harness(),id=create(h);
+  call(h.c,'inquiry_answer',h.users[1],{inquiry_id:id,body:'نص سري لا يلزم القائمة',request_id:'list-reply'});
+  const item=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}).items[0];
+  assert.deepEqual(Object.keys(item).sort(),['inquiry_id','project_id','title','sender_username','sender_name','recipient_username','recipient_name','task_id','task_title','priority','status','updated_at','unread'].sort());
+  assert.equal(item.details,undefined);assert.equal(item.replies,undefined);assert.equal(item.events,undefined);assert.equal(item.request_id,undefined);assert.equal(item.unread,true);
+  assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/);
 });
 
 
