@@ -51,6 +51,15 @@ function harness(){
 function call(c,action,user,p={}){return c.handleInquiryAction_(Object.assign({action},p),user);}
 function create(h){return call(h.c,'inquiry_create',h.users[0],{request_id:'create-1',title:'سؤال فعلي',details:'تفاصيل',recipient_username:'recipient',priority:'عاجل'}).inquiry.inquiry_id;}
 
+test('نسخة الإنتاج تدمج قسم الاستفسارات المحسّن دون استبدال بقية Apps Script',()=>{
+  const marker='const INQUIRY_PROJECT_ID = "KAG";';
+  const production=fs.readFileSync('apps-script/current-apps-script.gs','utf8');
+  const moduleSource=fs.readFileSync('apps-script/Inquiries.gs','utf8');
+  assert.equal(production.slice(production.indexOf(marker)),moduleSource.slice(moduleSource.indexOf(marker)));
+  assert.match(production.slice(0,production.indexOf(marker)),/function sendUrgentTaskNotifications\(\)/);
+  assert.match(production.slice(0,production.indexOf(marker)),/support\.services@mayadeen\.sa/);
+});
+
 test('فتح التفاصيل قراءة فقط وينجح مع انشغال قفل الكتابة',()=>{
   const h=harness(),id=create(h);h.lockState.busy=true;const before=h.lockState.tryCalls;
   const detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
