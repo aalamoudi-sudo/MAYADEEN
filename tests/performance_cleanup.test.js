@@ -39,3 +39,39 @@ test('removed field experience center has no frontend payload or requests',()=>{
   assert.doesNotMatch(html,/get_(?:event_sites|content_matrix|guest_journeys|assets_gifts)/);
   assert.doesNotMatch(html,/(?:leaflet|fes-|cm-|gj-|ag-)/i);
 });
+
+test('logo uses one inline payload and reuses it without a binary asset',()=>{
+  assert.equal((html.match(/data:image\/png;base64/g)||[]).length,1);
+  assert.doesNotMatch(html,/assets\/mayadeen-logo\.png/);
+  assert.equal(fs.existsSync('assets/mayadeen-logo.png'),false);
+  assert.match(html,/id="sidebarLogo"/);
+  assert.match(html,/getElementById\('sidebarLogo'\)\.src=this\.src/);
+});
+
+test('dashboard sync exposes measured server and payload diagnostics',()=>{
+  for(const file of ['apps-script/Code.gs','apps-script/current-apps-script.gs']){
+    const code=fs.readFileSync(file,'utf8');
+    assert.match(code,/spreadsheet_open_ms/);
+    assert.match(code,/timedDashboardOperation_/);
+    assert.match(code,/response_bytes = Utilities\.newBlob\(JSON\.stringify\(response\)\)/);
+  }
+  assert.match(html,/\[ApiTimeline\]/);
+  assert.match(html,/\[DataSyncProfile\]/);
+});
+
+test('critical path is computed once and reused by workload during data_sync',()=>{
+  for(const file of ['apps-script/Code.gs','apps-script/current-apps-script.gs']){
+    const code=fs.readFileSync(file,'utf8');
+    const sync=code.slice(code.indexOf('function buildDashboardData_'),code.indexOf('function timedDashboardOperation_'));
+    assert.match(sync,/const criticalPath =[\s\S]*const workload =/);
+    assert.match(sync,/buildEmployeeWorkload_\(spreadsheet, rows, employeeMaster, criticalPath\)/);
+  }
+});
+
+test('canonical WBS reader limits format and display reads to progress column',()=>{
+  const code=fs.readFileSync('apps-script/Code.gs','utf8');
+  const reader=code.slice(code.indexOf('function readOfficialWbsTasks_'),code.indexOf('function normalizeArabicDigits_'));
+  assert.doesNotMatch(reader,/dataRange\.getDisplayValues\(\)/);
+  assert.doesNotMatch(reader,/dataRange\.getNumberFormats\(\)/);
+  assert.match(reader,/sheet\.getRange\(1, progressColumn \+ 1, values\.length, 1\)/);
+});
