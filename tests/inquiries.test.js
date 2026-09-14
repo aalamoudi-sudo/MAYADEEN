@@ -36,11 +36,11 @@ function harness(){
   users.forEach(u=>sheets.Users.appendRow(sheets.Users.data[0].map(h=>u[h]??'')));
   const lockState={busy:false,held:false,tryCalls:0,releases:0};
   const metrics={reads:0,rowsRead:0,ranges:[],headerReads:0,readsWhileLocked:0,spreadsheetOpens:0,lockState};Object.values(sheets).forEach(sheet=>sheet.metrics=metrics);
-  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;const cacheData={},logs=[];
+  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0,cacheGetHook=null;const cacheData={},cacheTtls={},cacheBehavior={getError:null,putError:null,removeError:null,maxChars:Infinity},logs=[];
   const context={console,Date,RegExp,String,Object,Array,Error,Math,JSON,isFinite,
     KAG_CONFIG:{usersSheetName:'Users'},SPREADSHEET_ID:'test',
     SpreadsheetApp:{openById:()=>{metrics.spreadsheetOpens++;return ss;}},Utilities:{getUuid:()=>`uuid-${++seq}`},
-    CacheService:{getScriptCache:()=>({get:key=>cacheData[key]||null,put:(key,value)=>{cacheData[key]=value;}})},Logger:{log:value=>logs.push(value)},
+    CacheService:{getScriptCache:()=>({get:key=>{if(cacheGetHook)cacheGetHook(key,cacheData);if(cacheBehavior.getError&&cacheBehavior.getError(key))throw new Error('cache get unavailable');return cacheData[key]||null;},put:(key,value,ttl)=>{if((cacheBehavior.putError&&cacheBehavior.putError(key))||String(value).length>cacheBehavior.maxChars)throw new Error('cache put unavailable');cacheData[key]=value;cacheTtls[key]=ttl;},remove:key=>{if(cacheBehavior.removeError&&cacheBehavior.removeError(key))throw new Error('cache remove unavailable');delete cacheData[key];delete cacheTtls[key];}})},Logger:{log:value=>logs.push(value)},
     LockService:{getScriptLock:()=>({tryLock(){lockState.tryCalls++;lockState.held=!lockState.busy;return lockState.held;},hasLock(){return lockState.held;},releaseLock(){lockState.held=false;lockState.releases++;}})},
     getRegisterRows_:()=>users,getUserAccessHeaders_:()=>[],safeUser_:u=>({...u}),
     hasFullAccess_:u=>u.access_level==='full',parseBool_:v=>v===true||v==='TRUE',normalizeAllowedPages_:u=>String(u.allowed_pages||'').split(','),
@@ -48,7 +48,7 @@ function harness(){
     GmailApp:{sendEmail(){emailCalls++;}},ScriptApp:{newTrigger(){triggerCalls++;}}
   };
   vm.createContext(context);vm.runInContext(fs.readFileSync('apps-script/Inquiries.gs','utf8'),context);
-  return {c:context,users,sheets,lockState,metrics,logs,getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
+  return {c:context,users,sheets,lockState,metrics,logs,cacheData,cacheTtls,cacheBehavior,setCacheGetHook:hook=>{cacheGetHook=hook;},clearCache:()=>{Object.keys(cacheData).forEach(key=>delete cacheData[key]);Object.keys(cacheTtls).forEach(key=>delete cacheTtls[key]);},getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
 }
 function call(c,action,user,p={}){return c.handleInquiryAction_(Object.assign({action},p),user);}
 function create(h){return call(h.c,'inquiry_create',h.users[0],{request_id:'create-1',title:'سؤال فعلي',details:'تفاصيل',recipient_username:'recipient',priority:'عاجل'}).inquiry.inquiry_id;}
@@ -69,7 +69,7 @@ test('كل Action يعيد استخدام Spreadsheet واحدًا ويستخد�
   assert.equal(h.metrics.headerReads,5,'أول طلب يتحقق من headers الخمسة');
   h.metrics.spreadsheetOpens=0;h.metrics.headerReads=0;
   call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
-  assert.equal(h.metrics.spreadsheetOpens,1);
+  assert.equal(h.metrics.spreadsheetOpens,0,'cache hit لا يفتح Spreadsheet');
   assert.equal(h.metrics.headerReads,0,'الطلبات اللاحقة تستخدم schema cache');
   assert.match(h.logs.at(-1),/"action":"inquiry_list"/);
   assert.doesNotMatch(h.logs.at(-1),/creator|recipient|سؤال|تفاصيل/);
@@ -164,6 +164,151 @@ test('inquiry_list يعيد حقول العرض فقط ويحافظ على عق�
   assert.deepEqual(Object.keys(item).sort(),['inquiry_id','project_id','title','sender_username','sender_name','recipient_username','recipient_name','task_id','task_title','priority','status','updated_at','unread'].sort());
   assert.equal(item.details,undefined);assert.equal(item.replies,undefined);assert.equal(item.events,undefined);assert.equal(item.request_id,undefined);assert.equal(item.unread,true);
   assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/);
+});
+
+function legacyListAndSummary(c,user,scope){
+  if(scope==='all'&&!c.inquiryIsAdmin_(user))throw new Error('Forbidden: administration required');
+  const all=c.inquiryRows_('Inquiries',c.inquiryHeaders_()).filter(q=>c.inquiryCanAccess_(q,user));
+  const reads=c.inquiryUserReadMap_(user.username),replies=c.inquiryGroupBy_('Inquiry Replies',c.inquiryReplyHeaders_(),'inquiry_id');
+  const items=all.filter(q=>scope==='mine'?q.sender_username===user.username:scope==='assigned'?q.recipient_username===user.username:true).map(q=>{
+    const item=c.inquirySerialize_(q,user,false);
+    return {inquiry_id:item.inquiry_id,project_id:item.project_id,title:item.title,sender_username:item.sender_username,sender_name:item.sender_name,recipient_username:item.recipient_username,recipient_name:item.recipient_name,task_id:item.task_id,task_title:item.task_title,priority:item.priority,status:item.status,updated_at:item.updated_at,unread:item.unread};
+  }).sort((a,b)=>b.updated_at.localeCompare(a.updated_at));
+  return {items,summary:{
+    needs_reply:all.filter(q=>q.recipient_username===user.username&&(q.status==='جديد'||q.status==='قيد المعالجة')).length,
+    new_replies:all.filter(q=>{if(q.sender_username!==user.username)return false;const read=reads[q.inquiry_id],last=read?read.last_read_at:'';return (replies[q.inquiry_id]||[]).some(r=>r.author_username!==user.username&&(!last||r.created_at>last));}).length
+  }};
+}
+function appendInquiry(h,id,sender='creator',recipient='recipient',status='جديد'){
+  h.sheets.Inquiries.appendRow([id,'KAG',`عنوان ${id}`,`تفاصيل ${id}`,sender,recipient,'','','عادي',status,'2026-01-01T00:00:00.000Z','2026-01-02T00:00:00.000Z',`req-${id}`]);
+}
+function appendReply(h,id,author,at='2026-01-03T00:00:00.000Z'){
+  h.sheets['Inquiry Replies'].appendRow([`reply-${id}-${author}-${at}`,id,'KAG',author,'محتوى اختبار',at,`reply-req-${id}-${author}-${at}`]);
+}
+function appendRead(h,id,user,at){h.sheets['Inquiry Reads'].appendRow([id,'KAG',user,at]);}
+function appendNotification(h,id,user,readAt=''){
+  h.sheets['Inquiry Notifications'].appendRow([`notification-${id}-${user}`,'KAG',id,user,'رد جديد','2026-01-03T00:00:00.000Z',readAt,`notification-key-${id}-${user}`]);
+}
+function assertLegacyMatchesNew(name,h,user,scope){
+  const expected=legacyListAndSummary(h.c,user,scope),actual=call(h.c,'inquiry_list',user,{scope});
+  assert.deepEqual(JSON.parse(JSON.stringify({items:actual.items,summary:actual.summary})),JSON.parse(JSON.stringify(expected)),name);
+}
+
+test('calculator الجديد يطابق الحساب القديم في جميع حالات unread والملخص والنطاق',()=>{
+  let h=harness();appendInquiry(h,'no-replies');assertLegacyMatchesNew('1. inquiry بدون replies',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'other-reply');appendReply(h,'other-reply','recipient');assertLegacyMatchesNew('2. reply من المستخدم الآخر',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'same-reply');appendReply(h,'same-reply','creator');assertLegacyMatchesNew('3. reply من نفس المستخدم',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'no-read');appendReply(h,'no-read','recipient');assertLegacyMatchesNew('4. بدون Read record',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'old-read');appendReply(h,'old-read','recipient');appendRead(h,'old-read','creator','2026-01-02T00:00:00.000Z');assertLegacyMatchesNew('5. Read أقدم من reply',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'new-read');appendReply(h,'new-read','recipient');appendRead(h,'new-read','creator','2026-01-04T00:00:00.000Z');assertLegacyMatchesNew('6. Read أحدث من reply',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'unread-notification');appendNotification(h,'unread-notification','creator');assertLegacyMatchesNew('7. unread notification بلا reply',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'read-notification');appendNotification(h,'read-notification','creator','2026-01-04T00:00:00.000Z');assertLegacyMatchesNew('8. read notification',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'both');appendReply(h,'both','recipient');appendNotification(h,'both','creator');assertLegacyMatchesNew('9. reply وnotification معًا',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'multi-1');appendInquiry(h,'multi-2');appendReply(h,'multi-2','recipient');assertLegacyMatchesNew('10. multiple inquiries',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'sender-summary');appendReply(h,'sender-summary','recipient');assertLegacyMatchesNew('11. sender new_replies',h,h.users[0],'mine');
+  h=harness();appendInquiry(h,'recipient-summary','creator','recipient','قيد المعالجة');assertLegacyMatchesNew('12. recipient needs_reply',h,h.users[1],'assigned');
+  h=harness();appendInquiry(h,'admin-visible','outsider','creator');appendInquiry(h,'admin-visible-2');assertLegacyMatchesNew('13. admin scope all',h,h.users[3],'all');
+  h=harness();appendInquiry(h,'restricted');assert.throws(()=>legacyListAndSummary(h.c,h.users[2],'all'),/administration/);assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/,'14. non-admin scope restriction');
+});
+
+test('inquiry_list يسجل القياسات التفصيلية ولا يكرر full scans داخل الطلب',()=>{
+  const h=harness();appendInquiry(h,'instrumented');appendReply(h,'instrumented','recipient');appendNotification(h,'instrumented','creator');appendRead(h,'instrumented','creator','2026-01-02T00:00:00.000Z');
+  h.metrics.ranges=[];call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  const perf=JSON.parse(h.logs.at(-1).replace(/^\[inquiry_perf\] /,''));
+  ['inquiryListInquiries','inquiryListReads','inquiryListReplies','inquiryListNotifications','inquiryListUsers','inquiryListStateCalculation','inquiryListSerialization','inquirySummary'].forEach(name=>{
+    assert.ok(perf.measurements[name],`${name} measurement`);
+    ['duration_ms','rows_read','sheet_reads','spreadsheet_accesses','cache_hits','cache_misses'].forEach(metric=>assert.equal(typeof perf.measurements[name][metric],'number',`${name}.${metric}`));
+  });
+  ['duration_ms','rows_read','sheet_reads','spreadsheet_accesses','cache_hits','cache_misses','response_size_chars'].forEach(metric=>assert.equal(typeof perf[metric],'number',metric));
+  for(const sheet of ['Inquiries','Inquiry Reads','Inquiry Replies','Inquiry Notifications','Users']){
+    const dataReads=h.metrics.ranges.filter(x=>x.sheet===sheet&&(x.row>1||x.numRows>1));
+    assert.equal(dataReads.length,1,`${sheet} data scan واحد`);
+  }
+  assert.doesNotMatch(h.logs.at(-1),/instrumented|creator|recipient|عنوان|تفاصيل|محتوى اختبار/);
+});
+
+function lastPerf(h){return JSON.parse(h.logs.at(-1).replace(/^\[inquiry_perf\] /,''));}
+function resetReadMetrics(h){h.metrics.reads=0;h.metrics.rowsRead=0;h.metrics.ranges=[];h.metrics.headerReads=0;h.metrics.spreadsheetOpens=0;}
+
+test('cache miss يبني state موثوقًا وcache hit يلغي full scans مع fallback بعد eviction',()=>{
+  const h=harness();appendInquiry(h,'cache-state');appendReply(h,'cache-state','recipient');appendRead(h,'cache-state','creator','2026-01-02T00:00:00.000Z');appendNotification(h,'cache-state','creator');
+  call(h.c,'inquiry_list',h.users[0],{scope:'mine'}); // يدفئ schema وstate.
+  h.c.inquiryInvalidateStateCache_();resetReadMetrics(h);
+  const miss=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}),missPerf=lastPerf(h);
+  assert.equal(miss.items[0].unread,true);assert.equal(missPerf.rows_read,9);assert.equal(missPerf.sheet_reads,5);assert.equal(missPerf.spreadsheet_accesses,1);
+  resetReadMetrics(h);const hit=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}),hitPerf=lastPerf(h);
+  assert.deepEqual(JSON.parse(JSON.stringify(hit)),JSON.parse(JSON.stringify(miss)));assert.equal(hitPerf.rows_read,0);assert.equal(hitPerf.sheet_reads,0);assert.equal(hitPerf.spreadsheet_accesses,0);
+  h.clearCache();resetReadMetrics(h);const fallback=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}),fallbackPerf=lastPerf(h);
+  assert.equal(fallback.items[0].unread,true);assert.ok(fallbackPerf.rows_read>0);assert.ok(fallbackPerf.sheet_reads>0);assert.equal(fallbackPerf.spreadsheet_accesses,1);
+});
+
+test('reply وmark_read وstatus تغير generation ولا تترك inquiry_list قديمًا',()=>{
+  const h=harness();appendInquiry(h,'invalidate');
+  let list=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});assert.equal(list.items[0].unread,false);
+  call(h.c,'inquiry_answer',h.users[1],{inquiry_id:'invalidate',body:'رد جديد',request_id:'invalidate-reply'});resetReadMetrics(h);
+  list=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});assert.equal(list.items[0].unread,true);assert.ok(lastPerf(h).sheet_reads>0,'reply invalidation');
+  const detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:'invalidate'}),userGenerationKey=Object.keys(h.cacheData).find(key=>key.includes('generation:KAG:user:')),generationBeforeRead=h.cacheData[userGenerationKey];call(h.c,'inquiry_mark_read',h.users[0],{inquiry_id:'invalidate',read_cursor:detail.inquiry.read_cursor});assert.notEqual(h.cacheData[userGenerationKey],generationBeforeRead,'mark_read user generation');resetReadMetrics(h);
+  list=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});assert.equal(list.items[0].unread,false);assert.equal(lastPerf(h).sheet_reads,0,'mark_read response أعاد بناء cache الصحيح');
+  call(h.c,'inquiry_status',h.users[0],{inquiry_id:'invalidate',status:'مغلق',request_id:'invalidate-status'});resetReadMetrics(h);
+  list=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});assert.equal(list.items[0].status,'مغلق');assert.ok(lastPerf(h).sheet_reads>0,'status invalidation');
+});
+
+test('create وredirect يغيران generation ويحافظان على scope والصلاحيات',()=>{
+  const h=harness();call(h.c,'inquiry_list',h.users[3],{scope:'all'});
+  call(h.c,'inquiry_create',h.users[0],{request_id:'cache-create',title:'جديد',details:'تفاصيل',recipient_username:'recipient',priority:'عادي'});resetReadMetrics(h);
+  let adminList=call(h.c,'inquiry_list',h.users[3],{scope:'all'});assert.equal(adminList.items.length,1);assert.ok(lastPerf(h).sheet_reads>0,'create invalidation');
+  const id=adminList.items[0].inquiry_id;call(h.c,'inquiry_redirect',h.users[3],{inquiry_id:id,recipient_username:'outsider',request_id:'cache-redirect'});resetReadMetrics(h);
+  const oldRecipient=call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});assert.equal(oldRecipient.items.length,0);assert.ok(lastPerf(h).sheet_reads>0,'redirect invalidation');
+  const newRecipient=call(h.c,'inquiry_list',h.users[2],{scope:'assigned'});assert.equal(newRecipient.items.length,1);
+  assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/);
+  adminList=call(h.c,'inquiry_list',h.users[3],{scope:'all'});assert.equal(adminList.items[0].recipient_username,'outsider');
+});
+
+test('تغير generation أثناء cache hit يهمل state القديم ويعيد الحساب authoritative',()=>{
+  const h=harness();appendInquiry(h,'race');call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  appendReply(h,'race','recipient');let changed=false;
+  h.setCacheGetHook((key,data)=>{if(!changed&&key.includes('kag:inquiry:state:')){changed=true;data['kag:inquiry:generation:KAG:global']='concurrent-generation';}});
+  resetReadMetrics(h);const list=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});h.setCacheGetHook(null);
+  assert.equal(list.items[0].unread,true);assert.ok(lastPerf(h).sheet_reads>0);assert.equal(changed,true);
+});
+
+test('cache لا يتجاوز validation الخاص بالcursor',()=>{
+  const h=harness();appendInquiry(h,'cursor');call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.throws(()=>call(h.c,'inquiry_mark_read',h.users[0],{inquiry_id:'cursor',read_cursor:{through_at:'2026-01-05T00:00:00.000Z',notification_ids:[]}}),/حد القراءة لم يعد صالحًا/);
+  assert.equal(h.sheets['Inquiry Reads'].data.length,1);
+});
+
+test('TTL يغطي polling التالي دون إطالة نافذة stale بلا حاجة',()=>{
+  const h=harness();appendInquiry(h,'ttl');call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  const stateKey=Object.keys(h.cacheTtls).find(key=>key.includes('kag:inquiry:state:'));
+  assert.equal(h.cacheTtls[stateKey],90);assert.ok(h.cacheTtls[stateKey]>45);
+});
+
+test('mark_read لمستخدم A يحافظ على cache مستخدم B',()=>{
+  const h=harness();appendInquiry(h,'user-isolation');appendReply(h,'user-isolation','recipient');appendNotification(h,'user-isolation','creator');
+  call(h.c,'inquiry_list',h.users[0],{scope:'mine'});call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});
+  const globalBefore=h.cacheData['kag:inquiry:generation:KAG:global'],detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:'user-isolation'});
+  call(h.c,'inquiry_mark_read',h.users[0],{inquiry_id:'user-isolation',read_cursor:detail.inquiry.read_cursor});
+  assert.equal(h.cacheData['kag:inquiry:generation:KAG:global'],globalBefore);
+  resetReadMetrics(h);const recipientList=call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});
+  assert.equal(recipientList.items.length,1);assert.equal(lastPerf(h).sheet_reads,0);assert.equal(lastPerf(h).rows_read,0);
+});
+
+test('CacheService failures لا تكسر inquiry_list أو mutation بعد successful write',()=>{
+  let h=harness();appendInquiry(h,'get-failure');h.cacheBehavior.getError=key=>key.includes('generation:');
+  let result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}),perf=lastPerf(h);assert.equal(result.items.length,1);assert.ok(perf.sheet_reads>0);assert.ok(perf.cache_get_failed>0);
+  h=harness();appendInquiry(h,'put-failure');h.cacheBehavior.putError=key=>key.includes('kag:inquiry:state:');
+  result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});perf=lastPerf(h);assert.equal(result.items.length,1);assert.ok(perf.cache_put_failed>0);
+  h=harness();appendInquiry(h,'remove-failure');const detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:'remove-failure'});h.cacheBehavior.putError=key=>key.includes('generation:KAG:user:');h.cacheBehavior.removeError=key=>key.includes('generation:KAG:user:');
+  result=call(h.c,'inquiry_mark_read',h.users[0],{inquiry_id:'remove-failure',read_cursor:detail.inquiry.read_cursor});perf=lastPerf(h);assert.equal(result.ok,true);assert.equal(h.sheets['Inquiry Reads'].data.length,2);assert.ok(perf.cache_put_failed>0);assert.ok(perf.cache_remove_failed>0);
+});
+
+test('oversized compact state يسقط إلى authoritative fallback ويسجل telemetry آمنة',()=>{
+  const h=harness();appendInquiry(h,'oversized');h.cacheBehavior.maxChars=100;
+  let result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}),perf=lastPerf(h);assert.equal(result.items.length,1);assert.ok(perf.compact_state_size_chars>100);assert.ok(perf.cache_put_failed>0);
+  resetReadMetrics(h);result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});perf=lastPerf(h);assert.equal(result.items.length,1);assert.ok(perf.sheet_reads>0,'فشل put يعني authoritative fallback لاحقًا');
+  assert.doesNotMatch(h.logs.join('\n'),/عنوان oversized|تفاصيل oversized|creator|recipient/);
+  ['compact_state_size_chars','cache_put_success','cache_put_failed','cache_get_failed','cache_remove_failed'].forEach(metric=>assert.equal(typeof perf[metric],'number'));
 });
 
 
