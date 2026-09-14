@@ -36,11 +36,17 @@ function harness(){
   users.forEach(u=>sheets.Users.appendRow(sheets.Users.data[0].map(h=>u[h]??'')));
   const lockState={busy:false,held:false,tryCalls:0,releases:0};
   const metrics={reads:0,rowsRead:0,ranges:[],headerReads:0,readsWhileLocked:0,spreadsheetOpens:0,lockState};Object.values(sheets).forEach(sheet=>sheet.metrics=metrics);
-  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;const cacheData={},logs=[];
+  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;const cacheData={},propertyData={},logs=[];
+  const cacheBehavior={throwGet:false,throwPut:false,throwRemove:false,onPut:null};
   const context={console,Date,RegExp,String,Object,Array,Error,Math,JSON,isFinite,
     KAG_CONFIG:{usersSheetName:'Users'},SPREADSHEET_ID:'test',
     SpreadsheetApp:{openById:()=>{metrics.spreadsheetOpens++;return ss;}},Utilities:{getUuid:()=>`uuid-${++seq}`},
-    CacheService:{getScriptCache:()=>({get:key=>cacheData[key]||null,put:(key,value)=>{cacheData[key]=value;}})},Logger:{log:value=>logs.push(value)},
+    CacheService:{getScriptCache:()=>({
+      get:key=>{if(cacheBehavior.throwGet)throw new Error('cache get');return cacheData[key]||null;},
+      put:(key,value)=>{if(cacheBehavior.onPut)cacheBehavior.onPut(key,value);if(cacheBehavior.throwPut)throw new Error('cache put');cacheData[key]=value;},
+      remove:key=>{if(cacheBehavior.throwRemove)throw new Error('cache remove');delete cacheData[key];}
+    })},
+    PropertiesService:{getScriptProperties:()=>({getProperty:key=>propertyData[key]||null,setProperty:(key,value)=>{propertyData[key]=String(value);}})},Logger:{log:value=>logs.push(value)},
     LockService:{getScriptLock:()=>({tryLock(){lockState.tryCalls++;lockState.held=!lockState.busy;return lockState.held;},hasLock(){return lockState.held;},releaseLock(){lockState.held=false;lockState.releases++;}})},
     getRegisterRows_:()=>users,getUserAccessHeaders_:()=>[],safeUser_:u=>({...u}),
     hasFullAccess_:u=>u.access_level==='full',parseBool_:v=>v===true||v==='TRUE',normalizeAllowedPages_:u=>String(u.allowed_pages||'').split(','),
@@ -48,7 +54,7 @@ function harness(){
     GmailApp:{sendEmail(){emailCalls++;}},ScriptApp:{newTrigger(){triggerCalls++;}}
   };
   vm.createContext(context);vm.runInContext(fs.readFileSync('apps-script/Inquiries.gs','utf8'),context);
-  return {c:context,users,sheets,lockState,metrics,logs,getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
+  return {c:context,users,sheets,lockState,metrics,logs,cacheData,cacheBehavior,propertyData,getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
 }
 function call(c,action,user,p={}){return c.handleInquiryAction_(Object.assign({action},p),user);}
 function create(h){return call(h.c,'inquiry_create',h.users[0],{request_id:'create-1',title:'سؤال فعلي',details:'تفاصيل',recipient_username:'recipient',priority:'عاجل'}).inquiry.inquiry_id;}
@@ -69,7 +75,7 @@ test('كل Action يعيد استخدام Spreadsheet واحدًا ويستخد�
   assert.equal(h.metrics.headerReads,5,'أول طلب يتحقق من headers الخمسة');
   h.metrics.spreadsheetOpens=0;h.metrics.headerReads=0;
   call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
-  assert.equal(h.metrics.spreadsheetOpens,1);
+  assert.equal(h.metrics.spreadsheetOpens,0,'list state cache avoids reopening the spreadsheet');
   assert.equal(h.metrics.headerReads,0,'الطلبات اللاحقة تستخدم schema cache');
   assert.match(h.logs.at(-1),/"action":"inquiry_list"/);
   assert.doesNotMatch(h.logs.at(-1),/creator|recipient|سؤال|تفاصيل/);
@@ -164,6 +170,45 @@ test('inquiry_list يعيد حقول العرض فقط ويحافظ على عق�
   assert.deepEqual(Object.keys(item).sort(),['inquiry_id','project_id','title','sender_username','sender_name','recipient_username','recipient_name','task_id','task_title','priority','status','updated_at','unread'].sort());
   assert.equal(item.details,undefined);assert.equal(item.replies,undefined);assert.equal(item.events,undefined);assert.equal(item.request_id,undefined);assert.equal(item.unread,true);
   assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/);
+});
+
+test('تغير generation قبل نشر القائمة يمنع نشر الحالة القديمة ويعيد البناء من Sheets',()=>{
+  const h=harness();create(h);let builds=0;
+  const original=h.c.inquiryBuildListState_;
+  h.c.inquiryBuildListState_=user=>{const state=original(user);builds++;if(builds===1)h.c.inquiryBumpGeneration_('global');return state;};
+  const result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(result.items.length,1);assert.equal(builds,2);
+  assert.equal(Object.keys(h.cacheData).filter(key=>key.startsWith('kag-inquiry-list-v1:')).length,1);
+});
+
+test('تغير generation أثناء cache.put يزيل النشر المتسابق ولا يجعل cache authoritative',()=>{
+  const h=harness();create(h);let raced=false;
+  h.cacheBehavior.onPut=key=>{if(!raced&&key.startsWith('kag-inquiry-list-v1:')){raced=true;h.c.inquiryBumpGeneration_('global');}};
+  const result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(result.items.length,1);assert.equal(raced,true);
+  const current=h.c.inquiryListCacheKey_(h.users[0],h.c.inquiryGenerationSnapshot_('creator'));
+  assert.ok(h.cacheData[current],'إعادة الحساب تنشر فقط تحت generation الحالية');
+});
+
+test('استثناءات CacheService في get وput وremove لا تفشل القراءة أو mutation ناجحة',()=>{
+  const h=harness();h.cacheBehavior.throwGet=true;
+  assert.equal(call(h.c,'inquiry_list',h.users[0],{scope:'mine'}).items.length,0);
+  h.cacheBehavior.throwGet=false;h.cacheBehavior.throwPut=true;
+  const id=create(h);assert.ok(id);assert.equal(call(h.c,'inquiry_list',h.users[0],{scope:'mine'}).items.length,1);
+  h.cacheBehavior.throwPut=false;h.cacheBehavior.throwRemove=true;let raced=false;
+  h.cacheBehavior.onPut=key=>{if(!raced&&key.startsWith('kag-inquiry-list-v1:')){raced=true;h.c.inquiryBumpGeneration_('global');}};
+  assert.equal(call(h.c,'inquiry_list',h.users[1],{scope:'assigned'}).items.length,1);
+});
+
+test('mark_read يبطل Cache المستخدم فقط بينما mutation عامة تبطل جميع القوائم المتأثرة',()=>{
+  const h=harness(),id=create(h),detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
+  call(h.c,'inquiry_list',h.users[0],{scope:'mine'});call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});
+  h.metrics.reads=0;call(h.c,'inquiry_mark_read',h.users[0],{inquiry_id:id,read_cursor:detail.inquiry.read_cursor});
+  h.metrics.reads=0;call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});assert.equal(h.metrics.reads,0,'User B cache remains valid');
+  call(h.c,'inquiry_reply',h.users[1],{inquiry_id:id,body:'رد عالمي',request_id:'global-invalidation'});
+  h.metrics.reads=0;const refreshed=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.ok(h.metrics.reads>0,'global generation forces authoritative Sheet rebuild');
+  assert.equal(refreshed.items[0].unread,true);assert.equal(refreshed.summary.new_replies,1);assert.equal(refreshed.summary.needs_reply,0);
 });
 
 
