@@ -5,7 +5,7 @@ const fs=require('node:fs');
 
 class Range{
   constructor(sheet,r,c,nr,nc){Object.assign(this,{sheet,r,c,nr,nc});}
-  getValues(){if(this.sheet.metrics){this.sheet.metrics.reads++;if(this.sheet.metrics.lockState.held)this.sheet.metrics.readsWhileLocked++;}return Array.from({length:this.nr},(_,i)=>Array.from({length:this.nc},(_,j)=>this.sheet.data[this.r-1+i]?.[this.c-1+j]??''));}
+  getValues(){if(this.sheet.metrics){this.sheet.metrics.reads++;if(this.r===1&&this.nr===1)this.sheet.metrics.headerReads++;if(this.sheet.metrics.lockState.held)this.sheet.metrics.readsWhileLocked++;}return Array.from({length:this.nr},(_,i)=>Array.from({length:this.nc},(_,j)=>this.sheet.data[this.r-1+i]?.[this.c-1+j]??''));}
   setValues(v){v.forEach((row,i)=>row.forEach((x,j)=>{this.sheet.data[this.r-1+i]??=[];this.sheet.data[this.r-1+i][this.c-1+j]=x;}));return this;}
   setValue(v){return this.setValues([[v]]);}
 }
@@ -34,11 +34,12 @@ function harness(){
   sheets.Users=new Sheet(['username','display_name','status','allowed_pages','access_level','can_manage_users','email','role']);
   users.forEach(u=>sheets.Users.appendRow(sheets.Users.data[0].map(h=>u[h]??'')));
   const lockState={busy:false,held:false,tryCalls:0,releases:0};
-  const metrics={reads:0,readsWhileLocked:0,lockState};Object.values(sheets).forEach(sheet=>sheet.metrics=metrics);
-  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;
+  const metrics={reads:0,headerReads:0,readsWhileLocked:0,spreadsheetOpens:0,lockState};Object.values(sheets).forEach(sheet=>sheet.metrics=metrics);
+  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;const cacheData={},logs=[];
   const context={console,Date,RegExp,String,Object,Array,Error,Math,JSON,isFinite,
     KAG_CONFIG:{usersSheetName:'Users'},SPREADSHEET_ID:'test',
-    SpreadsheetApp:{openById:()=>ss},Utilities:{getUuid:()=>`uuid-${++seq}`},
+    SpreadsheetApp:{openById:()=>{metrics.spreadsheetOpens++;return ss;}},Utilities:{getUuid:()=>`uuid-${++seq}`},
+    CacheService:{getScriptCache:()=>({get:key=>cacheData[key]||null,put:(key,value)=>{cacheData[key]=value;}})},Logger:{log:value=>logs.push(value)},
     LockService:{getScriptLock:()=>({tryLock(){lockState.tryCalls++;lockState.held=!lockState.busy;return lockState.held;},hasLock(){return lockState.held;},releaseLock(){lockState.held=false;lockState.releases++;}})},
     getRegisterRows_:()=>users,getUserAccessHeaders_:()=>[],safeUser_:u=>({...u}),
     hasFullAccess_:u=>u.access_level==='full',parseBool_:v=>v===true||v==='TRUE',normalizeAllowedPages_:u=>String(u.allowed_pages||'').split(','),
@@ -46,7 +47,7 @@ function harness(){
     GmailApp:{sendEmail(){emailCalls++;}},ScriptApp:{newTrigger(){triggerCalls++;}}
   };
   vm.createContext(context);vm.runInContext(fs.readFileSync('apps-script/Inquiries.gs','utf8'),context);
-  return {c:context,users,sheets,lockState,metrics,getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
+  return {c:context,users,sheets,lockState,metrics,logs,getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
 }
 function call(c,action,user,p={}){return c.handleInquiryAction_(Object.assign({action},p),user);}
 function create(h){return call(h.c,'inquiry_create',h.users[0],{request_id:'create-1',title:'سؤال فعلي',details:'تفاصيل',recipient_username:'recipient',priority:'عاجل'}).inquiry.inquiry_id;}
@@ -58,6 +59,27 @@ test('نسخة الإنتاج تدمج قسم الاستفسارات المحس�
   assert.equal(production.slice(production.indexOf(marker)),moduleSource.slice(moduleSource.indexOf(marker)));
   assert.match(production.slice(0,production.indexOf(marker)),/function sendUrgentTaskNotifications\(\)/);
   assert.match(production.slice(0,production.indexOf(marker)),/support\.services@mayadeen\.sa/);
+});
+
+test('كل Action يعيد استخدام Spreadsheet واحدًا ويستخدم cache آمنًا للتحقق من headers',()=>{
+  const h=harness();
+  call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(h.metrics.spreadsheetOpens,1);
+  assert.equal(h.metrics.headerReads,5,'أول طلب يتحقق من headers الخمسة');
+  h.metrics.spreadsheetOpens=0;h.metrics.headerReads=0;
+  call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(h.metrics.spreadsheetOpens,1);
+  assert.equal(h.metrics.headerReads,0,'الطلبات اللاحقة تستخدم schema cache');
+  assert.match(h.logs.at(-1),/"action":"inquiry_list"/);
+  assert.doesNotMatch(h.logs.at(-1),/creator|recipient|سؤال|تفاصيل/);
+});
+
+test('مسار الإنتاج يقيس requireSession ويعيد استخدام session الموثقة دون lookup ثان للمستخدم الحالي',()=>{
+  const production=fs.readFileSync('apps-script/current-apps-script.gs','utf8');
+  assert.match(production,/handleAuthenticatedInquiryAction_\(payload\)/);
+  assert.match(production,/inquiryPerfTimed_\("requireSession"/);
+  const handler=production.slice(production.indexOf('function handleInquiryAction_'));
+  assert.doesNotMatch(handler,/const current = inquiryFindUser_\(session\.username\)/);
 });
 
 test('فتح التفاصيل قراءة فقط وينجح مع انشغال قفل الكتابة',()=>{
