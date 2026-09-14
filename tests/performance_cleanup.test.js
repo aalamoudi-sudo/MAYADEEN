@@ -33,3 +33,9 @@ test('login and saved-session bootstrap do not preload inquiries',()=>{
   assert.doesNotMatch(login,/loadInquiryBootstrap\(\)/);
   assert.doesNotMatch(bootstrap,/loadInquiryBootstrap\(\)/);
 });
+
+test('removed field experience center has no frontend payload or requests',()=>{
+  assert.doesNotMatch(html,/مركز المواقع والتجربة والمحتوى|fieldExperienceCenter/);
+  assert.doesNotMatch(html,/get_(?:event_sites|content_matrix|guest_journeys|assets_gifts)/);
+  assert.doesNotMatch(html,/(?:leaflet|fes-|cm-|gj-|ag-)/i);
+});
