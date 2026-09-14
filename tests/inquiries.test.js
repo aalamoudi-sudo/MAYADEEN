@@ -24,7 +24,7 @@ const headers={
   'Inquiry Reads':['inquiry_id','project_id','username','last_read_at'],
   'Inquiry Notifications':['notification_id','project_id','inquiry_id','username','kind','created_at','read_at','request_key']
 };
-function harness(){
+function harness(options={}){
   const sheets=Object.fromEntries(Object.entries(headers).map(([n,h])=>[n,new Sheet(h,n)]));
   const users=[
     {username:'creator',display_name:'المنشئ',status:'active',allowed_pages:'tasks',access_level:'workstream'},
@@ -36,11 +36,16 @@ function harness(){
   users.forEach(u=>sheets.Users.appendRow(sheets.Users.data[0].map(h=>u[h]??'')));
   const lockState={busy:false,held:false,tryCalls:0,releases:0};
   const metrics={reads:0,rowsRead:0,ranges:[],headerReads:0,readsWhileLocked:0,spreadsheetOpens:0,lockState};Object.values(sheets).forEach(sheet=>sheet.metrics=metrics);
-  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;const cacheData={},logs=[];
+  const ss={getSheetByName:n=>sheets[n]||null};let seq=0,emailCalls=0,triggerCalls=0;const cacheData={},cachePuts=[],cacheRemoves=[],logs=[];
+  const cache={
+    get(key){if(options.cacheGetThrows)throw new Error('cache get');if(options.onCacheGet)options.onCacheGet(key,cacheData);return cacheData[key]||null;},
+    put(key,value,ttl){if(options.cachePutThrows)throw new Error('cache put');if(options.maxCacheChars&&value.length>options.maxCacheChars)throw new Error('oversize');cacheData[key]=value;cachePuts.push({key,value,ttl});},
+    remove(key){if(options.cacheRemoveThrows)throw new Error('cache remove');delete cacheData[key];cacheRemoves.push(key);}
+  };
   const context={console,Date,RegExp,String,Object,Array,Error,Math,JSON,isFinite,
     KAG_CONFIG:{usersSheetName:'Users'},SPREADSHEET_ID:'test',
     SpreadsheetApp:{openById:()=>{metrics.spreadsheetOpens++;return ss;}},Utilities:{getUuid:()=>`uuid-${++seq}`},
-    CacheService:{getScriptCache:()=>({get:key=>cacheData[key]||null,put:(key,value)=>{cacheData[key]=value;}})},Logger:{log:value=>logs.push(value)},
+    CacheService:{getScriptCache:()=>cache},Logger:{log:value=>logs.push(value)},
     LockService:{getScriptLock:()=>({tryLock(){lockState.tryCalls++;lockState.held=!lockState.busy;return lockState.held;},hasLock(){return lockState.held;},releaseLock(){lockState.held=false;lockState.releases++;}})},
     getRegisterRows_:()=>users,getUserAccessHeaders_:()=>[],safeUser_:u=>({...u}),
     hasFullAccess_:u=>u.access_level==='full',parseBool_:v=>v===true||v==='TRUE',normalizeAllowedPages_:u=>String(u.allowed_pages||'').split(','),
@@ -48,7 +53,7 @@ function harness(){
     GmailApp:{sendEmail(){emailCalls++;}},ScriptApp:{newTrigger(){triggerCalls++;}}
   };
   vm.createContext(context);vm.runInContext(fs.readFileSync('apps-script/Inquiries.gs','utf8'),context);
-  return {c:context,users,sheets,lockState,metrics,logs,getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
+  return {c:context,users,sheets,lockState,metrics,logs,cacheData,cachePuts,cacheRemoves,getEmailCalls:()=>emailCalls,getTriggerCalls:()=>triggerCalls};
 }
 function call(c,action,user,p={}){return c.handleInquiryAction_(Object.assign({action},p),user);}
 function create(h){return call(h.c,'inquiry_create',h.users[0],{request_id:'create-1',title:'سؤال فعلي',details:'تفاصيل',recipient_username:'recipient',priority:'عاجل'}).inquiry.inquiry_id;}
@@ -69,7 +74,7 @@ test('كل Action يعيد استخدام Spreadsheet واحدًا ويستخد�
   assert.equal(h.metrics.headerReads,5,'أول طلب يتحقق من headers الخمسة');
   h.metrics.spreadsheetOpens=0;h.metrics.headerReads=0;
   call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
-  assert.equal(h.metrics.spreadsheetOpens,1);
+  assert.equal(h.metrics.spreadsheetOpens,0,'cache hit avoids all inquiry state Sheet reads');
   assert.equal(h.metrics.headerReads,0,'الطلبات اللاحقة تستخدم schema cache');
   assert.match(h.logs.at(-1),/"action":"inquiry_list"/);
   assert.doesNotMatch(h.logs.at(-1),/creator|recipient|سؤال|تفاصيل/);
@@ -178,4 +183,69 @@ test('رد محفوظ ثم استجابة متأخرة مع polling وdata_sync 
   call(h.c,'inquiry_bootstrap',h.users[1]);call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});let dataSyncCalls=0;dataSyncCalls++;
   const retried=call(h.c,'inquiry_reply',h.users[1],request);
   assert.equal(retried.deduplicated,true);assert.equal(h.sheets['Inquiry Replies'].data.length,2);assert.equal(dataSyncCalls,1);
+});
+
+test('inquiry_list cache miss ثم hit يحافظ على العقد ويخفض Sheet reads وrows_read إلى صفر',()=>{
+  const h=harness();create(h);h.metrics.reads=0;h.metrics.rowsRead=0;
+  const first=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}),before={reads:h.metrics.reads,rows:h.metrics.rowsRead};
+  h.metrics.reads=0;h.metrics.rowsRead=0;h.metrics.spreadsheetOpens=0;
+  const second=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(JSON.stringify(second),JSON.stringify(first));assert.ok(before.reads>0);assert.ok(before.rows>0);
+  assert.equal(h.metrics.reads,0);assert.equal(h.metrics.rowsRead,0);assert.equal(h.metrics.spreadsheetOpens,0);
+  const perf=JSON.parse(h.logs.at(-1).replace(/^\[inquiry_perf\] /,''));
+  assert.equal(perf.inquiry_state_cache_hit,true);assert.equal(perf.sheet_reads,0);assert.equal(perf.rows_read,0);
+});
+
+test('state cache TTL هو 90 ثانية وpolling يبقى 45 ثانية',()=>{
+  const h=harness();call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  const statePut=h.cachePuts.find(x=>x.key.startsWith('kag-inquiry-state-v1:'));
+  assert.equal(statePut.ttl,90);
+  assert.match(fs.readFileSync('index.html','utf8'),/45000/);
+});
+
+test('mark_read يبطل Cache المستخدم الحالي فقط ولا يبطل Cache مستخدم آخر',()=>{
+  const h=harness(),id=create(h),detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
+  call(h.c,'inquiry_list',h.users[0],{scope:'mine'});call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});
+  call(h.c,'inquiry_mark_read',h.users[0],{inquiry_id:id,read_cursor:detail.inquiry.read_cursor});
+  h.metrics.reads=0;call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});assert.equal(h.metrics.reads,0,'user B remains cached');
+  h.metrics.reads=0;call(h.c,'inquiry_list',h.users[0],{scope:'mine'});assert.ok(h.metrics.reads>0,'user A is rebuilt');
+});
+
+test('global mutation يبطل caches لكل المستخدمين',()=>{
+  const h=harness(),id=create(h);call(h.c,'inquiry_list',h.users[0],{scope:'mine'});call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});
+  call(h.c,'inquiry_answer',h.users[1],{inquiry_id:id,body:'إجابة',request_id:'global-invalidate'});
+  h.metrics.reads=0;const a=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});assert.ok(h.metrics.reads>0);assert.equal(a.summary.new_replies,1);
+});
+
+test('CacheService exceptions لا تكسر القراءة أو mutation ناجحة وتظهر telemetry آمنة',()=>{
+  const get=harness({cacheGetThrows:true});assert.equal(call(get.c,'inquiry_list',get.users[0],{scope:'mine'}).ok,true);
+  assert.ok(JSON.parse(get.logs.at(-1).replace(/^\[inquiry_perf\] /,'')).cache_get_failed>0);
+  const put=harness({cachePutThrows:true}),id=create(put);assert.ok(id);assert.equal(put.sheets.Inquiries.data.length,2);
+  const remove=harness({cacheRemoveThrows:true});create(remove);
+  const telemetry=JSON.parse(remove.logs.at(-1).replace(/^\[inquiry_perf\] /,''));assert.ok(telemetry.cache_remove_failed>0);
+  const serialized=JSON.stringify(telemetry);assert.doesNotMatch(serialized,/creator|recipient|سؤال|تفاصيل|create-1/);
+});
+
+test('oversized compact state falls back to Sheets without a cache put',()=>{
+  const h=harness(),sheet=h.sheets.Inquiries;
+  for(let i=0;i<750;i++)sheet.appendRow([`q-${i}`,'KAG','x'.repeat(150),'secret','creator','recipient','','','عادي','جديد','2026-01-01','2026-01-01',`r-${i}`]);
+  h.cachePuts.length=0;call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(h.cachePuts.some(x=>x.key.startsWith('kag-inquiry-state-v1:')),false);
+  h.metrics.reads=0;call(h.c,'inquiry_list',h.users[0],{scope:'mine'});assert.ok(h.metrics.reads>0);
+});
+
+test('generation race prevents publishing stale compact state',()=>{
+  let globalReads=0;
+  const h=harness({onCacheGet(key,data){if(key==='kag-inquiry-global-generation-v1'&&++globalReads===2)data[key]='raced';}});
+  call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(h.cachePuts.some(x=>x.key.startsWith('kag-inquiry-state-v1:')),false);
+});
+
+test('mine assigned all scopes remain exact and permission checked before cache',()=>{
+  const h=harness();create(h);
+  assert.equal(call(h.c,'inquiry_list',h.users[0],{scope:'mine'}).items.length,1);
+  assert.equal(call(h.c,'inquiry_list',h.users[1],{scope:'assigned'}).items.length,1);
+  assert.equal(call(h.c,'inquiry_list',h.users[3],{scope:'all'}).items.length,1);
+  assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/);
+  assert.throws(()=>call(h.c,'inquiry_list',h.users[0],{scope:'bogus'}),/نطاق/);
 });
