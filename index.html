@@ -3169,6 +3169,22 @@ const PROJECT_PHASE_ORDER=['البدء','التخطيط','التنفيذ','ال�
 const PROJECT_PHASE_UNSPECIFIED='غير مصنفة';
 const PROJECT_PHASE_COLORS={'البدء':'#10e87a','التخطيط':'#00d4ff','التنفيذ':'#7c5cff','التشغيل':'#3b82f6','الإغلاق':'#f5b800'};
 const OFFICIAL_PATHS=['الضيافة','التشغيل','تجربة الضيوف','المحتوى','اللوجستيات والنقل','التنفيذ','التصميم','البروتوكول والحشود'];
+const OFFICIAL_PATH_ALIASES={
+  'الضيافة':['الضيافة','ضيافة','hospitality'],
+  'التشغيل':['التشغيل','تشغيل','operations'],
+  'تجربة الضيوف':['تجربة الضيوف','guest experience','guest_experience'],
+  'المحتوى':['المحتوى','محتوى','content'],
+  'اللوجستيات والنقل':['اللوجستيات والنقل','النقل واللوجستيات','النقل والإمداد','transport logistics','transport_logistics'],
+  'التنفيذ':['التنفيذ','تنفيذ','delivery'],
+  'التصميم':['التصميم','تصميم','design'],
+  'البروتوكول والحشود':['البروتوكول والحشود','بروتوكول وحشود','protocol crowd','protocol_crowd']
+};
+function officialPathValue(value){
+  const raw=String(value||'').trim();
+  if(!raw) return '';
+  const normalized=normalizeArabic(raw).toLowerCase().replace(/^مسار\s+/,'').trim();
+  return OFFICIAL_PATHS.find(path=>(OFFICIAL_PATH_ALIASES[path]||[path]).some(alias=>normalizeArabic(alias).toLowerCase()===normalized))||raw;
+}
 let officialDataReady=false;
 let rows=[]; let tasks=[]; let milestones=[]; let approvals=[]; let assignments=[]; let meetings=[]; let commitments=[]; let filesRegister=[]; let urgentTasksRegister=[]; let projectMasterRows=[];
 let procurementRequests=[]; let permitsRegister=[]; let changeOrders=[]; let auditLog=[]; let escalationRecords=[];
@@ -3811,7 +3827,7 @@ function normalizeRow(raw){
   const name=String(valueOf(raw,WBS_FIELD_ALIASES.taskName)||code).trim();
   const rawPhase=String(valueOf(raw,WBS_FIELD_ALIASES.phase)||'').trim();
   const phase=normalizeProjectPhase(rawPhase);
-  const mainPath=String(valueOf(raw,WBS_FIELD_ALIASES.mainPath)||'').trim();
+  const mainPath=officialPathValue(valueOf(raw,WBS_FIELD_ALIASES.mainPath));
   const owner=String(valueOf(raw,WBS_FIELD_ALIASES.owner)||'').trim();
   const ownerEmail=String(valueOf(raw,WBS_FIELD_ALIASES.ownerEmail)||'').trim();
   const rawStart=valueOf(raw,TASK_FIELD_ALIASES.plannedStart);
@@ -6310,6 +6326,16 @@ function isOverdueTasksView(){
   return getActivePageId()==='tasks' && (document.getElementById('filterStatus')?.value||'')==='متأخرة';
 }
 
+function taskMatchesTaskFilters(r,{query='',phase='',owner='',path='',status=''}={}){
+  const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
+  if(query && !haystack.includes(query)) return false;
+  if(phase&&r.phase!==phase) return false;
+  if(path&&officialPathValue(r.mainPath)!==officialPathValue(path)) return false;
+  if(!taskMatchesOwnerFilter(r,owner)) return false;
+  if(!taskMatchesStatusFilter(r,status)) return false;
+  return true;
+}
+
 function applyFilters(){
   closeTaskTooltip();
   const q=(document.getElementById('searchTask')||{value:''}).value.toLowerCase();
@@ -6326,15 +6352,7 @@ function applyFilters(){
 
   const todayKey=riyadhTodayKey();
   const tomorrowKey=addDaysToDateKey(todayKey,1);
-  const dataBeforeDateFilter=base.filter(r=>{
-    const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
-    if(q && !haystack.includes(q)) return false;
-    if(ph&&r.phase!==ph) return false;
-    if(path&&r.mainPath!==path) return false;
-    if(!taskMatchesOwnerFilter(r,ow)) return false;
-    if(!taskMatchesStatusFilter(r,st)) return false;
-    return true;
-  });
+  const dataBeforeDateFilter=base.filter(r=>taskMatchesTaskFilters(r,{query:q,phase:ph,owner:ow,path,status:st}));
   const dateCounts={
     all:dataBeforeDateFilter.length,
     today:dataBeforeDateFilter.filter(r=>taskDueDateKey(r)===todayKey).length,
@@ -6349,7 +6367,7 @@ function applyFilters(){
   const badge=document.getElementById('taskTotalBadge');
   if(badge){
     const totalTasks=tasks.length;
-    badge.textContent = data.length===totalTasks && !q && !ph && !ow && !st && (!ty || ty==='Task')
+    badge.textContent = data.length===totalTasks && !q && !ph && !ow && !path && !st && (!ty || ty==='Task')
       ? `${totalTasks} مهمة من ملف WBS`
       : `${data.length} معروضة من أصل ${totalTasks} مهمة`;
     const actionHeader=document.getElementById('taskEscalationHeader');
@@ -6359,7 +6377,7 @@ function applyFilters(){
   const tbody=document.querySelector('#taskTable tbody');
   if(!tbody) return;
   if(!data.length){
-    const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا.':'لا توجد مهام مطابقة لمعايير البحث الحالية';
+    const emptyMsg=taskDateFilter==='today'?'لا توجد مهام مستحقة اليوم ضمن الفلاتر المختارة.':taskDateFilter==='tomorrow'?'لا توجد مهام مستحقة غدًا ضمن الفلاتر المختارة.':path?`لا توجد مهام للمسار «${escapeHtml(path)}» ضمن بقية الفلاتر المختارة.`:'لا توجد مهام مطابقة لمعايير البحث الحالية.';
     const visibleColumns=(canViewCompletionEvidence()?16:15)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
     tbody.innerHTML=`<tr><td colspan="${visibleColumns}" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
@@ -6442,12 +6460,11 @@ document.addEventListener('input',event=>{ if(['overdue-escalation-recipient','o
 function fillFilters(){
   const phases=[...PROJECT_PHASE_ORDER,PROJECT_PHASE_UNSPECIFIED];
   const owners=projectOwnerGroups(rows).map(owner=>owner.name).sort((a,b)=>a.localeCompare(b,'ar'));
-  const officialUsed=OFFICIAL_PATHS.filter(path=>rows.some(r=>r.mainPath===path));
   const pSel=document.getElementById('filterPhase');
   const pathSel=document.getElementById('filterPath');
   const oSel=document.getElementById('filterOwner');
   if(pSel) pSel.innerHTML='<option value="">جميع المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
-  if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}" ${officialUsed.includes(path)?'':'disabled'}>${escapeHtml(path)}</option>`).join('');
+  if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`).join('');
   if(oSel) oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(o=>`<option>${o}</option>`).join('');
 }
 
