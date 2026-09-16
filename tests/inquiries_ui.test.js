@@ -82,3 +82,25 @@ test('snapshot مطابق من polling لا يعيد بناء DOM ولا يعي�
   assert.equal(vm.runInContext('renderCountForTest',c),1);
   assert.equal(vm.runInContext('inquiryListPage',c),3);
 });
+
+test('فتح محادثة الإدارة يستخدم users من عقد inquiry_detail بلا bootstrap',async()=>{
+  const {c}=uiHarness();let bootstrapCalls=0,renderedOptions='';
+  c.detailForTest={ok:true,inquiry:{inquiry_id:'A',can_admin:true,status:'جديد',read_cursor:null},users:[{username:'beta',display_name:'Beta',role:'viewer'}]};
+  vm.runInContext(`inquiryReadWithRetry=async p=>{if(p.action==='inquiry_bootstrap')bootstrapCallsForTest++;return detailForTest};renderInquiryDetail=()=>{renderedOptionsForTest=inquiryRedirectOptions('')};markInquiryRead=async()=>{};`,c);
+  c.bootstrapCallsForTest=bootstrapCalls;c.renderedOptionsForTest=renderedOptions;
+  await c.openInquiryDetail('A');
+  assert.equal(c.bootstrapCallsForTest,0);
+  assert.match(c.renderedOptionsForTest,/value="beta"/);
+  assert.equal(vm.runInContext('inquiryBootstrap',c),null);
+});
+
+test('استجابة API null أو عقد ناقص تسجل السبب وتتحول إلى خطأ قابل للعرض',async()=>{
+  const {c}=uiHarness(),logged=[];c.console={...console,error:(...args)=>logged.push(args)};
+  c.postApi=async()=>({ok:true,json:async()=>null});
+  await assert.rejects(c.inquiryApi({action:'inquiry_detail'}),/Invalid server response contract/);
+  c.postApi=async()=>({ok:true,json:async()=>({ok:true,inquiry:{inquiry_id:'A'}})});
+  await assert.rejects(c.inquiryApi({action:'inquiry_detail'}),/Invalid server response contract/);
+  assert.equal(logged.length,2);
+  assert.match(String(logged[0][0]),/Null or invalid API response/);
+  assert.match(String(logged[1][0]),/contract mismatch/);
+});

@@ -107,7 +107,17 @@ test('كل مستخدم نشط موثق يفتح صفحة الاستفسارات
 test('فتح التفاصيل قراءة فقط وينجح مع انشغال قفل الكتابة',()=>{
   const h=harness(),id=create(h);h.lockState.busy=true;const before=h.lockState.tryCalls;
   const detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
-  assert.equal(detail.inquiry.inquiry_id,id);assert.equal(h.lockState.tryCalls,before);assert.equal(h.sheets['Inquiry Reads'].data.length,1);
+  assert.equal(detail.inquiry.inquiry_id,id);assert.equal(detail.users.length,0);assert.equal(h.lockState.tryCalls,before);assert.equal(h.sheets['Inquiry Reads'].data.length,1);
+});
+
+test('عقد تفاصيل المحادثة يوفر users للإدارة فقط ويحافظ على RBAC وأهلية المهمة',()=>{
+  const h=harness(),admin=h.users[4];
+  const id=call(h.c,'inquiry_create',h.users[0],{request_id:'task-create',title:'سؤال مهمة',details:'تفاصيل',recipient_username:'recipient',task_id:'T-1',priority:'عادي'}).inquiry.inquiry_id;
+  const detail=call(h.c,'inquiry_detail',admin,{inquiry_id:id});
+  assert.equal(detail.ok,true);assert.ok(Array.isArray(detail.users));
+  assert.deepEqual(Array.from(detail.users,u=>u.username).sort(),['creator','recipient'].sort());
+  assert.equal(detail.users.some(user=>user.username==='admin'),false);
+  assert.throws(()=>call(h.c,'inquiry_detail',h.users[2],{inquiry_id:id}),/Forbidden/);
 });
 
 test('فشل تسجيل القراءة لا يمنع المحادثة ولا يغير العدادات أو البيانات',()=>{

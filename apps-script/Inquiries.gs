@@ -420,6 +420,17 @@ function inquiryPublicUser_(u) {
     role: String(u.role || ""),
   };
 }
+function inquiryRedirectUsers_(q, currentUser) {
+  const task = q && q.task_id ? inquiryTask_(q.task_id) : null;
+  return inquiryUsers_()
+    .filter(function (candidate) {
+      return (
+        candidate.username !== currentUser.username &&
+        (!task || inquiryCanViewTask_(candidate))
+      );
+    })
+    .map(inquiryPublicUser_);
+}
 function inquiryFindUser_(username) {
   const key = String(username || "")
     .trim()
@@ -1248,6 +1259,9 @@ function handleInquiryAction_(payload, session) {
         return {
           ok: true,
           inquiry: inquirySerialize_(q, user, true, payload.message_limit),
+          // Admin redirect controls are rendered with the detail response. Keep
+          // their users in this lazy contract rather than requiring bootstrap.
+          users: inquiryIsAdmin_(user) ? inquiryRedirectUsers_(q, user) : [],
         };
       }));
     }
