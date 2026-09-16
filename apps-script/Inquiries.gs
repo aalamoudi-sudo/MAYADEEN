@@ -1223,6 +1223,7 @@ function handleInquiryAction_(payload, session) {
           ok: true,
           items: inquiryListForScope_(state, user, scope),
           summary: state.summary,
+          can_admin: inquiryIsAdmin_(user),
         };
       }));
     }
