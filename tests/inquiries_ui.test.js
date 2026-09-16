@@ -104,3 +104,70 @@ test('استجابة API null أو عقد ناقص تسجل السبب وتتح�
   assert.match(String(logged[0][0]),/Null or invalid API response/);
   assert.match(String(logged[1][0]),/contract mismatch/);
 });
+
+function composerHarness(){
+  const h=uiHarness(),elements={},modal={classList:{active:false,add(){this.active=true;},contains(){return this.active;}}};
+  function element(extra={}){return Object.assign({value:'',disabled:false,textContent:'',innerHTML:'',dataset:{},focus(){this.focused=true;},addEventListener(type,fn){this[type]=fn;}},extra);}
+  const content=element();
+  Object.defineProperty(content,'innerHTML',{get(){return this._html||'';},set(value){this._html=value;Object.assign(elements,{iqComposer:element({dataset:{requestId:'stable-create-id'}}),iqTitle:element(),iqDetails:element(),iqRecipient:element({disabled:true}),iqTask:element({disabled:true}),iqPriority:element({value:'عادي'}),iqError:element(),iqSubmit:element({disabled:true})});}});
+  h.c.document.getElementById=id=>id==='modal'?modal:id==='modalContent'?content:elements[id]||null;
+  h.c.performance={mark(){},measure(){},now:()=>0};
+  return {...h,modal,content,elements};
+}
+
+test('نافذة الإنشاء تظهر قبل اكتمال الشبكة والنقر المتكرر لا ينشئ طلبًا أو نموذجًا ثانيًا',async()=>{
+  const h=composerHarness(),pending=deferred();let calls=0;
+  h.c.pendingForTest=pending;
+  vm.runInContext(`loadInquiryBootstrap=()=>{callsForTest++;return pendingForTest.promise}`,h.c);h.c.callsForTest=calls;
+  h.c.openInquiryComposer();
+  assert.equal(h.modal.classList.active,true);assert.match(h.content.innerHTML,/id="iqTitle"/);assert.equal(h.elements.iqSubmit.disabled,true);assert.equal(h.c.callsForTest,1);
+  h.elements.iqTitle.value='نص أثناء التحميل';h.c.openInquiryComposer();
+  assert.equal(h.c.callsForTest,1);assert.equal(h.elements.iqTitle.value,'نص أثناء التحميل');
+  pending.resolve({ok:true,users:[{username:'beta',display_name:'Beta',role:'viewer'}],tasks:[],can_admin:false});await pending.promise;await new Promise(r=>setTimeout(r,0));
+  assert.equal(h.elements.iqTitle.value,'نص أثناء التحميل');
+});
+
+test('إغلاق نافذة الإنشاء أثناء التحميل يمنع الاستجابة القديمة من إعادة فتحها أو تعديلها',async()=>{
+  const h=composerHarness(),pending=deferred();h.c.pendingForTest=pending;
+  vm.runInContext(`loadInquiryBootstrap=()=>pendingForTest.promise`,h.c);
+  h.c.openInquiryComposer();h.elements.iqTitle.value='مسودة';h.modal.classList.active=false;h.c.closeInquiryComposerState();
+  pending.resolve({ok:true,users:[],tasks:[],can_admin:false});await pending.promise;await new Promise(r=>setTimeout(r,0));
+  assert.equal(h.modal.classList.active,false);assert.equal(h.elements.iqTitle.value,'مسودة');assert.equal(h.elements.iqRecipient.disabled,true);
+});
+
+test('فشل bootstrap ثم إعادة المحاولة داخل النموذج يحافظ على العنوان والتفاصيل',async()=>{
+  const h=composerHarness(),failed=deferred(),retried=deferred();h.c.pendingForTest=failed;
+  vm.runInContext(`loadInquiryBootstrap=()=>pendingForTest.promise`,h.c);
+  h.c.openInquiryComposer();h.elements.iqTitle.value='عنوان محفوظ';h.elements.iqDetails.value='تفاصيل محفوظة';
+  failed.reject(h.c.inquiryApiError('تعذر الاتصال','network',0,'inquiry_composer_bootstrap'));await new Promise(r=>setTimeout(r,0));
+  assert.match(h.elements.iqError.innerHTML,/إعادة المحاولة/);
+  h.c.pendingForTest=retried;h.c.retryInquiryComposer(vm.runInContext('inquiryComposerState.seq',h.c));
+  retried.resolve({ok:true,users:[],tasks:[],can_admin:false});await retried.promise;await new Promise(r=>setTimeout(r,0));
+  assert.equal(h.elements.iqTitle.value,'عنوان محفوظ');assert.equal(h.elements.iqDetails.value,'تفاصيل محفوظة');
+});
+
+test('البحث وفلاتر الحالة والأولوية والصفحات تعرض النتائج المطابقة سلوكيًا',()=>{
+  const h=uiHarness(),list={innerHTML:'',scrollIntoView(){}},search={value:'مهم'},status={value:'جديد'},priority={value:'عاجل'};
+  h.c.document.getElementById=id=>({inquiryList:list,inquirySearch:search,inquiryStatusFilter:status,inquiryPriorityFilter:priority}[id]||null);
+  h.c.itemsForTest=[
+    {inquiry_id:'1',title:'سؤال مهم',status:'جديد',priority:'عاجل',sender_name:'أ',recipient_name:'ب',updated_at:'2026-01-01'},
+    {inquiry_id:'2',title:'سؤال آخر',status:'مغلق',priority:'عادي',sender_name:'أ',recipient_name:'ب',updated_at:'2026-01-01'}
+  ];
+  vm.runInContext('inquiryItems=itemsForTest;inquiryLoading=false;inquiryListFailure="";renderInquiryList()',h.c);
+  assert.match(list.innerHTML,/سؤال مهم/);assert.doesNotMatch(list.innerHTML,/سؤال آخر/);
+  search.value='لا يطابق';h.c.applyInquiryFilter();assert.match(list.innerHTML,/لا توجد استفسارات مطابقة/);
+});
+
+test('تبديل التبويبات يحدّث النطاق والحالة النشطة عبر مسار الصفحة الواحد',()=>{
+  const h=uiHarness(),tabs=['mine','assigned','all'].map(scope=>({dataset:{scope},active:false,classList:{toggle(name,on){this.owner.active=on;},owner:null}}));tabs.forEach(t=>t.classList.owner=t);
+  let shown='';h.c.document.querySelectorAll=()=>tabs;h.c.showPage=id=>{shown=id;};
+  h.c.openInquiryScope('assigned');
+  assert.equal(vm.runInContext('inquiryScope',h.c),'assigned');assert.equal(shown,'inquiries');assert.equal(tabs[1].active,true);assert.equal(tabs[0].active,false);
+});
+
+test('واجهة composer الجديدة تتوافق مع الخادم القديم فقط عند غياب الإجراء الجديد',async()=>{
+  const h=uiHarness(),calls=[];h.c.responsesForTest={ok:true,users:[],tasks:[],can_admin:false,summary:{needs_reply:0,new_replies:0},notifications:[]};h.c.callsForTest=calls;
+  vm.runInContext(`inquiryReadWithRetry=async p=>{callsForTest.push(p.action);if(p.action==='inquiry_composer_bootstrap')throw inquiryApiError('Unsupported inquiry action','server',0,p.action);return responsesForTest}`,h.c);
+  const result=await h.c.loadInquiryBootstrap();
+  assert.equal(result.ok,true);assert.deepEqual(calls,['inquiry_composer_bootstrap','inquiry_bootstrap']);
+});

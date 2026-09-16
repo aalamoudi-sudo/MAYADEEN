@@ -4156,7 +4156,7 @@ function inquiryListForScope_(state, u, scope) {
     });
   return state.items;
 }
-function inquiryBootstrap_(u) {
+function inquiryComposerBootstrap_(u) {
   const active = inquiryUsers_(),
     eligible = active.filter(inquiryCanViewTask_),
     users = active
@@ -4198,19 +4198,35 @@ function inquiryBootstrap_(u) {
     users: users,
     tasks: tasks,
     can_admin: inquiryIsAdmin_(u),
-    summary: inquirySummary_(u),
-    notifications: inquiryRows_(
-      KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
-      inquiryNotificationHeaders_(),
-    )
-      .filter(function (n) {
-        return n.username === u.username && !n.read_at;
-      })
-      .filter(function (n) {
-        const q = inquiryFind_(n.inquiry_id);
-        return q && inquiryCanAccess_(q, u);
-      }),
   };
+}
+// Keep the original response contract while older web clients are still in
+// service.  The composer-specific endpoint below avoids these list reads.
+function inquiryBootstrap_(u) {
+  const result = inquiryComposerBootstrap_(u);
+  result.summary = inquirySummary_(u);
+  result.notifications = inquiryRows_(
+    KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
+    inquiryNotificationHeaders_(),
+  )
+    .filter(function (n) {
+      return n.username === u.username && !n.read_at;
+    })
+    .filter(function (n) {
+      const q = inquiryFind_(n.inquiry_id);
+      return q && inquiryCanAccess_(q, u);
+    });
+  return result;
+}
+function inquiryRequestStatus_(p, u) {
+  const kind = String(p.request_kind || ""),
+    requestId = inquiryText_(p.request_id, 100, "معرف الطلب");
+  if (kind !== "create") throw new Error("نوع طلب غير صالح");
+  const found = inquiryRows_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_())
+    .find(function (q) {
+      return q.sender_username === u.username && q.request_id === requestId;
+    });
+  return { ok: true, found: !!found, inquiry_id: found ? found.inquiry_id : "" };
 }
 function inquiryCreate_(p, u) {
   const requestId = inquiryText_(p.request_id, 100, "معرف الطلب"),
@@ -4459,6 +4475,7 @@ function handleInquiryAction_(payload, session) {
   if (!inquiryCanUse_(session)) throw new Error("Unauthorized");
   const actions = [
     "inquiry_bootstrap",
+    "inquiry_composer_bootstrap",
     "inquiry_list",
     "inquiry_detail",
     "inquiry_mark_read",
@@ -4467,6 +4484,7 @@ function handleInquiryAction_(payload, session) {
     "inquiry_answer",
     "inquiry_status",
     "inquiry_redirect",
+    "inquiry_request_status",
   ];
   if (actions.indexOf(payload.action) < 0)
     throw new Error("Unsupported inquiry action");
@@ -4492,6 +4510,14 @@ function handleInquiryAction_(payload, session) {
       return inquiryPerfTimed_("inquiryBootstrap", function () {
         return inquiryBootstrap_(user);
       });
+    if (payload.action === "inquiry_composer_bootstrap")
+      return inquiryPerfTimed_("inquiryComposerBootstrap", function () {
+        return inquiryComposerBootstrap_(user);
+      });
+    if (payload.action === "inquiry_request_status")
+      return inquiryPerfResponse_(inquiryPerfTimed_("inquiryRequestStatus", function () {
+        return inquiryRequestStatus_(payload, user);
+      }));
     if (payload.action === "inquiry_list") {
       const scope = String(payload.scope || "mine");
       if (["mine", "assigned", "all"].indexOf(scope) < 0)
