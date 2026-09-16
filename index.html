@@ -3680,23 +3680,22 @@ async function bootstrapSession(){
     returnToAnonymousLogin(authState.error);
   }
 }
+async function parseApiJson(response,action){
+  const startedAt=performance.now();
+  const data=await response.json();
+  console.info('⏱️ [ApiTimeline]',{action,event:'json_parsed',duration_ms:Math.round(performance.now()-startedAt)});
+  return data;
+}
 async function validatePersistedSession(){
   const baseUrl=getConfiguredApiUrl();
-  const response=await withTimeout(postApi(baseUrl,{action:'auth_session'}),12000,'session bootstrap timeout');
-  const data=await response.json();
-  if(response.ok&&data.ok&&data.user) return data.user;
-  const message=String(data.error||data.message||'');
-  if(!/Unsupported action/i.test(message)) throw new Error(message||`HTTP ${response.status}`);
-  // Rolling-deploy compatibility: an older Apps Script deployment does not yet
-  // know auth_session. data_sync already validates the token and returns safeUser.
-  console.info('[Auth] auth_session is not deployed yet; validating with data_sync compatibility path.');
-  const fallbackResponse=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'session compatibility timeout');
-  const fallback=await fallbackResponse.json();
-  if(!fallbackResponse.ok||!fallback.ok||!fallback.user) throw new Error(fallback.error||fallback.message||'تعذر التحقق من صلاحيات الجلسة.');
-  // Reuse the compatibility response for the initial render. Without this handoff,
-  // restoring an old deployment immediately requested the same full data_sync twice.
-  sessionBootstrapSyncData=fallback;
-  return fallback.user;
+  // data_sync already performs requireSession_ and returns the current safe user.
+  // Use that authoritative response for both session validation and the first paint,
+  // rather than blocking it behind a separate auth_session round trip.
+  const response=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'session data_sync timeout');
+  const data=await parseApiJson(response,'data_sync');
+  if(!response.ok||!data.ok||!data.user) throw new Error(data.error||data.message||`HTTP ${response.status}`);
+  sessionBootstrapSyncData=data;
+  return data.user;
 }
 function returnToAnonymousLogin(error){
   clearCompletionEvidenceState();
@@ -6092,7 +6091,7 @@ async function loadExternal(initial=true){
     }else{
       const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
       if(!res.ok) throw new Error('HTTP '+res.status);
-      data=await res.json();
+      data=await parseApiJson(res,'data_sync');
     }
     const _syncFetchMs=Math.round(performance.now()-_syncStart);
     console.log(`⏱️ [Sync] وصل الرد بعد ${_syncFetchMs} ms`);
@@ -6173,10 +6172,15 @@ async function loadExternal(initial=true){
       dashboardDataVersion++;
       markPerf('normalize_end');
       measurePerf('normalize_duration','data_sync_start','normalize_end');
+      const stateUpdateStartedAt=performance.now();
       initData();
+      console.info('⏱️ [ApiTimeline]',{action:'data_sync',event:'state_updated',duration_ms:Math.round(performance.now()-stateUpdateStartedAt)});
       ensureChartJS().then(()=>{if(getActivePageId()==='overview'){renderDonutChart();renderLineChart();}});
-      markPerf('first_kpi_render');
-      measurePerf('first_kpi_duration','login_click','first_kpi_render');
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        markPerf('first_kpi_render');
+        measurePerf('first_kpi_duration','data_sync_start','first_kpi_render');
+        console.info('⏱️ [ApiTimeline]',{action:'data_sync',event:'data_painted',duration_ms:Math.round(performance.now()-_syncStart)});
+      }));
       const st=document.getElementById('sheetStatus');
       const now=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const stEl=document.getElementById('sheetStatus');

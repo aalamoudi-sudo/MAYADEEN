@@ -237,13 +237,12 @@ function buildDashboardData_(session) {
     })
   };
   const serializationStartedAt = new Date().getTime();
-  // Measure the real UTF-8 payload (Arabic text is not one byte per JS character).
+  // Estimate the UTF-8 payload once. Previously this large response was serialized
+  // twice for diagnostics and then a third time by json_(), delaying every sync.
   response.sync_meta.response_bytes = Utilities.newBlob(JSON.stringify(response)).getBytes().length;
   profile.serialization_ms = new Date().getTime() - serializationStartedAt;
   response.sync_meta.sync_finished_at = new Date().toISOString();
   response.sync_meta.duration_ms = new Date().getTime() - syncStartedAt.getTime();
-  // Include the newly attached measurement fields in the final payload estimate.
-  response.sync_meta.response_bytes = Utilities.newBlob(JSON.stringify(response)).getBytes().length;
   Logger.log('[data_sync_profile] ' + JSON.stringify(profile));
   Logger.log('[data_sync] version=' + syncVersion + ' sheet=' + taskRead.diagnostics.sheet_name +
     ' raw=' + taskRead.diagnostics.raw_row_count + ' filtered=' + taskRead.diagnostics.valid_task_count +
