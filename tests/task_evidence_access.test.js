@@ -44,10 +44,10 @@ backend.session = { username: allowedAccounts[0], can_view_completion_evidence: 
 assert.equal(Object.hasOwn(vm.runInContext('filterTaskEvidenceForSession_(taskRows, session)', backend)[0], evidenceHeader), false);
 
 const frontendSource = fs.readFileSync('index.html', 'utf8');
-assert.match(frontendSource, /canViewCompletionEvidence\(\)\?`<td>\$\{taskEvidenceHtml\(r\)\}<\/td>`:''/, 'unauthorized tables must omit the cell, not visually hide it');
+assert.match(frontendSource, /canViewCompletionEvidence\(\)\?`<td class="task-col-evidence">\$\{taskEvidenceHtml\(r\)\}<\/td>`:''/, 'unauthorized tables must omit the cell, not visually hide it');
 assert.match(frontendSource, /document\.getElementById\('taskEvidenceHeader'\)\?\.remove\(\)/, 'account switching must remove the evidence header');
 assert.match(frontendSource, /rows=\[\]; tasks=\[\]; milestones=\[\]; evidenceRecords=\[\];/, 'account switching must purge evidence-bearing memory');
-assert.match(frontendSource, /const visibleColumns=\(canViewCompletionEvidence\(\)\?16:15\)/, 'empty-table colspan must track permission and the visible task columns');
+assert.match(frontendSource, /const visibleColumns=\(canViewCompletionEvidence\(\)\?14:13\)/, 'empty-table colspan must track permission and the visible task columns');
 assert.match(frontendSource, /if\(canViewCompletionEvidence\(\)\) row\.الدليل=t\.evidence\|\|''/, 'exports must omit the evidence field for unauthorized users');
 assert.match(frontendSource, /rel="noopener noreferrer"/, 'external evidence links must be isolated');
 console.log('Task evidence authorization, rendering, export, and session-isolation tests passed.');
