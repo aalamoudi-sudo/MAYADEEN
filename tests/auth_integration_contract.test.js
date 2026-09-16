@@ -28,12 +28,13 @@ test('refresh validates the persisted session before revealing dashboard',()=>{
   assert.ok(validate>0&&reveal>validate);
 });
 
-test('refresh validates and hydrates from one authoritative data_sync response',()=>{
+test('refresh validates quickly while the authoritative data sync runs in parallel',()=>{
   const validation=html.slice(html.indexOf('async function validatePersistedSession()'),html.indexOf('function returnToAnonymousLogin'));
   assert.equal((validation.match(/postApi\(baseUrl,\{action:'data_sync'\}\)/g)||[]).length,1);
-  assert.doesNotMatch(validation,/action:'auth_session'/);
+  assert.equal((validation.match(/postApi\(baseUrl,\{action:'auth_session'\}\)/g)||[]).length,1);
+  assert.ok(validation.indexOf("action:'data_sync'")<validation.indexOf("action:'auth_session'"));
+  assert.match(validation,/sessionBootstrapSyncPromise=/);
   assert.match(validation,/!response\.ok\|\|!data\.ok\|\|!data\.user/);
-  assert.match(validation,/sessionBootstrapSyncData=data/);
 });
 
 test('backend session bootstrap runs after requireSession and returns current permissions',()=>{
