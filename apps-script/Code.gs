@@ -62,6 +62,7 @@ const EXECUTIVE_BOARD_ALLOWED_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.
 // Matrix remains authoritative for account status and all feature flags; this
 // allow-list only defines the cross-path boundary requested by governance.
 const REQUIRED_FULL_ACCESS_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid', 'abdullah.almarhoom'];
+const SHARED_PROJECT_PAGE_IDS = ['overview', 'tasks', 'phases'];
 const RECORD_PATH_FIELDS = ['path_scope', 'path', 'main_path', 'official_path', 'workstream', 'workstream_code', 'path_code', 'affected_paths', 'المسار الرسمي', 'المسار الرئيسي', 'المسار'];
 const RECORD_REFERENCE_FIELDS = ['linked_wbs_code', 'wbs_code', 'task_id', 'linked_task', 'linked_task_id', 'affected_tasks', 'item_id', 'linked_id', 'record_reference', 'reference_id'];
 const RECORD_ID_FIELDS = ['approval_id', 'decision_id', 'risk_id', 'escalation_id', 'assignment_id', 'meeting_id', 'commitment_id', 'file_id', 'urgent_task_id', 'task_id', 'wbs_code', 'code', 'id'];
@@ -1396,6 +1397,9 @@ function requirePageAccess_(session, pageId) {
     requireExecutiveBoardAccess_(session);
     return;
   }
+  // These are project-wide views. Their records are still scoped server-side by
+  // buildDashboardData_; page visibility must not be confused with path access.
+  if (SHARED_PROJECT_PAGE_IDS.indexOf(pageId) !== -1) return;
   const pages = normalizeAllowedPages_(session);
   if (hasFullAccess_(session) || pages.indexOf('*') !== -1 || pages.indexOf(pageId) !== -1) return;
   throw new Error('Forbidden: page permission required for ' + pageId);
