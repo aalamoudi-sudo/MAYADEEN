@@ -32,7 +32,7 @@ test('task table omits direct owner while retaining the path owner', () => {
   assert.doesNotMatch(renderedRows, /task-col-owner|taskOverflowText\(r\.owner\)/);
   assert.match(table, /<th class="task-col-path-owner">مسؤول المسار<\/th>/);
   assert.match(renderedRows, /task-col-path-owner[^\n]+taskOverflowText\(r\.executionOwner\)/);
-  assert.match(html, /if\(!taskMatchesOwnerFilter\(r,ow\)\) return false/);
+  assert.match(html, /if\(!taskMatchesOwnerFilter\(r,owner\)\) return false/);
 });
 
 test('empty task results span exactly the remaining visible columns', () => {
