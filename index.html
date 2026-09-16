@@ -3284,7 +3284,7 @@ function dispatchAuth(event){
 }
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
-let sessionBootstrapSyncData=null;
+let sessionBootstrapSyncPromise=null;
 let syncRequestSequence=0;
 const loginPerfCounters={authLoginRequests:0,dataSyncRequests:0,mainRenders:0};
 let syncBackoffMs=30000;
@@ -3688,13 +3688,17 @@ async function parseApiJson(response,action){
 }
 async function validatePersistedSession(){
   const baseUrl=getConfiguredApiUrl();
-  // data_sync already performs requireSession_ and returns the current safe user.
-  // Use that authoritative response for both session validation and the first paint,
-  // rather than blocking it behind a separate auth_session round trip.
-  const response=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'session data_sync timeout');
-  const data=await parseApiJson(response,'data_sync');
+  // Start the expensive Sheets sync immediately, but never make the shell wait for
+  // it. The lightweight endpoint verifies the session and current permissions first.
+  sessionBootstrapSyncPromise=withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'session data_sync timeout')
+    .then(response=>{
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      return parseApiJson(response,'data_sync');
+    })
+    .then(data=>({data}),error=>({error}));
+  const response=await withTimeout(postApi(baseUrl,{action:'auth_session'}),12000,'session bootstrap timeout');
+  const data=await parseApiJson(response,'auth_session');
   if(!response.ok||!data.ok||!data.user) throw new Error(data.error||data.message||`HTTP ${response.status}`);
-  sessionBootstrapSyncData=data;
   return data.user;
 }
 function returnToAnonymousLogin(error){
@@ -6084,10 +6088,13 @@ async function loadExternal(initial=true){
     const _syncStartedAt=new Date();
     console.log(`⏱️ [Sync] بدء طلب البيانات: ${_syncStartedAt.toLocaleTimeString('ar-SA')}`);
     let data;
-    if(initial&&sessionBootstrapSyncData){
-      data=sessionBootstrapSyncData;
-      sessionBootstrapSyncData=null;
-      console.info('⏱️ [Sync] reused session compatibility data_sync response');
+    if(initial&&sessionBootstrapSyncPromise){
+      const bootstrapSync=sessionBootstrapSyncPromise;
+      sessionBootstrapSyncPromise=null;
+      const bootstrapResult=await bootstrapSync;
+      if(bootstrapResult.error) throw bootstrapResult.error;
+      data=bootstrapResult.data;
+      console.info('⏱️ [Sync] reused parallel session data_sync response');
     }else{
       const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
       if(!res.ok) throw new Error('HTTP '+res.status);

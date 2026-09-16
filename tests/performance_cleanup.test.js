@@ -19,12 +19,13 @@ test('inquiries load and poll only while the inquiries page is active',()=>{
   assert.doesNotMatch(polling,/loadInquiryBootstrap/);
 });
 
-test('saved-session data_sync validates the session, feeds first paint, and stays single-flight',()=>{
+test('saved-session validation reveals the shell without waiting for Sheets and keeps sync single-flight',()=>{
   const validation=html.slice(html.indexOf('async function validatePersistedSession()'),html.indexOf('function returnToAnonymousLogin'));
   assert.equal((validation.match(/postApi\(baseUrl,\{action:'data_sync'\}\)/g)||[]).length,1);
-  assert.doesNotMatch(validation,/postApi\(baseUrl,\{action:'auth_session'\}\)/);
-  assert.match(validation,/sessionBootstrapSyncData=data/);
-  assert.match(html,/if\(initial&&sessionBootstrapSyncData\)/);
+  assert.equal((validation.match(/postApi\(baseUrl,\{action:'auth_session'\}\)/g)||[]).length,1);
+  assert.ok(validation.indexOf("action:'data_sync'")<validation.indexOf("action:'auth_session'"));
+  assert.match(validation,/sessionBootstrapSyncPromise=/);
+  assert.match(html,/if\(initial&&sessionBootstrapSyncPromise\)/);
   assert.match(html,/if\(syncRequestInFlight\) return syncRequestInFlight/);
   assert.match(html,/if\(inquiryBootstrapInFlight\)return inquiryBootstrapInFlight/);
   assert.match(html,/if\(inquiryListInFlight\.has\(key\)\)return inquiryListInFlight\.get\(key\)/);
