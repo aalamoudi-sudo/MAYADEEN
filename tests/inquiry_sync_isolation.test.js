@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const html=fs.readFileSync('index.html','utf8');
 
-test('مهل الاستفسار وdata_sync مستقلة وموسومة باسم الطلب',()=>{
+test('مهل الاستفسار وتحميل الرئيسية مستقلة وموسومة باسم الطلب',()=>{
   assert.match(html,/action\+' timeout'/);
-  assert.match(html,/data_sync timeout/);
+  assert.match(html,/dashboard_home timeout/);
   assert.match(html,/e\?\.inquiryAction==='inquiry_reply'/);
 });
 

@@ -66,7 +66,7 @@ test('dashboard sync exposes measured server and payload diagnostics',()=>{
 test('server payload diagnostics serialize the large response only once before json output',()=>{
   for(const file of ['apps-script/Code.gs','apps-script/current-apps-script.gs']){
     const code=fs.readFileSync(file,'utf8');
-    const sync=code.slice(code.indexOf('function buildDashboardData_'),code.indexOf('function canViewTaskEvidence_'));
+    const sync=code.slice(code.indexOf('function buildDashboardData_'),code.indexOf('function buildDashboardHomeData_'));
     assert.equal((sync.match(/JSON\.stringify\(response\)/g)||[]).length,1);
   }
 });

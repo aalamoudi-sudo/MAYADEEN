@@ -250,6 +250,85 @@ function buildDashboardData_(session) {
   return response;
 }
 
+// The landing page deliberately has its own read plan.  Keep this list aligned
+// with renderOverview: WBS drives the headline KPIs, while the five registers
+// below feed the existing urgent/action/risk cards.  Do not implement this by
+// calling buildDashboardData_ and trimming its response; that would retain the
+// Sheets latency this endpoint is intended to remove.
+function buildDashboardHomeData_(session) {
+  const startedAt = new Date();
+  const profile = { spreadsheet_open_ms: 0, datasets: [] };
+  const openStartedAt = new Date().getTime();
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  profile.spreadsheet_open_ms = new Date().getTime() - openStartedAt;
+  const taskRead = timedDashboardOperation_(profile, 'wbs', function() { return readOfficialWbsTasks_(spreadsheet); });
+  const rows = projectVisibleRows_(taskRead.rows);
+  const response = {
+    ok: true,
+    api_version: '2026-09-lazy-dashboard-v1',
+    generated_at: new Date().toISOString(),
+    user: safeUser_(session),
+    rows: filterTaskEvidenceForSession_(rows, session),
+    task_headers: filterTaskEvidenceHeadersForSession_(taskRead.headers, session),
+    approvals: projectVisibleRows_(timedDashboardOperation_(profile, 'approvals', function() { return getApprovalRows_(spreadsheet); })),
+    assignments: projectVisibleRows_(timedDashboardOperation_(profile, 'assignments', function() { return getAssignmentRows_(spreadsheet); })),
+    urgent_tasks: projectVisibleRows_(timedDashboardOperation_(profile, 'urgent_tasks', function() { return getUrgentTaskRows_(spreadsheet); })),
+    decision_log: projectVisibleRows_(timedDashboardOperation_(profile, 'decisions', function() { return getDecisionRows_(spreadsheet); })),
+    risk_governance: projectVisibleRows_(timedDashboardOperation_(profile, 'risk_governance', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName); }))
+  };
+  response.sync_meta = Object.assign({}, taskRead.diagnostics, {
+    sync_version: Utilities.getUuid(), sync_started_at: startedAt.toISOString(),
+    sync_finished_at: new Date().toISOString(), duration_ms: new Date().getTime() - startedAt.getTime(),
+    last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
+    rows_read: rows.length, source_rows_read: taskRead.rows.length, valid_task_count: rows.length,
+    payload_task_total: rows.length, home_task_total: rows.length, visibility_scope: 'project',
+    path_scope_applied: 'none', connection_status: 'connected', performance: profile
+  });
+  response.sync_meta.response_bytes = Utilities.newBlob(JSON.stringify(response)).getBytes().length;
+  return response;
+}
+
+function buildDashboardSectionData_(session, pageId) {
+  const plans = {
+    approvals: ['approvals', 'approval_chain'], decisions: ['decisions'], risksMgmt: ['risk_governance'],
+    assignments: ['assignments'], meetingsHub: ['meetings'], commitmentsHub: ['commitments'], fileControl: ['files'],
+    urgentTasksPage: ['urgent_tasks'], escalationHub: ['escalations', 'task_escalations', 'escalation_chain', 'approvals', 'assignments', 'decisions', 'risk_governance'],
+    escalationsCenter: ['escalations', 'task_escalations', 'escalation_chain'],
+    baselineManagement: ['baseline_management'], raciWorkload: ['raci_matrix', 'employee_workload'],
+    criticalPath: ['critical_path'], dataQualityCenter: ['data_quality'], projectHealth: ['approvals', 'assignments'],
+    executiveBoard: ['approvals', 'assignments', 'decisions', 'risk_governance'], reportsGenerator: ['approvals', 'assignments', 'decisions', 'risk_governance']
+  };
+  pageId = String(pageId || '').trim();
+  requirePageAccess_(session, pageId);
+  const requested = plans[pageId];
+  if (!requested) return { ok: true, user: safeUser_(session), page_id: pageId, datasets: {}, generated_at: new Date().toISOString() };
+  if (pageId === 'executiveBoard') requireExecutiveBoardAccess_(session);
+  const profile = { spreadsheet_open_ms: 0, datasets: [] }, openedAt = new Date().getTime();
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  profile.spreadsheet_open_ms = new Date().getTime() - openedAt;
+  let taskRead = null, employeeMaster = null, criticalPath = null;
+  function tasks() { if (!taskRead) taskRead = timedDashboardOperation_(profile, 'wbs', function() { return readOfficialWbsTasks_(spreadsheet); }); return projectVisibleRows_(taskRead.rows); }
+  function employees() { if (!employeeMaster) employeeMaster = getEmployeeMasterRows_(spreadsheet); return employeeMaster; }
+  function critical() { if (!criticalPath) criticalPath = buildCriticalPathAnalysis_(spreadsheet, tasks()); return criticalPath; }
+  const readers = {
+    approvals: function() { return getApprovalRows_(spreadsheet); }, approval_chain: function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName); },
+    escalation_chain: function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName); }, escalations: function() { return deduplicateEscalationsById_(getExistingEscalationRows_(spreadsheet)); },
+    task_escalations: function() { return getTaskEscalationRows_(spreadsheet); }, risk_governance: function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName); },
+    assignments: function() { return getAssignmentRows_(spreadsheet); }, meetings: function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.meetingsSheetName); },
+    commitments: function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.commitmentsSheetName); }, files: function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.filesSheetName); },
+    urgent_tasks: function() { return getUrgentTaskRows_(spreadsheet); }, decisions: function() { return getDecisionRows_(spreadsheet); },
+    baseline_management: function() { return buildBaselineManagement_(spreadsheet, tasks()); }, raci_matrix: function() { return buildRaciMatrix_(spreadsheet, tasks(), employees()); },
+    critical_path: critical, employee_workload: function() { return buildEmployeeWorkload_(spreadsheet, tasks(), employees(), critical()); },
+    data_quality: function() { return buildDataQualityCenter_(spreadsheet, tasks(), employees(), critical()); }
+  };
+  const datasets = {};
+  requested.forEach(function(name) {
+    const value = timedDashboardOperation_(profile, name, readers[name]);
+    datasets[name] = Array.isArray(value) ? projectVisibleRows_(value) : value;
+  });
+  return { ok: true, api_version: '2026-09-lazy-dashboard-v1', user: safeUser_(session), page_id: pageId, datasets: datasets, generated_at: new Date().toISOString(), section_meta: { performance: profile } };
+}
+
 function canViewTaskEvidence_(session) {
   const username = String((session && session.username) || '').trim().toLowerCase();
   return TASK_EVIDENCE_ALLOWED_USERNAMES.indexOf(username) !== -1 && parseBool_(session && session.can_view_completion_evidence);
@@ -448,6 +527,15 @@ function doPost(e) {
     if (payload.action === 'data_sync') {
       requireExecutiveBoardRequestAccess_(session, payload);
       return json_(buildDashboardData_(session));
+    }
+
+    if (payload.action === 'dashboard_home') {
+      requireExecutiveBoardRequestAccess_(session, payload);
+      return json_(buildDashboardHomeData_(session));
+    }
+
+    if (payload.action === 'dashboard_section') {
+      return json_(buildDashboardSectionData_(session, payload.page_id));
     }
 
     if (String(payload.page_id || payload.page || payload.target_page || '').trim() === 'executiveBoard') {

@@ -45,3 +45,28 @@ Durations, actual row counts, response bytes, and the ten most expensive operati
 ## Remaining bottlenecks
 
 `data_sync` still reads all response-contract datasets sequentially. Making secondary and page-only datasets truly lazy requires either a new API action or a contract change, both explicitly excluded from this implementation. The new sorted per-operation timings identify which reads should move first once that API change is approved. The 491 KB inline application script is also still parser work; safely splitting it requires a build/deployment loading strategy rather than deleting features.
+
+## Lazy dashboard read plan (2026-09-16)
+
+The previous startup request still called `buildDashboardData_`, so every login read 14 base datasets and then built project master/settings, baseline, RACI, critical path, workload, and data-quality output before the first correct home render. The browser then normalized all of those datasets and invoked renderers for hidden pages from `renderOverview`. This is the code-level cause addressed here; no claim is made that Render or Google Sheets itself is slow.
+
+The authenticated startup now calls `dashboard_home`. That endpoint opens the spreadsheet once and reads WBS plus the five existing registers actually consumed by home widgets (approvals, assignments, urgent tasks, decisions, and risk governance). It does not call the full sync and trim its response. Page-only registers and derived calculations use `dashboard_section` after an authorized page is opened. Its explicit per-page read plan reuses WBS, employee master, and critical-path results within one request. The legacy `data_sync` action and response remain unchanged for existing consumers and mixed-version deployment.
+
+Structural comparison from the code and isolated Apps Script runtime test:
+
+| Startup work | Before (`data_sync`) | After (`dashboard_home`) |
+|---|---:|---:|
+| Base dataset operations | 14 | 6 |
+| Derived/project operations | 7 | 0 |
+| Spreadsheet opens per request | 1 | 1 |
+| Hidden-page render fan-out from home | yes | no |
+| Requests launched for unopened sections | all data in startup request | 0 |
+
+These are operation counts, not production latency measurements. Production credentials and an isolated Sheets fixture are not in this repository, so actual session time, Apps Script duration, bytes, browser paint time, and source-change propagation were not measured. The existing `auth_meta`, `sync_meta.performance`, response byte count, and browser `ApiTimeline` instrumentation should be captured before and after deployment under the same account/network and with cold then warm runs.
+
+### Safe deployment and rollback
+
+1. Deploy the generated `apps-script/current-apps-script.gs` as a new version of the existing Apps Script web app without changing its URL. Deploying the server first is compatible because the old `data_sync` action remains available.
+2. Smoke-test `auth_session`, `dashboard_home`, one simple section (`meetingsHub`), one derived section (`criticalPath`), a forbidden section, manual refresh, logout/account switch, and one existing mutation in an isolated test sheet/account.
+3. Publish `index.html` only after the Apps Script version passes. The new UI then opts into the new actions.
+4. To roll back, restore the previous `index.html` first (it uses retained `data_sync`), then point the existing Apps Script deployment back to the prior version. Do not create a new web-app URL or alter Sheet data/sharing.
