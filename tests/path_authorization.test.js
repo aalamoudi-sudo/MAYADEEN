@@ -40,22 +40,22 @@ test('the four required immutable usernames retain full cross-path access', () =
   }
 });
 
-test('path managers receive only their own WBS path', () => {
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(tasks, managerA, auth), row => row.task_id), ['A-1']);
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(tasks, managerB, auth), row => row.task_id), ['B-1']);
+test('different path users receive the same project-wide WBS visibility', () => {
+  assert.deepEqual(Array.from(context.projectVisibleRows_(tasks), row => row.task_id), ['A-1', 'B-1']);
+  assert.deepEqual(Array.from(context.projectVisibleRows_(tasks), row => row.task_id), ['A-1', 'B-1']);
 });
 
-test('linked approvals, escalations, decisions, and direct risks stay isolated', () => {
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(datasets.approvals, managerA, auth), row => row.approval_id), ['APP-A']);
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(datasets.escalations, managerA, auth), row => row.escalation_id), ['ESC-A']);
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(datasets.decisions, managerA, auth), row => row.decision_id), ['DEC-A']);
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(datasets.risks, managerA, auth), row => row.risk_id), ['R-A']);
+test('approvals, escalations, decisions, and risks are project-wide on reads', () => {
+  assert.deepEqual(Array.from(context.projectVisibleRows_(datasets.approvals), row => row.approval_id), ['APP-A', 'APP-B']);
+  assert.deepEqual(Array.from(context.projectVisibleRows_(datasets.escalations), row => row.escalation_id), ['ESC-A', 'ESC-B']);
+  assert.deepEqual(Array.from(context.projectVisibleRows_(datasets.decisions), row => row.decision_id), ['DEC-A', 'DEC-B']);
+  assert.deepEqual(Array.from(context.projectVisibleRows_(datasets.risks), row => row.risk_id), ['R-A', 'R-B']);
 });
 
-test('unresolved records fail closed for path managers but remain visible to full access', () => {
+test('records without a path remain visible but still fail closed for restricted writes', () => {
   const unresolved = [{ approval_id: 'NO-PATH' }];
-  assert.equal(context.scopeRowsForSession_(unresolved, managerA, auth).length, 0);
-  assert.equal(context.scopeRowsForSession_(unresolved, { username: 'atheer' }, auth).length, 1);
+  assert.equal(context.projectVisibleRows_(unresolved).length, 1);
+  assert.throws(() => context.requireRecordPathAccess_(managerA, unresolved[0], auth), /outside the authenticated path scope/);
 });
 
 test('path manager cannot write, approve, or escalate a record from another path', () => {
@@ -68,8 +68,13 @@ test('path manager cannot write, approve, or escalate a record from another path
   assert.equal(context.requireRecordPathAccess_(managerA, datasets.approvals[0], auth), true);
 });
 
-test('data_sync scopes before payload and all derived operational datasets use scoped rows', () => {
-  assert.match(backendSource, /const rows = scopeRowsForSession_\(allRows, session, authorizationContext\)/);
+test('data_sync is project-wide before payload and all derived datasets use all rows', () => {
+  assert.match(backendSource, /const rows = projectVisibleRows_\(allRows\)/);
+  for (const source of ['approvalsAll', 'riskGovernanceAll', 'decisionsAll', 'employeeMasterAll']) {
+    assert.match(backendSource, new RegExp(`projectVisibleRows_\\(${source}\\)`), source);
+  }
+  assert.match(backendSource, /visibility_scope: 'project'/);
+  assert.match(backendSource, /path_scope_applied: 'none'/);
   assert.match(backendSource, /buildBaselineManagement_\(spreadsheet, rows\)/);
   assert.match(backendSource, /buildCriticalPathAnalysis_\(spreadsheet, rows\)/);
   assert.match(backendSource, /buildDataQualityCenter_\(spreadsheet, rows, employeeMaster, criticalPath\)/);
@@ -87,13 +92,23 @@ test('UI and backend share the same full-user boundary and writes have server gu
   }
 });
 
-test('shared project pages stay available without weakening record path isolation', () => {
+test('shared project pages expose global data without weakening write isolation', () => {
   assert.match(frontendSource, /SHARED_PROJECT_PAGE_IDS=\['overview','tasks','phases'\]/);
   assert.match(frontendSource, /SHARED_PROJECT_PAGE_IDS\.includes\(id\)/);
   assert.match(backendSource, /SHARED_PROJECT_PAGE_IDS = \['overview', 'tasks', 'phases'\]/);
   assert.match(backendSource, /SHARED_PROJECT_PAGE_IDS\.indexOf\(pageId\) !== -1/);
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(tasks, managerA, auth), row => row.task_id), ['A-1']);
-  assert.deepEqual(Array.from(context.scopeRowsForSession_(tasks, managerB, auth), row => row.task_id), ['B-1']);
+  assert.deepEqual(Array.from(context.projectVisibleRows_(tasks), row => row.task_id), ['A-1', 'B-1']);
+  assert.throws(() => context.requireRecordPathAccess_(managerA, tasks[1], auth), /outside the authenticated path scope/);
+});
+
+test('read endpoints return global project rows while mutation guards remain', () => {
+  assert.deepEqual(Array.from(context.scopeEndpointRows_(tasks, managerA), row => row.task_id), ['A-1', 'B-1']);
+  for (const action of ['get_content_item_details', 'get_guest_journey_details', 'get_asset_gift_details']) {
+    const start = backendSource.indexOf(`payload.action === '${action}'`);
+    const branch = backendSource.slice(start, backendSource.indexOf("\n    if (payload.action ===", start + 1));
+    assert.doesNotMatch(branch, /requirePayloadPathAccess_/);
+  }
+  assert.match(backendSource, /Mutation branches still call requirePayloadPathAccess_/);
 });
 
 test('paste-ready bundle is generated from the canonical core and inquiry module', () => {

@@ -3467,8 +3467,8 @@ function canAccessPage(id){
   if(id==='urgentTasksPage') return canAccessPage('overview');
   if(id==='inquiries') return !!currentUser.username;
   if(id==='executiveBoard') return isExecutiveBoardAllowedUser();
-  // Shared project pages remain visible to every authenticated user; the API
-  // independently limits the records rendered inside them by path_scope.
+  // Shared project pages and their datasets are project-wide. Role/page checks
+  // still control actions and access to non-shared modules.
   if(SHARED_PROJECT_PAGE_IDS.includes(id)) return !!currentUser.username;
   const pages=normalizePageList(currentUser.allowed_pages);
   if(id==='supervisorDaily') return hasFullAccessUser()||pages.includes('*')||pages.includes(id)||String(currentUser.role||'').toLowerCase().includes('pmo')||normalizeArabic(currentUser.display_name||currentUser.username||'').includes(normalizeArabic('أحمد العامودي'));

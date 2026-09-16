@@ -158,25 +158,23 @@ function buildDashboardData_(session) {
   const urgentTasksAll = timedDashboardOperation_(profile, 'urgent_tasks', function() { return getUrgentTaskRows_(spreadsheet); });
   const decisionsAll = timedDashboardOperation_(profile, 'decisions', function() { return getDecisionRows_(spreadsheet); });
   const employeeMasterAll = timedDashboardOperation_(profile, 'employee_master', function() { return getEmployeeMasterRows_(spreadsheet); });
-  const authorizationContext = buildPathAuthorizationContext_(allRows, {
-    approvals: approvalsAll, escalations: escalationsAll.concat(taskEscalationsAll), risks: riskGovernanceAll,
-    assignments: assignmentsAll, meetings: meetingsAll, commitments: commitmentsAll, files: filesAll,
-    urgent_tasks: urgentTasksAll, decisions: decisionsAll
-  });
-  const rows = scopeRowsForSession_(allRows, session, authorizationContext);
-  const approvals = scopeRowsForSession_(approvalsAll, session, authorizationContext);
-  const approvalChain = scopeRowsForSession_(approvalChainAll, session, authorizationContext);
-  const escalationChain = scopeRowsForSession_(escalationChainAll, session, authorizationContext);
-  const escalations = scopeRowsForSession_(escalationsAll, session, authorizationContext);
-  const taskEscalations = scopeRowsForSession_(taskEscalationsAll, session, authorizationContext);
-  const riskGovernance = scopeRowsForSession_(riskGovernanceAll, session, authorizationContext);
-  const assignments = scopeRowsForSession_(assignmentsAll, session, authorizationContext);
-  const meetings = scopeRowsForSession_(meetingsAll, session, authorizationContext);
-  const commitments = scopeRowsForSession_(commitmentsAll, session, authorizationContext);
-  const files = scopeRowsForSession_(filesAll, session, authorizationContext);
-  const urgentTasks = scopeRowsForSession_(urgentTasksAll, session, authorizationContext);
-  const decisions = scopeRowsForSession_(decisionsAll, session, authorizationContext);
-  const employeeMaster = scopeEmployeeRowsForSession_(employeeMasterAll, rows, session);
+  // Data visibility is project-wide for every authenticated project user. Keep
+  // path_scope exclusively for write authorization below; it must never shape a
+  // dashboard payload or any KPI derived from that payload.
+  const rows = projectVisibleRows_(allRows);
+  const approvals = projectVisibleRows_(approvalsAll);
+  const approvalChain = projectVisibleRows_(approvalChainAll);
+  const escalationChain = projectVisibleRows_(escalationChainAll);
+  const escalations = projectVisibleRows_(escalationsAll);
+  const taskEscalations = projectVisibleRows_(taskEscalationsAll);
+  const riskGovernance = projectVisibleRows_(riskGovernanceAll);
+  const assignments = projectVisibleRows_(assignmentsAll);
+  const meetings = projectVisibleRows_(meetingsAll);
+  const commitments = projectVisibleRows_(commitmentsAll);
+  const files = projectVisibleRows_(filesAll);
+  const urgentTasks = projectVisibleRows_(urgentTasksAll);
+  const decisions = projectVisibleRows_(decisionsAll);
+  const employeeMaster = projectVisibleRows_(employeeMasterAll);
   const clientRows = filterTaskEvidenceForSession_(rows, session);
   const taskHeaders = filterTaskEvidenceHeadersForSession_(taskRead.headers, session);
   const projectMaster = timedDashboardOperation_(profile, 'project_master', function() { return getProjectMasterRows_(spreadsheet); });
@@ -231,7 +229,8 @@ function buildDashboardData_(session) {
       payload_task_total: rows.length,
       home_task_total: rows.length,
       source_valid_task_count: taskRead.diagnostics.valid_task_count,
-      path_scope_applied: hasFullAccess_(session) ? 'all' : String(session.path_scope || ''),
+      visibility_scope: 'project',
+      path_scope_applied: 'none',
       risk_rows_read: riskGovernance.length,
       connection_status: 'connected',
       performance: profile
@@ -371,6 +370,10 @@ function scopeRowsForSession_(rows, session, context) {
   return (rows || []).filter(function(record) { return sessionCanAccessRecord_(session, record, context); });
 }
 
+function projectVisibleRows_(rows) {
+  return (rows || []).slice();
+}
+
 function scopeEmployeeRowsForSession_(employees, scopedTasks, session) {
   if (hasFullAccess_(session)) return (employees || []).slice();
   const allowed = {};
@@ -402,8 +405,9 @@ function requirePayloadPathAccess_(session, payload) {
 }
 
 function scopeEndpointRows_(rows, session) {
-  const tasks = getTaskRows_();
-  return scopeRowsForSession_(rows || [], session, buildPathAuthorizationContext_(tasks, { endpoint: rows || [] }));
+  // Read endpoints follow the same global project visibility contract as
+  // data_sync. Mutation branches still call requirePayloadPathAccess_.
+  return projectVisibleRows_(rows);
 }
 
 function timedDashboardOperation_(profile, name, operation) {
@@ -461,7 +465,6 @@ function doPost(e) {
     if (payload.action === 'get_content_item_details') {
       requireContentMatrixPermission_(session, 'read');
       const contentDetails = getContentItemDetails_(payload);
-      requirePayloadPathAccess_(session, contentDetails);
       return json_(contentMatrixResponse_('تم تحميل تفاصيل المحتوى', contentDetails));
     }
 
@@ -491,7 +494,6 @@ function doPost(e) {
     if (payload.action === 'get_guest_journey_details') {
       requireGuestJourneyPermission_(session, 'read');
       const journeyDetails = getGuestJourneyDetails_(payload);
-      requirePayloadPathAccess_(session, journeyDetails);
       return json_(guestJourneyResponse_('تم تحميل تفاصيل رحلة الضيف', journeyDetails));
     }
     if (payload.action === 'create_guest_journey') {
@@ -519,7 +521,6 @@ function doPost(e) {
     if (payload.action === 'get_asset_gift_details') {
       requireAssetsGiftsPermission_(session, 'read');
       const assetDetails = getAssetGiftDetails_(payload);
-      requirePayloadPathAccess_(session, assetDetails);
       return json_(assetsGiftsResponse_('تم تحميل تفاصيل الأصل أو الهدية', assetDetails));
     }
     if (payload.action === 'create_asset_gift') {
@@ -1397,8 +1398,8 @@ function requirePageAccess_(session, pageId) {
     requireExecutiveBoardAccess_(session);
     return;
   }
-  // These are project-wide views. Their records are still scoped server-side by
-  // buildDashboardData_; page visibility must not be confused with path access.
+  // These are project-wide views. Page access remains an authorization concern;
+  // authenticated users receive the same project dataset from data_sync.
   if (SHARED_PROJECT_PAGE_IDS.indexOf(pageId) !== -1) return;
   const pages = normalizeAllowedPages_(session);
   if (hasFullAccess_(session) || pages.indexOf('*') !== -1 || pages.indexOf(pageId) !== -1) return;
