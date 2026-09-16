@@ -3251,9 +3251,10 @@ const RIYADH_TIME_ZONE='Asia/Riyadh';
 const TODAY=riyadhTodayDate();
 const DEFAULT_API_URL='https://script.google.com/macros/s/AKfycbzU75D5PcKWp3b19H8E8Gp9jJO_obD_qFHUqAl5g73fVdLccnmAg1HS57ukit_9dOLk/exec';
 const ALLOWED_API_HOSTS=['script.google.com','script.googleusercontent.com'];
+const REQUIRED_FULL_ACCESS_USERNAMES=['atheer','ahmad.amoudi','abdulaziz.obaid','abdullah.almarhoom'];
 let currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
 const EXECUTIVE_BOARD_ACCESS_DENIED='ليس لديك صلاحية للوصول إلى لوحة المدير العام';
-const EXECUTIVE_BOARD_ALLOWED_USERNAMES=['atheer','ahmad.amoudi','abdulaziz.obaid','abdulrahman.ceo'];
+const EXECUTIVE_BOARD_ALLOWED_USERNAMES=['atheer','ahmad.amoudi','abdulaziz.obaid','abdullah.almarhoom','abdulrahman.ceo'];
 const OVERDUE_TASK_ESCALATION_ALLOWED_USERNAMES=['atheer','ahmad.amoudi','abdulaziz.obaid'];
 let overdueEscalationConfig={allowed:false,recipients:[],bcc:{display_name:'أثير الثبيتي',email:''}};
 let sessionToken='';
@@ -3441,13 +3442,17 @@ function isExecutiveBoardAllowedUser(user=currentUser){
   const username=String(user&&user.username||'').trim().toLowerCase();
   return EXECUTIVE_BOARD_ALLOWED_USERNAMES.includes(username);
 }
+function hasFullAccessUser(user=currentUser){
+  const username=String(user&&user.username||'').trim().toLowerCase();
+  return REQUIRED_FULL_ACCESS_USERNAMES.includes(username)||String(user&&user.access_level||'').toLowerCase()==='full';
+}
 function canAccessPage(id){
   if(id==='urgentTasksPage') return canAccessPage('overview');
   if(id==='inquiries') return !!currentUser.username;
   if(id==='executiveBoard') return isExecutiveBoardAllowedUser();
   const pages=normalizePageList(currentUser.allowed_pages);
-  if(id==='supervisorDaily') return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id)||String(currentUser.role||'').toLowerCase().includes('pmo')||normalizeArabic(currentUser.display_name||currentUser.username||'').includes(normalizeArabic('أحمد العامودي'));
-  return currentUser.access_level==='full'||pages.includes('*')||pages.includes(id);
+  if(id==='supervisorDaily') return hasFullAccessUser()||pages.includes('*')||pages.includes(id)||String(currentUser.role||'').toLowerCase().includes('pmo')||normalizeArabic(currentUser.display_name||currentUser.username||'').includes(normalizeArabic('أحمد العامودي'));
+  return hasFullAccessUser()||pages.includes('*')||pages.includes(id);
 }
 function applyPermissions(){
   const pages=normalizePageList(currentUser.allowed_pages);
@@ -5742,7 +5747,7 @@ function getPhaseRemainingTime(stat){
 }
 let selectedProjectPhase='';
 function isPhaseAdmin(){
-  return currentUser?.access_level==='full'||normalizeArabic(currentUser?.role||'').includes('admin')||normalizeArabic(currentUser?.role||'').includes('مدير');
+  return hasFullAccessUser()||normalizeArabic(currentUser?.role||'').includes('admin')||normalizeArabic(currentUser?.role||'').includes('مدير');
 }
 function openPhaseTasks(phase){
   showPage('tasks');
@@ -9049,7 +9054,7 @@ function renderWarRoomMode(){
 function nowStamp(){return new Date().toLocaleString('ar-SA',{dateStyle:'short',timeStyle:'short'});}
 function boolFlag(v){return v===true||String(v||'').toUpperCase()==='TRUE'||String(v||'').toLowerCase()==='true';}
 function canAdvancedAction(page,action){
-  if(currentUser.access_level==='full') return true;
+  if(hasFullAccessUser()) return true;
   const canView=canAccessPage(page);
   if(action==='عرض') return canView;
   if(action==='إنشاء'||action==='تعديل') return canView&&['manager','control','coordinator','executive'].includes(currentUser.access_level);

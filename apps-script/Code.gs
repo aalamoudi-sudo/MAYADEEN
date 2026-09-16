@@ -57,7 +57,22 @@ const WBS_FIELD_ALIASES = {
 };
 
 const EXECUTIVE_BOARD_ACCESS_DENIED = 'ليس لديك صلاحية للوصول إلى لوحة المدير العام';
-const EXECUTIVE_BOARD_ALLOWED_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid', 'abdulrahman.ceo'];
+const EXECUTIVE_BOARD_ALLOWED_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid', 'abdullah.almarhoom', 'abdulrahman.ceo'];
+// Immutable authenticated identities required to retain cross-path access.  The
+// Matrix remains authoritative for account status and all feature flags; this
+// allow-list only defines the cross-path boundary requested by governance.
+const REQUIRED_FULL_ACCESS_USERNAMES = ['atheer', 'ahmad.amoudi', 'abdulaziz.obaid', 'abdullah.almarhoom'];
+const RECORD_PATH_FIELDS = ['path_scope', 'path', 'main_path', 'official_path', 'workstream', 'workstream_code', 'path_code', 'affected_paths', 'المسار الرسمي', 'المسار الرئيسي', 'المسار'];
+const RECORD_REFERENCE_FIELDS = ['linked_wbs_code', 'wbs_code', 'task_id', 'linked_task', 'linked_task_id', 'affected_tasks', 'item_id', 'linked_id', 'record_reference', 'reference_id'];
+const RECORD_ID_FIELDS = ['approval_id', 'decision_id', 'risk_id', 'escalation_id', 'assignment_id', 'meeting_id', 'commitment_id', 'file_id', 'urgent_task_id', 'task_id', 'wbs_code', 'code', 'id'];
+const PATH_SCOPE_ALIASES = {
+  hospitality: ['hospitality', 'الضيافة', 'ضيافة'], operations: ['operations', 'التشغيل', 'تشغيل'],
+  guest_experience: ['guest_experience', 'guest experience', 'تجربة الضيوف'], content: ['content', 'المحتوى', 'محتوى'],
+  transport_logistics: ['transport_logistics', 'transport logistics', 'النقل واللوجستيات', 'النقل والإمداد'],
+  delivery: ['delivery', 'التنفيذ', 'تنفيذ'], protocol_crowd: ['protocol_crowd', 'protocol crowd', 'البروتوكول والحشود'],
+  quality_risk: ['quality_risk', 'quality risk', 'الجودة والمخاطر'], field_event: ['field_event', 'field event', 'الحدث', 'التنفيذ الميداني'],
+  coordination: ['coordination', 'التنسيق', 'تنسيق'], government: ['government', 'العلاقات الحكومية', 'حكومي']
+};
 // This allow-list is deliberately keyed by the immutable, authenticated username.
 // Roles and display names must never imply access to completion evidence.
 const TASK_EVIDENCE_ALLOWED_USERNAMES = ['ahmad.amoudi', 'atheer', 'abdulaziz.obaid', 'munther.alansari'];
@@ -128,24 +143,43 @@ function buildDashboardData_(session) {
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   profile.spreadsheet_open_ms = new Date().getTime() - spreadsheetOpenStartedAt;
   const taskRead = timedDashboardOperation_(profile, 'wbs', function() { return readOfficialWbsTasks_(spreadsheet); });
-  const rows = taskRead.rows;
+  const allRows = taskRead.rows;
+  const approvalsAll = timedDashboardOperation_(profile, 'approvals', function() { return getApprovalRows_(spreadsheet); });
+  const approvalChainAll = timedDashboardOperation_(profile, 'approval_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName); });
+  const escalationChainAll = timedDashboardOperation_(profile, 'escalation_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName); });
+  const escalationsAll = timedDashboardOperation_(profile, 'escalations', function() { return deduplicateEscalationsById_(getExistingEscalationRows_(spreadsheet)); });
+  const taskEscalationsAll = timedDashboardOperation_(profile, 'task_escalations', function() { return getTaskEscalationRows_(spreadsheet); });
+  const riskGovernanceAll = timedDashboardOperation_(profile, 'risk_governance', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName); });
+  const assignmentsAll = timedDashboardOperation_(profile, 'assignments', function() { return getAssignmentRows_(spreadsheet); });
+  const meetingsAll = timedDashboardOperation_(profile, 'meetings', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.meetingsSheetName); });
+  const commitmentsAll = timedDashboardOperation_(profile, 'commitments', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.commitmentsSheetName); });
+  const filesAll = timedDashboardOperation_(profile, 'files', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.filesSheetName); });
+  const urgentTasksAll = timedDashboardOperation_(profile, 'urgent_tasks', function() { return getUrgentTaskRows_(spreadsheet); });
+  const decisionsAll = timedDashboardOperation_(profile, 'decisions', function() { return getDecisionRows_(spreadsheet); });
+  const employeeMasterAll = timedDashboardOperation_(profile, 'employee_master', function() { return getEmployeeMasterRows_(spreadsheet); });
+  const authorizationContext = buildPathAuthorizationContext_(allRows, {
+    approvals: approvalsAll, escalations: escalationsAll.concat(taskEscalationsAll), risks: riskGovernanceAll,
+    assignments: assignmentsAll, meetings: meetingsAll, commitments: commitmentsAll, files: filesAll,
+    urgent_tasks: urgentTasksAll, decisions: decisionsAll
+  });
+  const rows = scopeRowsForSession_(allRows, session, authorizationContext);
+  const approvals = scopeRowsForSession_(approvalsAll, session, authorizationContext);
+  const approvalChain = scopeRowsForSession_(approvalChainAll, session, authorizationContext);
+  const escalationChain = scopeRowsForSession_(escalationChainAll, session, authorizationContext);
+  const escalations = scopeRowsForSession_(escalationsAll, session, authorizationContext);
+  const taskEscalations = scopeRowsForSession_(taskEscalationsAll, session, authorizationContext);
+  const riskGovernance = scopeRowsForSession_(riskGovernanceAll, session, authorizationContext);
+  const assignments = scopeRowsForSession_(assignmentsAll, session, authorizationContext);
+  const meetings = scopeRowsForSession_(meetingsAll, session, authorizationContext);
+  const commitments = scopeRowsForSession_(commitmentsAll, session, authorizationContext);
+  const files = scopeRowsForSession_(filesAll, session, authorizationContext);
+  const urgentTasks = scopeRowsForSession_(urgentTasksAll, session, authorizationContext);
+  const decisions = scopeRowsForSession_(decisionsAll, session, authorizationContext);
+  const employeeMaster = scopeEmployeeRowsForSession_(employeeMasterAll, rows, session);
   const clientRows = filterTaskEvidenceForSession_(rows, session);
   const taskHeaders = filterTaskEvidenceHeadersForSession_(taskRead.headers, session);
-  const approvals = timedDashboardOperation_(profile, 'approvals', function() { return getApprovalRows_(spreadsheet); });
-  const approvalChain = timedDashboardOperation_(profile, 'approval_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName); });
-  const escalationChain = timedDashboardOperation_(profile, 'escalation_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName); });
-  const escalations = timedDashboardOperation_(profile, 'escalations', function() { return deduplicateEscalationsById_(getExistingEscalationRows_(spreadsheet)); });
-  const taskEscalations = timedDashboardOperation_(profile, 'task_escalations', function() { return getTaskEscalationRows_(spreadsheet); });
-  const riskGovernance = timedDashboardOperation_(profile, 'risk_governance', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName); });
-  const assignments = timedDashboardOperation_(profile, 'assignments', function() { return getAssignmentRows_(spreadsheet); });
-  const meetings = timedDashboardOperation_(profile, 'meetings', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.meetingsSheetName); });
-  const commitments = timedDashboardOperation_(profile, 'commitments', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.commitmentsSheetName); });
-  const files = timedDashboardOperation_(profile, 'files', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.filesSheetName); });
-  const urgentTasks = timedDashboardOperation_(profile, 'urgent_tasks', function() { return getUrgentTaskRows_(spreadsheet); });
-  const decisions = timedDashboardOperation_(profile, 'decisions', function() { return getDecisionRows_(spreadsheet); });
   const projectMaster = timedDashboardOperation_(profile, 'project_master', function() { return getProjectMasterRows_(spreadsheet); });
   const projectSettings = timedDashboardOperation_(profile, 'project_settings', function() { return getProjectSettingsRows_(spreadsheet); });
-  const employeeMaster = timedDashboardOperation_(profile, 'employee_master', function() { return getEmployeeMasterRows_(spreadsheet); });
   const baselineManagement = timedDashboardOperation_(profile, 'baseline_management', function() { return buildBaselineManagement_(spreadsheet, rows); });
   const raci = timedDashboardOperation_(profile, 'raci_matrix', function() { return buildRaciMatrix_(spreadsheet, rows, employeeMaster); });
   const criticalPath = timedDashboardOperation_(profile, 'critical_path', function() { return buildCriticalPathAnalysis_(spreadsheet, rows); });
@@ -191,6 +225,12 @@ function buildDashboardData_(session) {
       duration_ms: new Date().getTime() - syncStartedAt.getTime(),
       last_sync_at: Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd HH:mm:ss'),
       rows_read: rows.length,
+      source_rows_read: allRows.length,
+      valid_task_count: rows.length,
+      payload_task_total: rows.length,
+      home_task_total: rows.length,
+      source_valid_task_count: taskRead.diagnostics.valid_task_count,
+      path_scope_applied: hasFullAccess_(session) ? 'all' : String(session.path_scope || ''),
       risk_rows_read: riskGovernance.length,
       connection_status: 'connected',
       performance: profile
@@ -241,6 +281,130 @@ function filterTaskEvidenceForSession_(taskRows, session) {
   });
 }
 
+function normalizePathValue_(value) {
+  return normalizeArabicText_(String(value === null || value === undefined ? '' : value))
+    .replace(/[\/_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function authorizedPathValues_(session) {
+  const scope = String((session && session.path_scope) || '').trim().toLowerCase();
+  const configured = PATH_SCOPE_ALIASES[scope] || [scope];
+  return configured.map(normalizePathValue_).filter(Boolean);
+}
+
+function directRecordPath_(record) {
+  for (var index = 0; index < RECORD_PATH_FIELDS.length; index++) {
+    const value = getField_(record || {}, [RECORD_PATH_FIELDS[index]]);
+    if (String(value || '').trim()) return String(value).trim();
+  }
+  // WBS uses a wider, bilingual alias list than the generic registers.
+  const wbsPath = getField_(record || {}, WBS_FIELD_ALIASES.mainPath);
+  return String(wbsPath || '').trim();
+}
+
+function recordReferences_(record) {
+  const references = [];
+  RECORD_REFERENCE_FIELDS.forEach(function(field) {
+    const raw = getField_(record || {}, [field]);
+    String(raw || '').split(/[,،;]/).forEach(function(value) {
+      value = String(value || '').trim();
+      if (value && references.indexOf(value) === -1) references.push(value);
+    });
+  });
+  return references;
+}
+
+function recordIds_(record) {
+  const ids = [];
+  RECORD_ID_FIELDS.concat(WBS_FIELD_ALIASES.taskId).forEach(function(field) {
+    const value = getField_(record || {}, [field]);
+    if (String(value || '').trim() && ids.indexOf(String(value).trim()) === -1) ids.push(String(value).trim());
+  });
+  return ids;
+}
+
+function buildPathAuthorizationContext_(taskRows, datasets) {
+  const context = { reference_paths: {} };
+  const all = (taskRows || []).slice();
+  Object.keys(datasets || {}).forEach(function(key) { all.push.apply(all, datasets[key] || []); });
+  // Resolve direct paths first, then linked records (decision -> approval -> WBS,
+  // escalation -> task, and equivalent chains). Unresolved records stay hidden.
+  for (var pass = 0; pass < 4; pass++) {
+    all.forEach(function(record) {
+      var path = directRecordPath_(record);
+      if (!path) {
+        recordReferences_(record).some(function(reference) {
+          path = context.reference_paths[normalizeHeader_(reference)] || '';
+          return !!path;
+        });
+      }
+      if (!path) return;
+      recordIds_(record).forEach(function(id) { context.reference_paths[normalizeHeader_(id)] = path; });
+    });
+  }
+  return context;
+}
+
+function resolveRecordPath_(record, context) {
+  const direct = directRecordPath_(record);
+  if (direct) return direct;
+  const paths = (context && context.reference_paths) || {};
+  const references = recordReferences_(record);
+  for (var index = 0; index < references.length; index++) {
+    const resolved = paths[normalizeHeader_(references[index])];
+    if (resolved) return resolved;
+  }
+  return '';
+}
+
+function sessionCanAccessRecord_(session, record, context) {
+  if (hasFullAccess_(session)) return true;
+  const allowedPaths = authorizedPathValues_(session);
+  const recordPaths = String(resolveRecordPath_(record, context) || '').split(/[,،;]/).map(normalizePathValue_).filter(Boolean);
+  if (!recordPaths.length) return false; // fail closed: no provable path, no disclosure
+  return recordPaths.some(function(path) { return allowedPaths.indexOf(path) !== -1; });
+}
+
+function scopeRowsForSession_(rows, session, context) {
+  if (hasFullAccess_(session)) return (rows || []).slice();
+  return (rows || []).filter(function(record) { return sessionCanAccessRecord_(session, record, context); });
+}
+
+function scopeEmployeeRowsForSession_(employees, scopedTasks, session) {
+  if (hasFullAccess_(session)) return (employees || []).slice();
+  const allowed = {};
+  (scopedTasks || []).forEach(function(task) {
+    WBS_FIELD_ALIASES.owner.concat(WBS_FIELD_ALIASES.ownerEmail, WBS_FIELD_ALIASES.executionOwner).forEach(function(field) {
+      const value = normalizeHeader_(getField_(task, [field]));
+      if (value) allowed[value] = true;
+    });
+  });
+  return (employees || []).filter(function(employee) {
+    return ['employee', 'name', 'display_name', 'email', 'username', 'person', 'الموظف', 'الاسم'].some(function(field) {
+      const value = normalizeHeader_(getField_(employee, [field]));
+      return value && allowed[value];
+    });
+  });
+}
+
+function requireRecordPathAccess_(session, record, context) {
+  if (hasFullAccess_(session)) return true;
+  context = context || buildPathAuthorizationContext_(getTaskRows_(), {});
+  if (!sessionCanAccessRecord_(session, record || {}, context)) {
+    throw new Error('Forbidden: record is outside the authenticated path scope');
+  }
+  return true;
+}
+
+function requirePayloadPathAccess_(session, payload) {
+  return requireRecordPathAccess_(session, payload || {}, buildPathAuthorizationContext_(getTaskRows_(), {}));
+}
+
+function scopeEndpointRows_(rows, session) {
+  const tasks = getTaskRows_();
+  return scopeRowsForSession_(rows || [], session, buildPathAuthorizationContext_(tasks, { endpoint: rows || [] }));
+}
+
 function timedDashboardOperation_(profile, name, operation) {
   const startedAt = new Date().getTime();
   const result = operation();
@@ -260,6 +424,12 @@ function doPost(e) {
       return json_({ ok: true, user: safeUser_(user), session_token: session.token, expires_at: session.expires_at });
     }
 
+    // Inquiry module owns its optimized session/profile context and still calls
+    // the same authoritative requireSession_ implementation.
+    if (String(payload.action || '').indexOf('inquiry_') === 0) {
+      return json_(handleAuthenticatedInquiryAction_(payload));
+    }
+
     const session = requireSession_(payload);
 
     // Lightweight authoritative bootstrap: refreshes user roles from the access
@@ -273,112 +443,118 @@ function doPost(e) {
       return json_(buildDashboardData_(session));
     }
 
-    if (String(payload.action || '').indexOf('inquiry_') === 0) {
-      return json_(handleInquiryAction_(payload, session));
-    }
-
     if (String(payload.page_id || payload.page || payload.target_page || '').trim() === 'executiveBoard') {
       requireExecutiveBoardAccess_(session);
     }
 
     if (payload.action === 'get_event_sites') {
       requireFieldExperiencePermission_(session, 'read');
-      return json_({ ok: true, event_sites: getEventSitesData_(), permissions: getFieldExperiencePermissions_(session) });
+      return json_({ ok: true, event_sites: scopeEndpointRows_(getEventSitesData_(), session), permissions: getFieldExperiencePermissions_(session) });
     }
 
     if (payload.action === 'get_content_matrix') {
       requireContentMatrixPermission_(session, 'read');
-      return json_(contentMatrixResponse_('تم تحميل مصفوفة المحتوى', { items: getContentMatrixData_(), event_sites: getEventSiteLinkOptions_(), permissions: getContentMatrixPermissions_(session), review_statuses: getContentMatrixReviewStatuses_(), approval_statuses: getContentMatrixApprovalStatuses_() }));
+      return json_(contentMatrixResponse_('تم تحميل مصفوفة المحتوى', { items: scopeEndpointRows_(getContentMatrixData_(), session), event_sites: scopeEndpointRows_(getEventSiteLinkOptions_(), session), permissions: getContentMatrixPermissions_(session), review_statuses: getContentMatrixReviewStatuses_(), approval_statuses: getContentMatrixApprovalStatuses_() }));
     }
 
     if (payload.action === 'get_content_item_details') {
       requireContentMatrixPermission_(session, 'read');
-      return json_(contentMatrixResponse_('تم تحميل تفاصيل المحتوى', getContentItemDetails_(payload)));
+      const contentDetails = getContentItemDetails_(payload);
+      requirePayloadPathAccess_(session, contentDetails);
+      return json_(contentMatrixResponse_('تم تحميل تفاصيل المحتوى', contentDetails));
     }
 
     if (payload.action === 'create_content_item') {
       requireContentMatrixPermission_(session, 'create');
+      requirePayloadPathAccess_(session, payload);
       const item = createContentItem_(withActor_(payload, session), session);
-      return json_(contentMatrixResponse_('تم إنشاء مادة المحتوى', { item: item, items: getContentMatrixData_() }));
+      return json_(contentMatrixResponse_('تم إنشاء مادة المحتوى', { item: item, items: scopeEndpointRows_(getContentMatrixData_(), session) }));
     }
 
     if (payload.action === 'update_content_item') {
       requireContentMatrixPermission_(session, 'update');
       const item = updateContentItem_(withActor_(payload, session), session);
-      return json_(contentMatrixResponse_('تم تحديث مادة المحتوى', { item: item, items: getContentMatrixData_() }));
+      return json_(contentMatrixResponse_('تم تحديث مادة المحتوى', { item: item, items: scopeEndpointRows_(getContentMatrixData_(), session) }));
     }
 
     if (payload.action === 'delete_content_item') {
       requireContentMatrixPermission_(session, 'delete');
       const item = deleteContentItem_(withActor_(payload, session), session);
-      return json_(contentMatrixResponse_('تم حذف مادة المحتوى حذفًا ناعمًا', { item: item, items: getContentMatrixData_() }));
+      return json_(contentMatrixResponse_('تم حذف مادة المحتوى حذفًا ناعمًا', { item: item, items: scopeEndpointRows_(getContentMatrixData_(), session) }));
     }
 
     if (payload.action === 'get_guest_journeys') {
       requireGuestJourneyPermission_(session, 'read');
-      return json_(guestJourneyResponse_('تم تحميل رحلات الضيوف', { items: getGuestJourneysData_(), event_sites: getEventSiteLinkOptions_(), permissions: getGuestJourneyPermissions_(session), statuses: getGuestJourneyStatusLists_() }));
+      return json_(guestJourneyResponse_('تم تحميل رحلات الضيوف', { items: scopeEndpointRows_(getGuestJourneysData_(), session), event_sites: scopeEndpointRows_(getEventSiteLinkOptions_(), session), permissions: getGuestJourneyPermissions_(session), statuses: getGuestJourneyStatusLists_() }));
     }
     if (payload.action === 'get_guest_journey_details') {
       requireGuestJourneyPermission_(session, 'read');
-      return json_(guestJourneyResponse_('تم تحميل تفاصيل رحلة الضيف', getGuestJourneyDetails_(payload)));
+      const journeyDetails = getGuestJourneyDetails_(payload);
+      requirePayloadPathAccess_(session, journeyDetails);
+      return json_(guestJourneyResponse_('تم تحميل تفاصيل رحلة الضيف', journeyDetails));
     }
     if (payload.action === 'create_guest_journey') {
       requireGuestJourneyPermission_(session, 'create');
+      requirePayloadPathAccess_(session, payload);
       const journey = createGuestJourney_(withActor_(payload, session), session);
-      return json_(guestJourneyResponse_('تم إنشاء رحلة الضيف', { item: journey, items: getGuestJourneysData_(), event_sites: getEventSiteLinkOptions_() }));
+      return json_(guestJourneyResponse_('تم إنشاء رحلة الضيف', { item: journey, items: scopeEndpointRows_(getGuestJourneysData_(), session), event_sites: scopeEndpointRows_(getEventSiteLinkOptions_(), session) }));
     }
     if (payload.action === 'update_guest_journey') {
       requireGuestJourneyPermission_(session, 'update');
       const journey = updateGuestJourney_(withActor_(payload, session), session);
-      return json_(guestJourneyResponse_('تم تحديث رحلة الضيف', { item: journey, items: getGuestJourneysData_(), event_sites: getEventSiteLinkOptions_() }));
+      return json_(guestJourneyResponse_('تم تحديث رحلة الضيف', { item: journey, items: scopeEndpointRows_(getGuestJourneysData_(), session), event_sites: scopeEndpointRows_(getEventSiteLinkOptions_(), session) }));
     }
     if (payload.action === 'delete_guest_journey') {
       requireGuestJourneyPermission_(session, 'delete');
       const journey = deleteGuestJourney_(withActor_(payload, session), session);
-      return json_(guestJourneyResponse_('تم حذف رحلة الضيف حذفًا ناعمًا', { item: journey, items: getGuestJourneysData_(), event_sites: getEventSiteLinkOptions_() }));
+      return json_(guestJourneyResponse_('تم حذف رحلة الضيف حذفًا ناعمًا', { item: journey, items: scopeEndpointRows_(getGuestJourneysData_(), session), event_sites: scopeEndpointRows_(getEventSiteLinkOptions_(), session) }));
     }
 
 
     if (payload.action === 'get_assets_gifts') {
       requireAssetsGiftsPermission_(session, 'read');
-      return json_(assetsGiftsResponse_('تم تحميل الأصول والهدايا', { items: getAssetsGiftsData_(), event_sites: getEventSiteLinkOptions_(), guest_journeys: getGuestJourneyLinkOptions_(), permissions: getAssetsGiftsPermissions_(session), lists: getAssetsGiftsLists_() }));
+      return json_(assetsGiftsResponse_('تم تحميل الأصول والهدايا', { items: scopeEndpointRows_(getAssetsGiftsData_(), session), event_sites: scopeEndpointRows_(getEventSiteLinkOptions_(), session), guest_journeys: scopeEndpointRows_(getGuestJourneyLinkOptions_(), session), permissions: getAssetsGiftsPermissions_(session), lists: getAssetsGiftsLists_() }));
     }
     if (payload.action === 'get_asset_gift_details') {
       requireAssetsGiftsPermission_(session, 'read');
-      return json_(assetsGiftsResponse_('تم تحميل تفاصيل الأصل أو الهدية', getAssetGiftDetails_(payload)));
+      const assetDetails = getAssetGiftDetails_(payload);
+      requirePayloadPathAccess_(session, assetDetails);
+      return json_(assetsGiftsResponse_('تم تحميل تفاصيل الأصل أو الهدية', assetDetails));
     }
     if (payload.action === 'create_asset_gift') {
       requireAssetsGiftsPermission_(session, 'create');
+      requirePayloadPathAccess_(session, payload);
       const item = createAssetGift_(withActor_(payload, session), session);
-      return json_(assetsGiftsResponse_('تم إنشاء عنصر الأصول والهدايا', { item: item, items: getAssetsGiftsData_() }));
+      return json_(assetsGiftsResponse_('تم إنشاء عنصر الأصول والهدايا', { item: item, items: scopeEndpointRows_(getAssetsGiftsData_(), session) }));
     }
     if (payload.action === 'update_asset_gift') {
       requireAssetsGiftsPermission_(session, 'update');
       const item = updateAssetGift_(withActor_(payload, session), session);
-      return json_(assetsGiftsResponse_('تم تحديث عنصر الأصول والهدايا', { item: item, items: getAssetsGiftsData_() }));
+      return json_(assetsGiftsResponse_('تم تحديث عنصر الأصول والهدايا', { item: item, items: scopeEndpointRows_(getAssetsGiftsData_(), session) }));
     }
     if (payload.action === 'delete_asset_gift') {
       requireAssetsGiftsPermission_(session, 'delete');
       const item = deleteAssetGift_(withActor_(payload, session), session);
-      return json_(assetsGiftsResponse_('تم حذف عنصر الأصول والهدايا حذفًا ناعمًا', { item: item, items: getAssetsGiftsData_() }));
+      return json_(assetsGiftsResponse_('تم حذف عنصر الأصول والهدايا حذفًا ناعمًا', { item: item, items: scopeEndpointRows_(getAssetsGiftsData_(), session) }));
     }
 
     if (payload.action === 'create_event_site') {
       requireFieldExperiencePermission_(session, 'create');
+      requirePayloadPathAccess_(session, payload);
       const site = createEventSite_(withActor_(payload, session), session);
-      return json_({ ok: true, event_site: site, event_sites: getEventSitesData_() });
+      return json_({ ok: true, event_site: site, event_sites: scopeEndpointRows_(getEventSitesData_(), session) });
     }
 
     if (payload.action === 'update_event_site') {
       requireFieldExperiencePermission_(session, 'update');
       const site = updateEventSite_(withActor_(payload, session), session);
-      return json_({ ok: true, event_site: site, event_sites: getEventSitesData_() });
+      return json_({ ok: true, event_site: site, event_sites: scopeEndpointRows_(getEventSitesData_(), session) });
     }
 
     if (payload.action === 'delete_event_site') {
       requireFieldExperiencePermission_(session, 'delete');
       const site = deleteEventSite_(withActor_(payload, session), session);
-      return json_({ ok: true, event_site: site, event_sites: getEventSitesData_() });
+      return json_({ ok: true, event_site: site, event_sites: scopeEndpointRows_(getEventSitesData_(), session) });
     }
 
     if (payload.action === 'supervisor_draft_preview') {
@@ -431,6 +607,7 @@ function doPost(e) {
 
     if (payload.action === 'daily_update') {
       requireCanWriteEntity_(session, 'task');
+      requirePayloadPathAccess_(session, payload);
       const actorPayload = withActor_(payload, session);
       appendAuditLog_(Object.assign({}, actorPayload, { operation: 'write', record: actorPayload.task || actorPayload.title || actorPayload.wbs_code || '', reference: actorPayload.reference || actorPayload.record_ref || actorPayload.evidence_link || '', result: 'success' }));
       notifyDailyUpdate_(actorPayload);
@@ -439,15 +616,20 @@ function doPost(e) {
 
     if (payload.action === 'approval_request') {
       requireCanWriteEntity_(session, 'approval');
+      requirePayloadPathAccess_(session, payload);
       const item = appendApproval_(withActor_(payload, session));
-      return json_({ ok: true, message: 'Approval request logged', approval: item, approvals: getApprovalRows_() });
+      return json_({ ok: true, message: 'Approval request logged', approval: item, approvals: scopeEndpointRows_(getApprovalRows_(), session) });
     }
 
     if (payload.action === 'approval_update') {
       requireCanApprove_(session);
       requireCanWriteEntity_(session, 'approval');
+      const existingApproval = getApprovalRows_().find(function(item) { return String(item.approval_id || '') === String(payload.approval_id || payload.id || ''); });
+      if (!existingApproval) throw new Error('Approval not found');
+      requirePayloadPathAccess_(session, existingApproval);
+      requirePayloadPathAccess_(session, Object.assign({}, existingApproval, payload));
       const item = updateApproval_(withActor_(payload, session));
-      return json_({ ok: true, message: 'Approval updated', approval: item, approvals: getApprovalRows_() });
+      return json_({ ok: true, message: 'Approval updated', approval: item, approvals: scopeEndpointRows_(getApprovalRows_(), session) });
     }
 
     if (payload.action === 'task_assignment_preview') {
@@ -459,6 +641,7 @@ function doPost(e) {
     if (payload.action === 'task_assignment_confirm' || payload.action === 'task_assignment') {
       requireCanManageUsers_(session);
       requireCanWriteEntity_(session, 'assignment');
+      requirePayloadPathAccess_(session, payload);
       if (payload.action === 'task_assignment') throw new Error('Preview and explicit confirmation required before sending assignment');
       const item = appendAssignment_(withActor_(payload, session));
       // Staging acceptance: no email or notification is sent from this action.
@@ -468,6 +651,7 @@ function doPost(e) {
     if (payload.action === 'meeting_record') {
       requireCanEscalate_(session);
       requireCanWriteEntity_(session, 'escalation');
+      requirePayloadPathAccess_(session, payload);
       const item = appendMeeting_(withActor_(payload, session));
       return json_({ ok: true, message: 'Meeting logged', meeting: item });
     }
@@ -1015,7 +1199,7 @@ function deduplicateDataQualityIssues_(candidates,stored){
 }
 
 function getMeetingHeaders_() {
-  return ['meeting_id', 'title', 'date', 'attendees', 'decisions', 'actions', 'created_at', 'updated_at'];
+  return ['meeting_id', 'title', 'date', 'attendees', 'decisions', 'actions', 'path', 'linked_wbs_code', 'created_at', 'updated_at'];
 }
 
 function getApprovalChainHeaders_() {
@@ -1028,7 +1212,7 @@ function getEscalationChainHeaders_() {
 
 
 function getRiskGovernanceHeaders_() {
-  return ['risk_id', 'title', 'category', 'probability', 'impact', 'severity', 'owner', 'treatment_plan', 'escalation_level', 'status', 'due_date', 'updated_at'];
+  return ['risk_id', 'title', 'category', 'probability', 'impact', 'severity', 'owner', 'treatment_plan', 'escalation_level', 'status', 'due_date', 'path', 'linked_wbs_code', 'updated_at'];
 }
 
 function getUserAccessHeaders_() {
@@ -1266,7 +1450,8 @@ function requireCanManageUsers_(session) {
 }
 
 function hasFullAccess_(session) {
-  return String(session.access_level || '').toLowerCase() === 'full';
+  const username = String((session && session.username) || '').trim().toLowerCase();
+  return REQUIRED_FULL_ACCESS_USERNAMES.indexOf(username) !== -1 || String((session && session.access_level) || '').toLowerCase() === 'full';
 }
 
 function withActor_(payload, session) {
@@ -1447,11 +1632,11 @@ function getDecisionRows_(ss) {
 }
 
 function getCommitmentHeaders_() {
-  return ['commitment_id', 'owner', 'commitment', 'due_date', 'status', 'source', 'created_at', 'updated_at'];
+  return ['commitment_id', 'owner', 'commitment', 'due_date', 'status', 'source', 'path', 'linked_wbs_code', 'created_at', 'updated_at'];
 }
 
 function getFileHeaders_() {
-  return ['file_id', 'name', 'owner', 'version', 'link', 'approval_status', 'updated_at', 'notes'];
+  return ['file_id', 'name', 'owner', 'version', 'link', 'approval_status', 'path', 'linked_wbs_code', 'updated_at', 'notes'];
 }
 
 
@@ -1570,8 +1755,8 @@ function cleanGuestJourneyPayload_(payload) { const out={}; getGuestJourneyWrita
 function guestJourneyDuplicateKey_(r) { return [String(r.guest_category||'').toLowerCase(),String(r.journey_title||'').toLowerCase(),String(r.linked_site_id||'NO_SITE').toLowerCase()].join('|'); }
 function findDuplicateGuestJourney_(rows,data,excludeId) { const key=guestJourneyDuplicateKey_(data); return rows.some(function(r){ return guestJourneyDuplicateKey_(r)===key && String(r.journey_id||'')!==String(excludeId||'') && !parseBool_(r.is_deleted); }); }
 function createGuestJourney_(payload,session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const sheet=ensureGuestJourneySheet_(); const hi=guestJourneyHeaderMap_(sheet); const data=cleanGuestJourneyPayload_(payload); const rows=guestJourneyRowsWithHeaders_(sheet,hi); if(findDuplicateGuestJourney_(rows,data,'')) throw new Error('توجد رحلة ضيف مطابقة لنفس الفئة والعنوان والموقع'); const now=new Date(); const id='GJ-'+Utilities.getUuid(); const actor=session.display_name||session.username; const rec=Object.assign({},data,{journey_id:id,created_by:actor,created_at:now,updated_by:actor,updated_at:now,is_deleted:false}); sheet.appendRow(hi.headers.map(function(h){return rec[h]!==undefined?rec[h]:'';})); appendGuestJourneyAudit_('CREATE_GUEST_JOURNEY',session,id,{},rec); return rec; } finally{ lock.releaseLock(); } }
-function updateGuestJourney_(payload,session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.journey_id||'').trim(); if(!id) throw new Error('Missing journey_id'); const sheet=ensureGuestJourneySheet_(); const hi=guestJourneyHeaderMap_(sheet); const rows=guestJourneyRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.journey_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Guest journey not found'); const data=cleanGuestJourneyPayload_(payload); if(findDuplicateGuestJourney_(rows,data,id)) throw new Error('توجد رحلة ضيف مطابقة لنفس الفئة والعنوان والموقع'); const oldValues={}; const newValues={}; getGuestJourneyWritableFields_().forEach(function(f){ if(!hi.map[f]) return; oldValues[f]=current[f]||''; newValues[f]=data[f]; sheet.getRange(current.rowNumber,hi.map[f]).setValue(data[f]); }); const now=new Date(); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const rec=Object.assign({},current,newValues,{updated_at:now,updated_by:session.display_name||session.username}); appendGuestJourneyAudit_('UPDATE_GUEST_JOURNEY',session,id,oldValues,newValues); return rec; } finally{ lock.releaseLock(); } }
-function deleteGuestJourney_(payload,session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.journey_id||'').trim(); if(!id) throw new Error('Missing journey_id'); const sheet=ensureGuestJourneySheet_(); const hi=guestJourneyHeaderMap_(sheet); const rows=guestJourneyRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.journey_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Guest journey not found'); const now=new Date(); if(hi.map.is_deleted) sheet.getRange(current.rowNumber,hi.map.is_deleted).setValue(true); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const next={is_deleted:true,updated_at:now,updated_by:session.display_name||session.username}; appendGuestJourneyAudit_('DELETE_GUEST_JOURNEY',session,id,current,next); return Object.assign({},current,next); } finally{ lock.releaseLock(); } }
+function updateGuestJourney_(payload,session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.journey_id||'').trim(); if(!id) throw new Error('Missing journey_id'); const sheet=ensureGuestJourneySheet_(); const hi=guestJourneyHeaderMap_(sheet); const rows=guestJourneyRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.journey_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Guest journey not found'); requirePayloadPathAccess_(session,current); requirePayloadPathAccess_(session,Object.assign({},current,payload)); const data=cleanGuestJourneyPayload_(payload); if(findDuplicateGuestJourney_(rows,data,id)) throw new Error('توجد رحلة ضيف مطابقة لنفس الفئة والعنوان والموقع'); const oldValues={}; const newValues={}; getGuestJourneyWritableFields_().forEach(function(f){ if(!hi.map[f]) return; oldValues[f]=current[f]||''; newValues[f]=data[f]; sheet.getRange(current.rowNumber,hi.map[f]).setValue(data[f]); }); const now=new Date(); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const rec=Object.assign({},current,newValues,{updated_at:now,updated_by:session.display_name||session.username}); appendGuestJourneyAudit_('UPDATE_GUEST_JOURNEY',session,id,oldValues,newValues); return rec; } finally{ lock.releaseLock(); } }
+function deleteGuestJourney_(payload,session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.journey_id||'').trim(); if(!id) throw new Error('Missing journey_id'); const sheet=ensureGuestJourneySheet_(); const hi=guestJourneyHeaderMap_(sheet); const rows=guestJourneyRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.journey_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Guest journey not found'); requirePayloadPathAccess_(session,current); requirePayloadPathAccess_(session,Object.assign({},current,payload)); const now=new Date(); if(hi.map.is_deleted) sheet.getRange(current.rowNumber,hi.map.is_deleted).setValue(true); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const next={is_deleted:true,updated_at:now,updated_by:session.display_name||session.username}; appendGuestJourneyAudit_('DELETE_GUEST_JOURNEY',session,id,current,next); return Object.assign({},current,next); } finally{ lock.releaseLock(); } }
 function appendGuestJourneyAudit_(action,session,journeyId,oldValues,newValues) { appendAuditLog_({ user:session.username, updated_by:session.display_name||session.username, action:action, operation:action, record:journeyId, entity_type:'Guest Journey', entity_id:journeyId, timestamp:new Date(), previous_value:JSON.stringify(oldValues||{}), new_value:JSON.stringify(newValues||{}), result:'success', reference:'Guest Journey' }); }
 
 function getContentMatrixHeaders_() {
@@ -1605,8 +1790,8 @@ function validateContentUrl_(v, field) { const s=String(v||'').trim(); if(!s) re
 function cleanContentPayload_(payload) { const out={}; getContentMatrixWritableFields_().forEach(function(f){ out[f]=sanitizeContentText_(payload[f]); }); ['content_name','content_type','main_scenario','version_number','review_status','approval_status'].forEach(function(f){ if(!out[f]) throw new Error('Missing required field: '+f); }); validateEnum_(out.review_status, getContentMatrixReviewStatuses_(), 'review_status'); validateEnum_(out.approval_status, getContentMatrixApprovalStatuses_(), 'approval_status'); ['introductory_video','mapping_3d','final_presentation_file','operation_guide','content_source'].forEach(function(f){ validateContentUrl_(out[f], f); }); const siteId=out.linked_site_id; if(siteId){ const site=getEventSiteLinkOptions_().find(function(s){return String(s.linked_site_id)===String(siteId);}); if(site) out.linked_site_name=site.linked_site_name; } else { out.linked_site_name=''; } return out; }
 function findDuplicateContentItem_(rows, name, version, excludeId) { const n=String(name||'').toLowerCase(); const v=String(version||'').toLowerCase(); return rows.some(function(r){ return String(r.content_name||'').toLowerCase()===n && String(r.version_number||'').toLowerCase()===v && String(r.content_id||'')!==String(excludeId||'') && !parseBool_(r.is_deleted); }); }
 function createContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const data=cleanContentPayload_(payload); const rows=contentMatrixRowsWithHeaders_(sheet,hi); if(findDuplicateContentItem_(rows,data.content_name,data.version_number,'')) throw new Error('يوجد محتوى بنفس الاسم ورقم الإصدار'); const now=new Date(); const id='CONTENT-'+Utilities.getUuid(); const actor=session.display_name||session.username; const rec=Object.assign({},data,{content_id:id,created_by:actor,created_at:now,updated_by:actor,updated_at:now,is_deleted:false}); sheet.appendRow(hi.headers.map(function(h){return rec[h]!==undefined?rec[h]:'';})); appendContentMatrixAudit_('CREATE_CONTENT_ITEM',session,id,{},rec); return rec; } finally{ lock.releaseLock(); } }
-function updateContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.content_id||'').trim(); if(!id) throw new Error('Missing content_id'); const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const rows=contentMatrixRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.content_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Content item not found'); const data=cleanContentPayload_(payload); if(findDuplicateContentItem_(rows,data.content_name,data.version_number,id)) throw new Error('يوجد محتوى بنفس الاسم ورقم الإصدار'); const oldValues={}; getContentMatrixWritableFields_().forEach(function(f){ if(!hi.map[f]) return; oldValues[f]=current[f]||''; sheet.getRange(current.rowNumber,hi.map[f]).setValue(data[f]); }); const now=new Date(); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const rec=Object.assign({},current,data,{updated_at:now,updated_by:session.display_name||session.username}); appendContentMatrixAudit_('UPDATE_CONTENT_ITEM',session,id,oldValues,data); return rec; } finally{ lock.releaseLock(); } }
-function deleteContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.content_id||'').trim(); if(!id) throw new Error('Missing content_id'); const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const rows=contentMatrixRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.content_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Content item not found'); const now=new Date(); if(hi.map.is_deleted) sheet.getRange(current.rowNumber,hi.map.is_deleted).setValue(true); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const next={is_deleted:true,updated_at:now,updated_by:session.display_name||session.username}; appendContentMatrixAudit_('DELETE_CONTENT_ITEM',session,id,current,next); return Object.assign({},current,next); } finally{ lock.releaseLock(); } }
+function updateContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.content_id||'').trim(); if(!id) throw new Error('Missing content_id'); const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const rows=contentMatrixRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.content_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Content item not found'); requirePayloadPathAccess_(session,current); requirePayloadPathAccess_(session,Object.assign({},current,payload)); const data=cleanContentPayload_(payload); if(findDuplicateContentItem_(rows,data.content_name,data.version_number,id)) throw new Error('يوجد محتوى بنفس الاسم ورقم الإصدار'); const oldValues={}; getContentMatrixWritableFields_().forEach(function(f){ if(!hi.map[f]) return; oldValues[f]=current[f]||''; sheet.getRange(current.rowNumber,hi.map[f]).setValue(data[f]); }); const now=new Date(); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const rec=Object.assign({},current,data,{updated_at:now,updated_by:session.display_name||session.username}); appendContentMatrixAudit_('UPDATE_CONTENT_ITEM',session,id,oldValues,data); return rec; } finally{ lock.releaseLock(); } }
+function deleteContentItem_(payload, session) { const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.content_id||'').trim(); if(!id) throw new Error('Missing content_id'); const sheet=ensureContentMatrixSheet_(); const hi=contentMatrixHeaderMap_(sheet); const rows=contentMatrixRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.content_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Content item not found'); requirePayloadPathAccess_(session,current); requirePayloadPathAccess_(session,Object.assign({},current,payload)); const now=new Date(); if(hi.map.is_deleted) sheet.getRange(current.rowNumber,hi.map.is_deleted).setValue(true); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const next={is_deleted:true,updated_at:now,updated_by:session.display_name||session.username}; appendContentMatrixAudit_('DELETE_CONTENT_ITEM',session,id,current,next); return Object.assign({},current,next); } finally{ lock.releaseLock(); } }
 function getEventSiteLinkOptions_() { return getEventSitesData_().map(function(s){ return { linked_site_id: s.site_id || '', linked_site_name: s.site_name || s.activation_name || s.site_code || '' }; }).filter(function(s){return s.linked_site_id;}); }
 function appendContentMatrixAudit_(action, session, contentId, oldValues, newValues) { appendAuditLog_({ user: session.username, updated_by: session.display_name||session.username, action: action, operation: action, record: contentId, entity_type: 'Content Matrix', entity_id: contentId, timestamp: new Date(), previous_value: JSON.stringify(oldValues||{}), new_value: JSON.stringify(newValues||{}), result: 'success', reference: 'Content Matrix' }); }
 
@@ -1633,8 +1818,8 @@ function assetGiftDuplicateKey_(r){ return [String(r.asset_type||'').toLowerCase
 function findDuplicateAssetGift_(rows,data,excludeId){ const key=assetGiftDuplicateKey_(data); return rows.some(function(r){ return assetGiftDuplicateKey_(r)===key && String(r.asset_id||'')!==String(excludeId||'') && !parseBool_(r.is_deleted); }); }
 function findDuplicateAssetSerial_(rows,serial,excludeId){ const s=String(serial||'').trim().toLowerCase(); if(!s) return false; return rows.some(function(r){ return String(r.serial_number||'').trim().toLowerCase()===s && String(r.asset_id||'')!==String(excludeId||'') && !parseBool_(r.is_deleted); }); }
 function createAssetGift_(payload,session){ const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const sheet=ensureAssetsGiftsSheet_(); const hi=assetsGiftsHeaderMap_(sheet); const data=cleanAssetGiftPayload_(payload); const rows=assetsGiftsRowsWithHeaders_(sheet,hi); if(findDuplicateAssetGift_(rows,data,'')) throw new Error('يوجد عنصر مكرر بنفس النوع والاسم والمرجع والموقع'); if(findDuplicateAssetSerial_(rows,data.serial_number,'')) throw new Error('الرقم التسلسلي مستخدم في سجل آخر'); const now=new Date(); const id='AG-'+Utilities.getUuid(); const actor=session.display_name||session.username; const rec=Object.assign({},data,{asset_id:id,created_by:actor,created_at:now,updated_by:actor,updated_at:now,is_deleted:false}); sheet.appendRow(hi.headers.map(function(h){return rec[h]!==undefined?rec[h]:'';})); appendAssetsGiftsAudit_('CREATE_ASSET_GIFT',session,id,{},rec); return rec; } finally{ lock.releaseLock(); } }
-function updateAssetGift_(payload,session){ const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.asset_id||'').trim(); if(!id) throw new Error('Missing asset_id'); const sheet=ensureAssetsGiftsSheet_(); const hi=assetsGiftsHeaderMap_(sheet); const rows=assetsGiftsRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.asset_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Asset or gift not found'); const data=cleanAssetGiftPayload_(payload); if(findDuplicateAssetGift_(rows,data,id)) throw new Error('يوجد عنصر مكرر بنفس النوع والاسم والمرجع والموقع'); if(findDuplicateAssetSerial_(rows,data.serial_number,id)) throw new Error('الرقم التسلسلي مستخدم في سجل آخر'); const oldValues={}; getAssetsGiftsWritableFields_().concat(['quantity_remaining']).forEach(function(f){ if(!hi.map[f]) return; oldValues[f]=current[f]||''; sheet.getRange(current.rowNumber,hi.map[f]).setValue(data[f]); }); const now=new Date(); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const rec=Object.assign({},current,data,{updated_at:now,updated_by:session.display_name||session.username}); appendAssetsGiftsAudit_('UPDATE_ASSET_GIFT',session,id,oldValues,data); return rec; } finally{ lock.releaseLock(); } }
-function deleteAssetGift_(payload,session){ const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.asset_id||'').trim(); if(!id) throw new Error('Missing asset_id'); const sheet=ensureAssetsGiftsSheet_(); const hi=assetsGiftsHeaderMap_(sheet); const rows=assetsGiftsRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.asset_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Asset or gift not found'); const now=new Date(); if(hi.map.is_deleted) sheet.getRange(current.rowNumber,hi.map.is_deleted).setValue(true); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const next={is_deleted:true,updated_at:now,updated_by:session.display_name||session.username}; appendAssetsGiftsAudit_('DELETE_ASSET_GIFT',session,id,current,next); return Object.assign({},current,next); } finally{ lock.releaseLock(); } }
+function updateAssetGift_(payload,session){ const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.asset_id||'').trim(); if(!id) throw new Error('Missing asset_id'); const sheet=ensureAssetsGiftsSheet_(); const hi=assetsGiftsHeaderMap_(sheet); const rows=assetsGiftsRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.asset_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Asset or gift not found'); requirePayloadPathAccess_(session,current); requirePayloadPathAccess_(session,Object.assign({},current,payload)); const data=cleanAssetGiftPayload_(payload); if(findDuplicateAssetGift_(rows,data,id)) throw new Error('يوجد عنصر مكرر بنفس النوع والاسم والمرجع والموقع'); if(findDuplicateAssetSerial_(rows,data.serial_number,id)) throw new Error('الرقم التسلسلي مستخدم في سجل آخر'); const oldValues={}; getAssetsGiftsWritableFields_().concat(['quantity_remaining']).forEach(function(f){ if(!hi.map[f]) return; oldValues[f]=current[f]||''; sheet.getRange(current.rowNumber,hi.map[f]).setValue(data[f]); }); const now=new Date(); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const rec=Object.assign({},current,data,{updated_at:now,updated_by:session.display_name||session.username}); appendAssetsGiftsAudit_('UPDATE_ASSET_GIFT',session,id,oldValues,data); return rec; } finally{ lock.releaseLock(); } }
+function deleteAssetGift_(payload,session){ const lock=LockService.getScriptLock(); lock.waitLock(20000); try{ const id=String(payload.asset_id||'').trim(); if(!id) throw new Error('Missing asset_id'); const sheet=ensureAssetsGiftsSheet_(); const hi=assetsGiftsHeaderMap_(sheet); const rows=assetsGiftsRowsWithHeaders_(sheet,hi); const current=rows.find(function(r){return String(r.asset_id||'')===id&&!parseBool_(r.is_deleted);}); if(!current) throw new Error('Asset or gift not found'); requirePayloadPathAccess_(session,current); requirePayloadPathAccess_(session,Object.assign({},current,payload)); const now=new Date(); if(hi.map.is_deleted) sheet.getRange(current.rowNumber,hi.map.is_deleted).setValue(true); if(hi.map.updated_at) sheet.getRange(current.rowNumber,hi.map.updated_at).setValue(now); if(hi.map.updated_by) sheet.getRange(current.rowNumber,hi.map.updated_by).setValue(session.display_name||session.username); const next={is_deleted:true,updated_at:now,updated_by:session.display_name||session.username}; appendAssetsGiftsAudit_('DELETE_ASSET_GIFT',session,id,current,next); return Object.assign({},current,next); } finally{ lock.releaseLock(); } }
 function getGuestJourneyLinkOptions_(){ return getGuestJourneysData_().map(function(j){ return { linked_journey_id:j.journey_id||'', linked_journey_title:j.journey_title||'' }; }).filter(function(j){return j.linked_journey_id;}); }
 function appendAssetsGiftsAudit_(action,session,assetId,oldValues,newValues){ appendAuditLog_({ user:session.username, updated_by:session.display_name||session.username, action:action, operation:action, record:assetId, entity_type:'Assets & Gifts', entity_id:assetId, timestamp:new Date(), previous_value:JSON.stringify(oldValues||{}), new_value:JSON.stringify(newValues||{}), result:'success', reference:'Assets & Gifts' }); }
 
@@ -1785,6 +1970,8 @@ function updateEventSite_(payload, session) {
     const sheet = getEventSitesSheetForWrite_(); const hi = eventSiteHeaderMap_(sheet);
     const rows = eventSiteRowsWithHeaders_(sheet, hi); const current = rows.find(function(r) { return String(r.site_id || '') === siteId && !parseBool_(r.is_deleted); });
     if (!current) throw new Error('Event site not found');
+    requirePayloadPathAccess_(session, current);
+    requirePayloadPathAccess_(session, Object.assign({}, current, payload));
     const data = cleanEventSitePayload_(payload, false);
     if (findDuplicateEventSiteCode_(rows, data.site_code, siteId)) throw new Error('Duplicate site_code');
     const oldValues = {}; const newValues = {};
@@ -1804,6 +1991,8 @@ function deleteEventSite_(payload, session) {
     const sheet = ensureEventSitesSoftDeleteColumns_(); const hi = eventSiteHeaderMap_(sheet);
     const rows = eventSiteRowsWithHeaders_(sheet, hi); const current = rows.find(function(r) { return String(r.site_id || '') === siteId && !parseBool_(r.is_deleted); });
     if (!current) throw new Error('Event site not found');
+    requirePayloadPathAccess_(session, current);
+    requirePayloadPathAccess_(session, Object.assign({}, current, payload));
     const now = new Date();
     sheet.getRange(current.rowNumber, hi.map.is_deleted).setValue(true);
     sheet.getRange(current.rowNumber, hi.map.deleted_at).setValue(now);
@@ -1936,6 +2125,7 @@ function escalateOverdueTask_(payload, session) {
   requireOverdueTaskEscalationUser_(session);
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const task = findOfficialTaskForEscalation_(payload.task_id || payload.taskId);
+  requireRecordPathAccess_(session, task, buildPathAuthorizationContext_([task], {}));
   if (!isTaskOverdueForEscalation_(task)) throw new Error('لا يمكن تصعيد مهمة غير متأخرة.');
   const route = resolveOverdueEscalationRoute_(session, payload.escalated_to, ss);
   const sheet = ensureRegisterSheet_(KAG_CONFIG.taskEscalationsSheetName, getTaskEscalationHeaders_());
@@ -2082,10 +2272,18 @@ function appendMeeting_(payload) {
     attendees: payload.attendees || '',
     decisions: payload.decisions || '',
     actions: payload.actions || '',
+    path: payload.path || payload.main_path || '',
+    linked_wbs_code: payload.linked_wbs_code || payload.wbs_code || payload.task_id || '',
     created_at: now,
     updated_at: now
   };
-  sheet.appendRow([meeting.meeting_id, meeting.title, meeting.date, meeting.attendees, meeting.decisions, meeting.actions, meeting.created_at, meeting.updated_at]);
+  const valuesByHeader = {
+    meeting_id: meeting.meeting_id, title: meeting.title, date: meeting.date, attendees: meeting.attendees,
+    decisions: meeting.decisions, actions: meeting.actions, path: meeting.path,
+    linked_wbs_code: meeting.linked_wbs_code, created_at: meeting.created_at, updated_at: meeting.updated_at
+  };
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(normalizeHeader_);
+  sheet.appendRow(headers.map(function(header) { return valuesByHeader[header] === undefined ? '' : valuesByHeader[header]; }));
   appendAuditLog_({ action: 'meeting_record', task: meeting.meeting_id, title: meeting.title, updated_by: payload.updated_by || 'PMO', status: 'recorded' });
   return meeting;
 }
