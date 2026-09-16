@@ -943,19 +943,17 @@ function inquiryBootstrap_(u) {
     users: users,
     tasks: tasks,
     can_admin: inquiryIsAdmin_(u),
-    summary: inquirySummary_(u),
-    notifications: inquiryRows_(
-      KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
-      inquiryNotificationHeaders_(),
-    )
-      .filter(function (n) {
-        return n.username === u.username && !n.read_at;
-      })
-      .filter(function (n) {
-        const q = inquiryFind_(n.inquiry_id);
-        return q && inquiryCanAccess_(q, u);
-      }),
   };
+}
+function inquiryRequestStatus_(p, u) {
+  const kind = String(p.request_kind || ""),
+    requestId = inquiryText_(p.request_id, 100, "معرف الطلب");
+  if (kind !== "create") throw new Error("نوع طلب غير صالح");
+  const found = inquiryRows_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_())
+    .find(function (q) {
+      return q.sender_username === u.username && q.request_id === requestId;
+    });
+  return { ok: true, found: !!found, inquiry_id: found ? found.inquiry_id : "" };
 }
 function inquiryCreate_(p, u) {
   const requestId = inquiryText_(p.request_id, 100, "معرف الطلب"),
@@ -1212,6 +1210,7 @@ function handleInquiryAction_(payload, session) {
     "inquiry_answer",
     "inquiry_status",
     "inquiry_redirect",
+    "inquiry_request_status",
   ];
   if (actions.indexOf(payload.action) < 0)
     throw new Error("Unsupported inquiry action");
@@ -1237,6 +1236,10 @@ function handleInquiryAction_(payload, session) {
       return inquiryPerfTimed_("inquiryBootstrap", function () {
         return inquiryBootstrap_(user);
       });
+    if (payload.action === "inquiry_request_status")
+      return inquiryPerfResponse_(inquiryPerfTimed_("inquiryRequestStatus", function () {
+        return inquiryRequestStatus_(payload, user);
+      }));
     if (payload.action === "inquiry_list") {
       const scope = String(payload.scope || "mine");
       if (["mine", "assigned", "all"].indexOf(scope) < 0)

@@ -104,6 +104,19 @@ test('كل مستخدم نشط موثق يفتح صفحة الاستفسارات
   assert.match(production,/function requireSession_\(payload, profile\)[\s\S]*?const user = findActiveUser_\(session\.sub, false, profile\);[\s\S]*?if \(!user\) throw new Error\('Unauthorized'\);/);
 });
 
+test('bootstrap الإنشاء لا يقرأ الاستفسارات أو الإشعارات، والتحقق من نتيجة الإنشاء معزول بصاحب الطلب',()=>{
+  const h=harness();h.metrics.ranges=[];h.metrics.rowsRead=0;
+  const bootstrap=call(h.c,'inquiry_bootstrap',h.users[0]);
+  assert.equal(bootstrap.ok,true);assert.ok(Array.isArray(bootstrap.users));assert.ok(Array.isArray(bootstrap.tasks));
+  assert.equal(bootstrap.summary,undefined);assert.equal(bootstrap.notifications,undefined);
+  assert.equal(h.metrics.ranges.some(x=>x.row>1&&['Inquiries','Inquiry Notifications','Inquiry Replies','Inquiry Reads'].includes(x.sheet)),false);
+  assert.equal(call(h.c,'inquiry_request_status',h.users[0],{request_kind:'create',request_id:'missing'}).found,false);
+  const id=create(h);
+  const own=call(h.c,'inquiry_request_status',h.users[0],{request_kind:'create',request_id:'create-1'});
+  assert.equal(own.found,true);assert.equal(own.inquiry_id,id);
+  assert.equal(call(h.c,'inquiry_request_status',h.users[1],{request_kind:'create',request_id:'create-1'}).found,false);
+});
+
 test('فتح التفاصيل قراءة فقط وينجح مع انشغال قفل الكتابة',()=>{
   const h=harness(),id=create(h);h.lockState.busy=true;const before=h.lockState.tryCalls;
   const detail=call(h.c,'inquiry_detail',h.users[0],{inquiry_id:id});
