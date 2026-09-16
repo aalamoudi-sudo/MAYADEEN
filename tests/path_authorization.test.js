@@ -87,6 +87,15 @@ test('UI and backend share the same full-user boundary and writes have server gu
   }
 });
 
+test('shared project pages stay available without weakening record path isolation', () => {
+  assert.match(frontendSource, /SHARED_PROJECT_PAGE_IDS=\['overview','tasks','phases'\]/);
+  assert.match(frontendSource, /SHARED_PROJECT_PAGE_IDS\.includes\(id\)/);
+  assert.match(backendSource, /SHARED_PROJECT_PAGE_IDS = \['overview', 'tasks', 'phases'\]/);
+  assert.match(backendSource, /SHARED_PROJECT_PAGE_IDS\.indexOf\(pageId\) !== -1/);
+  assert.deepEqual(Array.from(context.scopeRowsForSession_(tasks, managerA, auth), row => row.task_id), ['A-1']);
+  assert.deepEqual(Array.from(context.scopeRowsForSession_(tasks, managerB, auth), row => row.task_id), ['B-1']);
+});
+
 test('paste-ready bundle is generated from the canonical core and inquiry module', () => {
   const bundle = fs.readFileSync('apps-script/current-apps-script.gs', 'utf8');
   const inquiries = fs.readFileSync('apps-script/Inquiries.gs', 'utf8');
