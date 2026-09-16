@@ -184,6 +184,8 @@ test('inquiry_list يعيد حقول العرض فقط ويحافظ على عق�
   const item=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}).items[0];
   assert.deepEqual(Object.keys(item).sort(),['inquiry_id','project_id','title','sender_username','sender_name','recipient_username','recipient_name','task_id','task_title','priority','status','updated_at','unread'].sort());
   assert.equal(item.details,undefined);assert.equal(item.replies,undefined);assert.equal(item.events,undefined);assert.equal(item.request_id,undefined);assert.equal(item.unread,true);
+  assert.equal(call(h.c,'inquiry_list',h.users[0],{scope:'mine'}).can_admin,false);
+  assert.equal(call(h.c,'inquiry_list',h.users[4],{scope:'all'}).can_admin,true);
   assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/);
 });
 

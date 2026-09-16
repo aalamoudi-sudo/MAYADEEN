@@ -24,7 +24,7 @@ test('saved-session compatibility data_sync is reused and reads are single-fligh
   assert.match(html,/if\(initial&&sessionBootstrapSyncData\)/);
   assert.match(html,/if\(syncRequestInFlight\) return syncRequestInFlight/);
   assert.match(html,/if\(inquiryBootstrapInFlight\)return inquiryBootstrapInFlight/);
-  assert.match(html,/if\(inquiryListInFlight\)return inquiryListInFlight/);
+  assert.match(html,/if\(inquiryListInFlight\.has\(key\)\)return inquiryListInFlight\.get\(key\)/);
 });
 
 test('login and saved-session bootstrap do not preload inquiries',()=>{

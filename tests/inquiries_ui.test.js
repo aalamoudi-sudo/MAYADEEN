@@ -55,8 +55,19 @@ test('القائمة والمحادثة تحدان حجم DOM ولا تعيدا�
   const markRead=source.slice(source.indexOf('async function markInquiryRead'),source.indexOf('function setInquiryNotice'));
   assert.doesNotMatch(markRead,/loadInquiries\(\)/);
   assert.match(source,/if\(getActivePageId\(\)!=='inquiries'\)return/);
-  assert.match(source,/getActivePageId\(\)==='inquiries'.*loadInquiries\(\)/);
+  assert.match(source,/getActivePageId\(\)==='inquiries'.*loadInquiries\(true\)/);
   assert.doesNotMatch(source,/else loadInquiryBootstrap\(\)/);
   assert.match(source,/if\(inquiryBootstrapInFlight\)return inquiryBootstrapInFlight/);
-  assert.match(source,/if\(inquiryListInFlight\)return inquiryListInFlight/);
+  assert.match(source,/if\(inquiryListInFlight\.has\(key\)\)return inquiryListInFlight\.get\(key\)/);
+});
+
+test('فتح القائمة لا ينتظر bootstrap ويعيد استخدام snapshot حديث لكل مستخدم ونطاق',()=>{
+  const load=source.slice(source.indexOf('async function loadInquiries'),source.indexOf('function openInquiryScope'));
+  assert.doesNotMatch(load,/await loadInquiryBootstrap/);
+  assert.match(load,/fresh&&!force/);
+  assert.match(load,/inquiryListCache\.set\(key/);
+  assert.match(source,/INQUIRY_LIST_CACHE_TTL_MS=45000/);
+  assert.match(source,/loadInquiries\(true\)/);
+  const scope=source.slice(source.indexOf('function openInquiryScope'),source.indexOf('function scheduleInquiryFilter'));
+  assert.equal((scope.match(/loadInquiries\(/g)||[]).length,0,'showPage هو مسار التهيئة الوحيد');
 });
