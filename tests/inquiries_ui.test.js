@@ -71,3 +71,14 @@ test('فتح القائمة لا ينتظر bootstrap ويعيد استخدام 
   const scope=source.slice(source.indexOf('function openInquiryScope'),source.indexOf('function scheduleInquiryFilter'));
   assert.equal((scope.match(/loadInquiries\(/g)||[]).length,0,'showPage هو مسار التهيئة الوحيد');
 });
+
+test('snapshot مطابق من polling لا يعيد بناء DOM ولا يعيد pagination للصفحة الأولى',()=>{
+  const {c}=uiHarness();
+  vm.runInContext(`renderCountForTest=0;renderInquiryList=()=>{renderCountForTest++};updateInquirySummary=()=>{};inquiryListPage=3;`,c);
+  const snapshot={items:[{inquiry_id:'A',title:'سؤال'}],summary:{needs_reply:0,new_replies:0},can_admin:false};
+  assert.equal(c.applyInquiryListSnapshot(snapshot,'mine','alpha:mine'),true);
+  vm.runInContext('inquiryListPage=3',c);
+  assert.equal(c.applyInquiryListSnapshot(snapshot,'mine','alpha:mine'),false);
+  assert.equal(vm.runInContext('renderCountForTest',c),1);
+  assert.equal(vm.runInContext('inquiryListPage',c),3);
+});

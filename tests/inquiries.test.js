@@ -189,6 +189,19 @@ test('inquiry_list يعيد حقول العرض فقط ويحافظ على عق�
   assert.throws(()=>call(h.c,'inquiry_list',h.users[2],{scope:'all'}),/administration/);
 });
 
+test('inquiry_list لا يقرأ سجل الردود أو القراءات وتبقى كلفة Sheets ثابتة مع تضخم المحادثات',()=>{
+  const h=harness(),id=create(h),replies=h.sheets['Inquiry Replies'];
+  for(let i=0;i<3000;i++)replies.appendRow([`history-${i}`,id,'KAG','recipient',`رد قديم ${i}`,new Date(2025,0,1,0,0,i).toISOString(),`history-request-${i}`]);
+  h.metrics.reads=0;h.metrics.rowsRead=0;h.metrics.ranges=[];
+  const result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
+  assert.equal(result.items.length,1);
+  assert.equal(result.items[0].unread,false,'الصفوف التاريخية المصطنعة بلا notification لا تغيّر الحالة الموثقة');
+  assert.equal(h.metrics.ranges.filter(x=>x.sheet==='Inquiry Replies').length,0);
+  assert.equal(h.metrics.ranges.filter(x=>x.sheet==='Inquiry Reads').length,0);
+  assert.deepEqual([...new Set(h.metrics.ranges.map(x=>x.sheet))].sort(),['Inquiries','Inquiry Notifications','Users']);
+  assert.equal(h.metrics.rowsRead,8,'استفسار + إشعار + ستة صفوف Users فقط، بصرف النظر عن 3000 رد');
+});
+
 test('تغير generation قبل نشر القائمة يمنع نشر الحالة القديمة ويعيد البناء من Sheets',()=>{
   const h=harness();create(h);let builds=0;
   const original=h.c.inquiryBuildListState_;
