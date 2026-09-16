@@ -3285,6 +3285,8 @@ function dispatchAuth(event){
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
 let syncRequestSequence=0;
+const sectionLoadState=new Map();
+const SECTION_DATA_PAGES=new Set(['approvals','decisions','risksMgmt','assignments','meetingsHub','commitmentsHub','fileControl','urgentTasksPage','escalationHub','escalationsCenter','baselineManagement','raciWorkload','criticalPath','dataQualityCenter','projectHealth','executiveBoard','reportsGenerator']);
 let authGeneration=0;
 const loginPerfCounters={authLoginRequests:0,dataSyncRequests:0,mainRenders:0};
 let syncBackoffMs=30000;
@@ -3368,17 +3370,71 @@ function renderOverview(){
   renderDataHealth();
   renderUrgentTasksCard();
   renderExecutiveAdditions();
-  renderCommandEnhancements();
   renderActions();
   markPerf('overview_render_end');
   measurePerf('overview_render_duration','overview_render_start','overview_render_end');
 }
 function renderCurrentPage(force=false){renderPageIfNeeded(getActivePageId(),force);}
+function resetSectionLoads(){sectionLoadState.clear();}
+function sectionLoadingNotice(page,message){
+  if(!page)return;
+  let notice=page.querySelector(':scope > .section-load-notice');
+  if(!notice){notice=document.createElement('div');notice.className='section-load-notice';notice.style.cssText='margin:10px 0;padding:10px 14px;border:1px solid rgba(0,212,255,.25);border-radius:10px;color:var(--muted);background:rgba(0,212,255,.06)';page.prepend(notice);}
+  notice.textContent=message; notice.hidden=false;
+}
+function applySectionDatasets(data){
+  const d=data||{};
+  if(Array.isArray(d.approvals)) approvals=normalizeApprovalRows(d.approvals).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.approval_chain)) approvalChainRegister=normalizeApprovalChainRows(d.approval_chain);
+  if(Array.isArray(d.escalation_chain)) escalationChainRegister=normalizeEscalationChainRows(d.escalation_chain);
+  if(Array.isArray(d.escalations)||Array.isArray(d.task_escalations)) escalationRecords=deduplicateEscalationsById(normalizeEscalationRows([...(d.escalations||[]),...(d.task_escalations||[])]));
+  if(Array.isArray(d.risk_governance)) riskGovernanceRegister=normalizeRiskGovernanceRows(d.risk_governance).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.assignments)) assignments=normalizeAssignmentRows(d.assignments).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.meetings)) meetings=normalizeMeetingRows(d.meetings).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.commitments)) commitments=normalizeCommitmentRows(d.commitments).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.files)) filesRegister=normalizeFileRows(d.files).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.urgent_tasks)) urgentTasksRegister=normalizeUrgentTaskRows(d.urgent_tasks).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.decisions)) decisionLogRecords=normalizeDecisionRows(d.decisions).filter(r=>!isTestOrSyntheticRecord_(r));
+  if(Array.isArray(d.baseline_management)) baselineManagement=d.baseline_management;
+  if(Array.isArray(d.raci_matrix)) raciMatrix=d.raci_matrix;
+  if(Array.isArray(d.employee_workload)) employeeWorkload=d.employee_workload;
+  if(d.critical_path) criticalPathAnalysis=d.critical_path;
+  if(d.data_quality) dataQualityCenter=d.data_quality;
+}
+async function ensureSectionData(pageId,{force=false}={}){
+  if(!SECTION_DATA_PAGES.has(pageId))return true;
+  const existing=sectionLoadState.get(pageId);
+  if(existing?.status==='loading')return existing.promise;
+  if(!force&&existing?.status==='loaded')return true;
+  const sequence=syncRequestSequence, token=sessionToken, generation=authGeneration;
+  const page=document.getElementById(pageId); if(!existing?.loadedAt)sectionLoadingNotice(page,'جارٍ تحميل بيانات هذا القسم من Google Sheets…');
+  page?.setAttribute('aria-busy','true');
+  const promise=(async()=>{
+    try{
+      const response=await withTimeout(postApi(getConfiguredApiUrl(),{action:'dashboard_section',page_id:pageId}),30000,'dashboard_section timeout');
+      const result=await parseApiJson(response,'dashboard_section');
+      if(!response.ok||!result.ok)throw new Error(result.error||result.message||`HTTP ${response.status}`);
+      const responseUser=String(result.user?.username||'').trim().toLowerCase(), activeUser=String(currentUser?.username||'').trim().toLowerCase();
+      if(sequence!==syncRequestSequence||token!==sessionToken||generation!==authGeneration||responseUser!==activeUser)return false;
+      applySectionDatasets(result.datasets); dashboardDataVersion++; pageRenderState[pageId]={rendered:false,dataVersion:-1};
+      sectionLoadState.set(pageId,{status:'loaded',loadedAt:Date.now()});
+      page?.querySelector(':scope > .section-load-notice')?.setAttribute('hidden',''); page?.removeAttribute('aria-busy');
+      if(getActivePageId()===pageId)renderPageIfNeeded(pageId,true);
+      return true;
+    }catch(error){
+      if(isSessionExpiredError(error)){returnToLoginForExpiredSession();return false;}
+      const retained=Boolean(existing?.loadedAt); sectionLoadState.set(pageId,{status:'error',loadedAt:existing?.loadedAt||0,error:String(error?.message||error)});
+      page?.removeAttribute('aria-busy'); sectionLoadingNotice(page,retained?'تعذر التحديث؛ ما زالت آخر بيانات ناجحة معروضة.':'تعذر تحميل بيانات القسم. انتقل إلى قسم آخر ثم أعد المحاولة.');
+      return false;
+    }
+  })();
+  sectionLoadState.set(pageId,{status:'loading',promise,loadedAt:existing?.loadedAt||0}); return promise;
+}
 function isSessionExpiredError(e){return /Session expired|Unauthorized/i.test(String((e&&e.message)||e||''));}
 function returnToLoginForExpiredSession(){
   MayadeenAuth.clear(sessionStorage);
   dispatchAuth({type:'LOGOUT',error:'انتهت الجلسة. سجّل الدخول مرة أخرى.'});
-  authGeneration++; syncRequestSequence++; sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
+  authGeneration++; syncRequestSequence++; resetSectionLoads(); sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const appDiv=document.getElementById('app'); if(appDiv){appDiv.classList.remove('visible');appDiv.style.cssText='display:none!important';}
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
   setLoginVisualState('idle'); updateLoginButtonState(false);
@@ -3507,6 +3563,7 @@ function syncTaskEvidenceColumn(){
 function clearCompletionEvidenceState(){
   stopInquiryPolling(); inquiryItems=[]; inquiryBootstrap=null; inquiryCurrent=null;
   inquiryListCache?.clear(); inquiryListInFlight?.clear();
+  resetSectionLoads();
   rows=[]; tasks=[]; milestones=[]; evidenceRecords=[];
   const body=document.querySelector('#taskTable tbody'); if(body) body.replaceChildren();
   document.getElementById('taskEvidenceHeader')?.remove();
@@ -3712,7 +3769,7 @@ function showPage(id){
   syncNavToPage(id);
   safeLocalSet('mayadeen.lastPage',id);
   if(isMobileShell()) closeSidebarDrawer();
-  renderPageIfNeeded(id);
+  if(SECTION_DATA_PAGES.has(id)) ensureSectionData(id); else renderPageIfNeeded(id);
   if(id==='inquiries'){
     loadInquiries();
     startInquiryPolling();
@@ -6085,9 +6142,9 @@ async function loadExternal(initial=true){
     const _syncStartedAt=new Date();
     console.log(`⏱️ [Sync] بدء طلب البيانات: ${_syncStartedAt.toLocaleTimeString('ar-SA')}`);
     let data;
-    const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
+    const res=await withTimeout(postApi(baseUrl,{action:'dashboard_home'}),30000,'dashboard_home timeout');
     if(!res.ok) throw new Error('HTTP '+res.status);
-    data=await parseApiJson(res,'data_sync');
+    data=await parseApiJson(res,'dashboard_home');
     const _syncFetchMs=Math.round(performance.now()-_syncStart);
     console.log(`⏱️ [Sync] وصل الرد بعد ${_syncFetchMs} ms`);
     if(!data.ok) throw new Error(data.error||'sync failed');
@@ -6172,10 +6229,15 @@ async function loadExternal(initial=true){
       applySupplierOwnerDefaults();
       // لا يتم تخزين بيانات KPI أو Dashboard محلياً؛ Google Sheets هو المصدر الرسمي الوحيد.
       dashboardDataVersion++;
+      // Mutations and explicit refreshes invalidate lazy datasets. Only the
+      // active section is fetched again; opening the home page never fans out.
+      resetSectionLoads();
       markPerf('normalize_end');
       measurePerf('normalize_duration','data_sync_start','normalize_end');
       const stateUpdateStartedAt=performance.now();
       initData();
+      const activeSection=getActivePageId();
+      if(SECTION_DATA_PAGES.has(activeSection)) ensureSectionData(activeSection,{force:true});
       console.info('⏱️ [ApiTimeline]',{action:'data_sync',event:'state_updated',duration_ms:Math.round(performance.now()-stateUpdateStartedAt)});
       ensureChartJS().then(()=>{if(getActivePageId()==='overview'){renderDonutChart();renderLineChart();}});
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
