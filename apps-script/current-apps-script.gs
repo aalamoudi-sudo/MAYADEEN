@@ -434,12 +434,15 @@ function doPost(e) {
       return json_(handleAuthenticatedInquiryAction_(payload));
     }
 
-    const session = requireSession_(payload);
+    const authStartedAt = new Date().getTime();
+    const authProfile = { cache_hit: false };
+    const session = requireSession_(payload, authProfile);
+    authProfile.duration_ms = new Date().getTime() - authStartedAt;
 
     // Lightweight authoritative bootstrap: refreshes user roles from the access
     // matrix without loading dashboard data or exposing it before auth resolves.
     if (payload.action === 'auth_session') {
-      return json_({ ok: true, api_version: '2026-07-auth-session-v1', user: safeUser_(session) });
+      return json_({ ok: true, api_version: '2026-09-auth-session-v2', user: safeUser_(session), auth_meta: authProfile });
     }
 
     if (payload.action === 'data_sync') {
@@ -1317,7 +1320,7 @@ function authenticateUser_(payload) {
   const username = String(payload.username || '').trim().toLowerCase();
   const password = String(payload.password || '');
   if (!username || !password) throw new Error('Missing credentials');
-  const user = findActiveUser_(username);
+  const user = findActiveUser_(username, true);
   if (!user) throw new Error('Invalid credentials');
   const hash = String(user.password_hash || '');
   const salt = String(user.salt || '');
@@ -1327,13 +1330,33 @@ function authenticateUser_(payload) {
   return safeUser_(user);
 }
 
-function findActiveUser_(username) {
+function findActiveUser_(username, bypassCache, profile) {
   const wanted = String(username || '').trim().toLowerCase();
   if (!wanted) return null;
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'active-user-v2:' + wanted;
+  if (!bypassCache) {
+    try {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        const user = JSON.parse(cached);
+        if (profile) profile.cache_hit = true;
+        return user;
+      }
+    } catch (ignored) {
+      // Cache is an optimization only. Authorization always falls back to Sheets.
+      try { cache.remove(cacheKey); } catch (removeIgnored) {}
+    }
+  }
   const users = getRegisterRows_(KAG_CONFIG.usersSheetName, getUserAccessHeaders_());
-  return users.find(function(item) {
+  const user = users.find(function(item) {
     return String(item.username || '').trim().toLowerCase() === wanted && String(item.status || 'active').toLowerCase() === 'active';
   }) || null;
+  // Cache is deliberately short-lived and scoped to the immutable username.
+  // Sheets remains authoritative; login bypasses this cache and refreshes it.
+  if (user) { try { cache.put(cacheKey, JSON.stringify(safeUser_(user)), 30); } catch (ignored) {} }
+  if (profile) profile.cache_hit = false;
+  return user;
 }
 
 function safeUser_(user) {
@@ -1369,7 +1392,7 @@ function createSession_(user) {
   };
 }
 
-function requireSession_(payload) {
+function requireSession_(payload, profile) {
   const token = String(payload.session_token || payload.token || payload.auth_token || '').trim();
   if (!token) throw new Error('Unauthorized');
   const parts = token.split('.');
@@ -1377,7 +1400,7 @@ function requireSession_(payload) {
   if (signSession_(parts[0]) !== parts[1]) throw new Error('Unauthorized');
   const session = base64DecodeJson_(parts[0]);
   if (!session.sub || !session.exp || Number(session.exp) < Math.floor(Date.now() / 1000)) throw new Error('Session expired');
-  const user = findActiveUser_(session.sub);
+  const user = findActiveUser_(session.sub, false, profile);
   if (!user) throw new Error('Unauthorized');
   return safeUser_(user);
 }

@@ -28,20 +28,18 @@ test('refresh validates the persisted session before revealing dashboard',()=>{
   assert.ok(validate>0&&reveal>validate);
 });
 
-test('refresh validates quickly while the authoritative data sync runs in parallel',()=>{
+test('refresh validates permissions before starting the authoritative data sync',()=>{
   const validation=html.slice(html.indexOf('async function validatePersistedSession()'),html.indexOf('function returnToAnonymousLogin'));
-  assert.equal((validation.match(/postApi\(baseUrl,\{action:'data_sync'\}\)/g)||[]).length,1);
+  assert.doesNotMatch(validation,/action:'data_sync'/);
   assert.equal((validation.match(/postApi\(baseUrl,\{action:'auth_session'\}\)/g)||[]).length,1);
-  assert.ok(validation.indexOf("action:'data_sync'")<validation.indexOf("action:'auth_session'"));
-  assert.match(validation,/sessionBootstrapSyncPromise=/);
   assert.match(validation,/!response\.ok\|\|!data\.ok\|\|!data\.user/);
 });
 
 test('backend session bootstrap runs after requireSession and returns current permissions',()=>{
-  const required=backend.indexOf('const session = requireSession_(payload)');
+  const required=backend.indexOf('const session = requireSession_(payload, authProfile)');
   const endpoint=backend.indexOf("payload.action === 'auth_session'",required);
   assert.ok(required>0&&endpoint>required);
-  assert.match(backend.slice(endpoint,endpoint+180),/safeUser_\(session\)/);
+  assert.match(backend.slice(endpoint,endpoint+240),/safeUser_\(session\)/);
 });
 
 test('expired session clears persistence and returns to login',()=>{

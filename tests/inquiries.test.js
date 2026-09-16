@@ -101,7 +101,7 @@ test('كل مستخدم نشط موثق يفتح صفحة الاستفسارات
   assert.match(frontend,/if\(id==='inquiries'\) return !!currentUser\.username;/);
   const production=fs.readFileSync('apps-script/current-apps-script.gs','utf8');
   assert.match(production,/function handleInquiryAction_\(payload, session\) \{\s*if \(!inquiryCanUse_\(session\)\) throw new Error\("Unauthorized"\);/);
-  assert.match(production,/function requireSession_\(payload\)[\s\S]*?const user = findActiveUser_\(session\.sub\);[\s\S]*?if \(!user\) throw new Error\('Unauthorized'\);/);
+  assert.match(production,/function requireSession_\(payload, profile\)[\s\S]*?const user = findActiveUser_\(session\.sub, false, profile\);[\s\S]*?if \(!user\) throw new Error\('Unauthorized'\);/);
 });
 
 test('فتح التفاصيل قراءة فقط وينجح مع انشغال قفل الكتابة',()=>{
