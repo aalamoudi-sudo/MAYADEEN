@@ -1412,6 +1412,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
   max-height:min(72vh,720px);
   padding:10px 12px 12px;
   direction:rtl;
+  isolation:isolate;
   border:1px solid rgba(255,255,255,.09);
   background:linear-gradient(160deg,rgba(13,17,34,.97),rgba(8,12,26,.98));
 }
@@ -1424,7 +1425,17 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
   border-collapse:separate;
   border-spacing:0 4px;
 }
-#tasks .task-table thead th{height:52px;min-height:48px;max-height:60px}
+#tasks .task-table thead th{
+  position:sticky;
+  top:0;
+  z-index:5;
+  height:52px;
+  min-height:48px;
+  max-height:60px;
+  background:#10162d;
+  background-clip:padding-box;
+  box-shadow:0 2px 0 rgba(5,8,18,.9);
+}
 #tasks .task-table tbody tr{height:54px;cursor:pointer}
 #tasks .task-table th,#tasks .task-table td{
   box-sizing:border-box;
@@ -1438,8 +1449,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
   line-height:1.45;
 }
 #tasks .task-table th{
-  top:0;
-  z-index:4;
   padding:10px 10px;
   background:#10162d;
   color:#c8d2ee;
