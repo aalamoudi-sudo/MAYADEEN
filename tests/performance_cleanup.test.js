@@ -19,13 +19,10 @@ test('inquiries load and poll only while the inquiries page is active',()=>{
   assert.doesNotMatch(polling,/loadInquiryBootstrap/);
 });
 
-test('saved-session validation reveals the shell without waiting for Sheets and keeps sync single-flight',()=>{
+test('saved-session validation completes before Sheets sync and keeps sync single-flight',()=>{
   const validation=html.slice(html.indexOf('async function validatePersistedSession()'),html.indexOf('function returnToAnonymousLogin'));
-  assert.equal((validation.match(/postApi\(baseUrl,\{action:'data_sync'\}\)/g)||[]).length,1);
+  assert.doesNotMatch(validation,/action:'data_sync'/);
   assert.equal((validation.match(/postApi\(baseUrl,\{action:'auth_session'\}\)/g)||[]).length,1);
-  assert.ok(validation.indexOf("action:'data_sync'")<validation.indexOf("action:'auth_session'"));
-  assert.match(validation,/sessionBootstrapSyncPromise=/);
-  assert.match(html,/if\(initial&&sessionBootstrapSyncPromise\)/);
   assert.match(html,/if\(syncRequestInFlight\) return syncRequestInFlight/);
   assert.match(html,/if\(inquiryBootstrapInFlight\)return inquiryBootstrapInFlight/);
   assert.match(html,/if\(inquiryListInFlight\.has\(key\)\)return inquiryListInFlight\.get\(key\)/);
@@ -89,4 +86,22 @@ test('canonical WBS reader limits format and display reads to progress column',(
   assert.doesNotMatch(reader,/dataRange\.getDisplayValues\(\)/);
   assert.doesNotMatch(reader,/dataRange\.getNumberFormats\(\)/);
   assert.match(reader,/sheet\.getRange\(1, progressColumn \+ 1, values\.length, 1\)/);
+});
+
+test('sync responses are bound to the request session and server identity',()=>{
+  const load=html.slice(html.indexOf('async function loadExternal'),html.indexOf('// Full dashboard data'));
+  assert.match(load,/requestToken=sessionToken/);
+  assert.match(load,/requestAuthGeneration=authGeneration/);
+  assert.match(load,/requestToken!==sessionToken/);
+  assert.match(load,/responseUsername!==activeUsername/);
+});
+
+test('session permission lookup uses a short user-scoped cache with login bypass',()=>{
+  for(const file of ['apps-script/Code.gs','apps-script/current-apps-script.gs']){
+    const code=fs.readFileSync(file,'utf8');
+    assert.match(code,/active-user-v2:' \+ wanted/);
+    assert.match(code,/cache\.put\(cacheKey, JSON\.stringify\(safeUser_\(user\)\), 30\)/);
+    assert.match(code,/findActiveUser_\(username, true\)/);
+    assert.match(code,/auth_meta: authProfile/);
+  }
 });

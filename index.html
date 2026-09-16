@@ -3284,8 +3284,8 @@ function dispatchAuth(event){
 }
 let loginRequestInFlight=null;
 let syncRequestInFlight=null;
-let sessionBootstrapSyncPromise=null;
 let syncRequestSequence=0;
+let authGeneration=0;
 const loginPerfCounters={authLoginRequests:0,dataSyncRequests:0,mainRenders:0};
 let syncBackoffMs=30000;
 let lastUpdateTime=null;
@@ -3378,7 +3378,7 @@ function isSessionExpiredError(e){return /Session expired|Unauthorized/i.test(St
 function returnToLoginForExpiredSession(){
   MayadeenAuth.clear(sessionStorage);
   dispatchAuth({type:'LOGOUT',error:'انتهت الجلسة. سجّل الدخول مرة أخرى.'});
-  sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
+  authGeneration++; syncRequestSequence++; sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const appDiv=document.getElementById('app'); if(appDiv){appDiv.classList.remove('visible');appDiv.style.cssText='display:none!important';}
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
   setLoginVisualState('idle'); updateLoginButtonState(false);
@@ -3569,7 +3569,7 @@ async function login(){
     dispatchAuth({type:'CHECK'});
     dispatchAuth({type:'AUTHENTICATED',user:data.user,token:data.session_token,expiresAt:data.expires_at});
     if(authState.phase!==MayadeenAuth.phases.AUTHENTICATED) throw new Error(authState.error||'missing session token');
-    currentUser=authState.user; sessionToken=authState.token;
+    authGeneration++; currentUser=authState.user; sessionToken=authState.token;
     MayadeenAuth.write(sessionStorage,authState);
     markPerf('auth_request_end');
     measurePerf('auth_request_duration','auth_request_start','auth_request_end');
@@ -3580,7 +3580,7 @@ async function login(){
     console.warn('Login failed',e);
     MayadeenAuth.clear(sessionStorage);
     dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر تسجيل الدخول.')});
-    sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
+    authGeneration++; syncRequestSequence++; sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
     setLoginVisualState('idle');
     showLoginError(sanitizeUserError(e,'تعذر تسجيل الدخول. تحقق من المستخدم أو كلمة المرور أو رابط Apps Script.'));
     return false;
@@ -3669,7 +3669,7 @@ async function bootstrapSession(){
   const saved=MayadeenAuth.read(sessionStorage);
   if(!saved){dispatchAuth({type:'NO_SESSION'});returnToAnonymousLogin('');return;}
   authState=Object.assign(MayadeenAuth.initialState(),saved); dispatchAuth({type:'CHECK'});
-  sessionToken=saved.token; setLoginVisualState('loading'); setLoginTransitionStatus('جاري التحقق من الصلاحيات',35);
+  authGeneration++; sessionToken=saved.token; setLoginVisualState('loading'); setLoginTransitionStatus('جاري التحقق من الصلاحيات',35);
   try{
     const user=await validatePersistedSession();
     dispatchAuth({type:'AUTHENTICATED',token:saved.token,user,expiresAt:saved.expiresAt});
@@ -3688,22 +3688,17 @@ async function parseApiJson(response,action){
 }
 async function validatePersistedSession(){
   const baseUrl=getConfiguredApiUrl();
-  // Start the expensive Sheets sync immediately, but never make the shell wait for
-  // it. The lightweight endpoint verifies the session and current permissions first.
-  sessionBootstrapSyncPromise=withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'session data_sync timeout')
-    .then(response=>{
-      if(!response.ok) throw new Error(`HTTP ${response.status}`);
-      return parseApiJson(response,'data_sync');
-    })
-    .then(data=>({data}),error=>({error}));
+  // Do not compete with authentication for the same Apps Script/Sheets resources.
+  // Data loading starts only after this authoritative permission check succeeds.
   const response=await withTimeout(postApi(baseUrl,{action:'auth_session'}),12000,'session bootstrap timeout');
   const data=await parseApiJson(response,'auth_session');
+  if(data.auth_meta) console.info('⏱️ [AuthSessionProfile]',data.auth_meta);
   if(!response.ok||!data.ok||!data.user) throw new Error(data.error||data.message||`HTTP ${response.status}`);
   return data.user;
 }
 function returnToAnonymousLogin(error){
   clearCompletionEvidenceState();
-  sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
+  authGeneration++; syncRequestSequence++; sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const app=document.getElementById('app'); app?.classList.remove('visible'); if(app) app.style.cssText='display:none!important';
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
   setLoginVisualState('idle'); updateLoginButtonState(false); if(error) showLoginError(error);
@@ -6062,6 +6057,8 @@ async function loadExternal(initial=true){
   // Initial/account bootstrap must never retain data from an earlier session.
   const lastSuccessfulData=initial?null:captureSuccessfulDashboardData();
   const requestSequence=++syncRequestSequence;
+  const requestToken=sessionToken;
+  const requestAuthGeneration=authGeneration;
   syncRequestInFlight=(async()=>{
   const baseUrl=getConfiguredApiUrl();
   const input=document.getElementById('apiUrl'); if(input) input.value=baseUrl;
@@ -6088,18 +6085,9 @@ async function loadExternal(initial=true){
     const _syncStartedAt=new Date();
     console.log(`⏱️ [Sync] بدء طلب البيانات: ${_syncStartedAt.toLocaleTimeString('ar-SA')}`);
     let data;
-    if(initial&&sessionBootstrapSyncPromise){
-      const bootstrapSync=sessionBootstrapSyncPromise;
-      sessionBootstrapSyncPromise=null;
-      const bootstrapResult=await bootstrapSync;
-      if(bootstrapResult.error) throw bootstrapResult.error;
-      data=bootstrapResult.data;
-      console.info('⏱️ [Sync] reused parallel session data_sync response');
-    }else{
-      const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      data=await parseApiJson(res,'data_sync');
-    }
+    const res=await withTimeout(postApi(baseUrl,{action:'data_sync'}),30000,'data_sync timeout');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    data=await parseApiJson(res,'data_sync');
     const _syncFetchMs=Math.round(performance.now()-_syncStart);
     console.log(`⏱️ [Sync] وصل الرد بعد ${_syncFetchMs} ms`);
     if(!data.ok) throw new Error(data.error||'sync failed');
@@ -6107,7 +6095,14 @@ async function loadExternal(initial=true){
       console.info('⏱️ [DataSyncProfile]',{duration_ms:data.sync_meta.duration_ms,response_bytes:data.sync_meta.response_bytes,spreadsheet_open_ms:data.sync_meta.performance.spreadsheet_open_ms,rows_read:data.sync_meta.rows_read,cells_read:data.sync_meta.cells_read});
       console.table(data.sync_meta.performance.datasets||[]);
     }
-    if(requestSequence!==syncRequestSequence) return false;
+    // A timed-out/older response may still arrive. Never apply it after logout,
+    // account replacement, a newer sync, or if the server resolved another user.
+    const responseUsername=String(data.user?.username||'').trim().toLowerCase();
+    const activeUsername=String(currentUser?.username||'').trim().toLowerCase();
+    if(requestSequence!==syncRequestSequence||requestToken!==sessionToken||requestAuthGeneration!==authGeneration||!responseUsername||responseUsername!==activeUsername){
+      console.warn('[Sync] discarded stale or mismatched response',{requestSequence,responseUsername,activeUsername});
+      return false;
+    }
     const normalized=normalizeRows(data);
     console.log(`⏱️ [Sync] عدد المهام المستلمة من الشيت: ${normalized.length}`);
     // تشخيص فعلي لمسار البيانات: يقارن أول خمس مهام كما وصلت من Apps Script
