@@ -36,17 +36,20 @@ test('task table omits direct owner while retaining the path owner', () => {
 });
 
 test('empty task results span exactly the remaining visible columns', () => {
-  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?16:15\)/);
+  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?14:13\)/);
 });
 
-test('task table hides actual start while retaining adjacent dates and data logic', () => {
+test('task table shows planned dates after status with concise labels and retains date data logic', () => {
   const table = sectionBetween('<table class="data-table task-table" id="taskTable">', '</table>');
   const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
 
   assert.doesNotMatch(table, /البداية الفعلية/);
   assert.doesNotMatch(renderedRows, /fmt\(r\.actualStart\)/);
-  assert.match(table, />البداية المخططة<[^\n]+>النهاية المخططة<[^\n]+>النهاية الفعلية</);
-  assert.match(renderedRows, /fmt\(r\.start\)[^\n]+fmt\(r\.end\)[^\n]+fmt\(r\.actualEnd\)/);
+  assert.match(table, />الحالة<[^\n]+>تاريخ البداية<[^\n]+>تاريخ النهاية</);
+  assert.doesNotMatch(table, /البداية المخططة|النهاية المخططة|النهاية الفعلية/);
+  assert.match(renderedRows, /formatTaskTableDate\(r\.start\)[^\n]+formatTaskTableDate\(r\.end\)/);
+  assert.doesNotMatch(renderedRows, /fmt\(r\.actualEnd\)/);
+  assert.match(html, /function formatTaskTableDate\(value\).*formatted==='-'\?'—':formatted/);
   assert.match(html, /actualStart:isoDate\(rawActualStart\)/);
   assert.match(html, /r\.start,r\.end,r\.actualStart,r\.actualEnd/);
 });
@@ -57,9 +60,10 @@ test('task table hides approval, predecessor, and lag without removing their dat
 
   assert.doesNotMatch(table, /task-col-approval|task-col-dependency(?:"|>)|task-col-lag|>المعتمد<|>المهمة السابقة<|>Lag</);
   assert.doesNotMatch(renderedRows, /task-col-approval|task-col-dependency(?:"|>)|task-col-lag/);
-  assert.match(table, /<th class="task-col-dependency-type">نوع الاعتمادية<\/th>/);
-  assert.match(renderedRows, /task-col-dependency-type[^\n]+taskOverflowText\(r\.dependencyType\)/);
+  assert.doesNotMatch(table, /task-col-dependency-type|نوع الاعتمادية/);
+  assert.doesNotMatch(renderedRows, /task-col-dependency-type|taskOverflowText\(r\.dependencyType\)/);
   assert.match(html, /predecessor:\['المهمة السابقة','predecessor_task','predecessor','previous_task','dependency'\]/);
+  assert.match(html, /dependencyType:\['نوع الاعتمادية','نوع الاعتماد','dependency_type','اعتمادية'\]/);
   assert.match(html, /lag:\['Lag','lag','فترة التأخير','الفاصل'\]/);
   assert.match(html, /approvalEntity:\['جهة الاعتماد','approval_entity','approver','approving_party','المعتمد'\]/);
 });
@@ -86,4 +90,17 @@ test('long task columns receive dedicated widths without positional selectors', 
   assert.match(taskStyles, /\.task-col-follow-up\{width:190px/);
   assert.doesNotMatch(taskStyles, /\.task-col-deliverable/);
   assert.doesNotMatch(taskStyles, /nth-child/);
+});
+
+test('task headers and rendered cells follow the requested RTL sequence', () => {
+  const table = sectionBetween('<table class="data-table task-table" id="taskTable">', '</table>');
+  const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
+  const headerClasses = [...table.matchAll(/<th class="([^"]+)"/g)].map(match => match[1]);
+  const cellClasses = [...renderedRows.matchAll(/<td class="([^"]+)"/g)].map(match => match[1]);
+  const expected = ['task-col-code', 'task-col-name', 'task-col-status', 'task-col-date', 'task-col-date', 'task-col-progress', 'task-col-path-owner', 'task-col-follow-up', 'task-col-priority', 'task-col-path', 'task-col-phase', 'task-col-type', 'task-col-duration', 'task-col-evidence'];
+
+  assert.deepEqual(headerClasses.slice(0, expected.length), expected);
+  assert.deepEqual(cellClasses.slice(0, 13), expected.slice(0, 13));
+  assert.match(renderedRows, /task-col-duration[^\n]+canViewCompletionEvidence\(\)\?`<td class="task-col-evidence">/);
+  assert.match(html, /row\.insertBefore\(header,document\.getElementById\('taskEscalationHeader'\)\)/);
 });
