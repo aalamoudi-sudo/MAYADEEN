@@ -19,8 +19,11 @@ test('inquiries load and poll only while the inquiries page is active',()=>{
   assert.doesNotMatch(polling,/loadInquiryBootstrap/);
 });
 
-test('saved-session compatibility data_sync is reused and reads are single-flight',()=>{
-  assert.match(html,/sessionBootstrapSyncData=fallback/);
+test('saved-session data_sync validates the session, feeds first paint, and stays single-flight',()=>{
+  const validation=html.slice(html.indexOf('async function validatePersistedSession()'),html.indexOf('function returnToAnonymousLogin'));
+  assert.equal((validation.match(/postApi\(baseUrl,\{action:'data_sync'\}\)/g)||[]).length,1);
+  assert.doesNotMatch(validation,/postApi\(baseUrl,\{action:'auth_session'\}\)/);
+  assert.match(validation,/sessionBootstrapSyncData=data/);
   assert.match(html,/if\(initial&&sessionBootstrapSyncData\)/);
   assert.match(html,/if\(syncRequestInFlight\) return syncRequestInFlight/);
   assert.match(html,/if\(inquiryBootstrapInFlight\)return inquiryBootstrapInFlight/);
@@ -57,6 +60,17 @@ test('dashboard sync exposes measured server and payload diagnostics',()=>{
   }
   assert.match(html,/\[ApiTimeline\]/);
   assert.match(html,/\[DataSyncProfile\]/);
+  assert.match(html,/event:'json_parsed'/);
+  assert.match(html,/event:'state_updated'/);
+  assert.match(html,/event:'data_painted'/);
+});
+
+test('server payload diagnostics serialize the large response only once before json output',()=>{
+  for(const file of ['apps-script/Code.gs','apps-script/current-apps-script.gs']){
+    const code=fs.readFileSync(file,'utf8');
+    const sync=code.slice(code.indexOf('function buildDashboardData_'),code.indexOf('function canViewTaskEvidence_'));
+    assert.equal((sync.match(/JSON\.stringify\(response\)/g)||[]).length,1);
+  }
 });
 
 test('critical path is computed once and reused by workload during data_sync',()=>{
