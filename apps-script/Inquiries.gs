@@ -502,6 +502,30 @@ function inquiryDisplayNameMap_() {
   if (kagInquiryContext) kagInquiryContext.indexes.displayNames = m;
   return m;
 }
+
+// The list view has an authoritative notification for every mutation that can
+// make an inquiry unread.  Building the list from that compact sheet avoids
+// scanning the (potentially very large) reply history.  Reply rows remain a
+// detail-only concern and are read lazily by inquiryTailRows_.
+function inquiryUnreadNotificationMap_(username) {
+  const cache = kagInquiryContext && kagInquiryContext.indexes;
+  const cacheKey = "unread-notifications:" + username;
+  if (cache && cache[cacheKey]) return cache[cacheKey];
+  const result = {};
+  inquiryRows_(
+    KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
+    inquiryNotificationHeaders_(),
+  ).forEach(function (notification) {
+    if (notification.username === username && !notification.read_at) {
+      const state = result[notification.inquiry_id] || { any: false, reply: false };
+      state.any = true;
+      if (notification.kind === "رد جديد") state.reply = true;
+      result[notification.inquiry_id] = state;
+    }
+  });
+  if (cache) cache[cacheKey] = result;
+  return result;
+}
 function inquiryUpdateRow_(q, changes) {
   const h = inquiryHeaders_(),
     s = inquirySheet_(KAG_INQUIRY_CONFIG.inquiriesSheetName, h);
@@ -748,6 +772,8 @@ function inquirySerialize_(q, u, detail, detailLimit) {
 function inquiryList_(u, scope) {
   if (scope === "all" && !inquiryIsAdmin_(u))
     throw new Error("Forbidden: administration required");
+  const names = inquiryDisplayNameMap_(),
+    unread = inquiryUnreadNotificationMap_(u.username);
   return inquiryRows_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_())
     .filter(function (q) {
       if (q.project_id !== INQUIRY_PROJECT_ID || !inquiryCanAccess_(q, u))
@@ -757,21 +783,20 @@ function inquiryList_(u, scope) {
       return true;
     })
     .map(function (q) {
-      const item = inquirySerialize_(q, u, false);
       return {
-        inquiry_id: item.inquiry_id,
-        project_id: item.project_id,
-        title: item.title,
-        sender_username: item.sender_username,
-        sender_name: item.sender_name,
-        recipient_username: item.recipient_username,
-        recipient_name: item.recipient_name,
-        task_id: item.task_id,
-        task_title: item.task_title,
-        priority: item.priority,
-        status: item.status,
-        updated_at: item.updated_at,
-        unread: item.unread,
+        inquiry_id: q.inquiry_id,
+        project_id: q.project_id,
+        title: q.title,
+        sender_username: q.sender_username,
+        sender_name: names[q.sender_username] || q.sender_username,
+        recipient_username: q.recipient_username,
+        recipient_name: names[q.recipient_username] || q.recipient_username,
+        task_id: q.task_id && inquiryCanViewTask_(u) ? q.task_id : "",
+        task_title: q.task_id && inquiryCanViewTask_(u) ? q.task_title : "",
+        priority: q.priority,
+        status: q.status,
+        updated_at: q.updated_at,
+        unread: !!(unread[q.inquiry_id] && unread[q.inquiry_id].any),
       };
     })
     .sort(function (a, b) {
@@ -781,12 +806,7 @@ function inquiryList_(u, scope) {
 function inquirySummary_(u) {
   const all = inquiryRows_(KAG_INQUIRY_CONFIG.inquiriesSheetName, inquiryHeaders_())
       .filter(function (q) { return inquiryCanAccess_(q, u); }),
-    reads = inquiryUserReadMap_(u.username),
-    replies = inquiryGroupBy_(
-      KAG_INQUIRY_CONFIG.inquiryRepliesSheetName,
-      inquiryReplyHeaders_(),
-      "inquiry_id",
-    );
+    unread = inquiryUnreadNotificationMap_(u.username);
   return {
     needs_reply: all.filter(function (q) {
       return (
@@ -795,15 +815,10 @@ function inquirySummary_(u) {
       );
     }).length,
     new_replies: all.filter(function (q) {
-      if (q.sender_username !== u.username) return false;
-      const read = reads[q.inquiry_id],
-        last = read ? read.last_read_at : "";
-      return (replies[q.inquiry_id] || []).some(function (r) {
-        return (
-          r.author_username !== u.username &&
-          (!last || r.created_at > last)
-        );
-      });
+      return (
+        q.sender_username === u.username &&
+        !!(unread[q.inquiry_id] && unread[q.inquiry_id].reply)
+      );
     }).length,
   };
 }
