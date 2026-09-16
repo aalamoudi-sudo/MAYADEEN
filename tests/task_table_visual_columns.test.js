@@ -92,6 +92,15 @@ test('long task columns receive dedicated widths without positional selectors', 
   assert.doesNotMatch(taskStyles, /nth-child/);
 });
 
+test('task table keeps its original header sticky inside the two-axis scroll container', () => {
+  const taskStyles = sectionBetween('#tasks .task-table-card{', '/* لوحة مراحل المشروع التنفيذية');
+
+  assert.match(taskStyles, /\.task-table-card\{[\s\S]*?overflow:auto;[\s\S]*?isolation:isolate;/);
+  assert.match(taskStyles, /\.task-table thead th\{[\s\S]*?position:sticky;[\s\S]*?top:0;[\s\S]*?z-index:5;/);
+  assert.match(taskStyles, /\.task-table thead th\{[\s\S]*?background:#10162d;[\s\S]*?background-clip:padding-box;/);
+  assert.doesNotMatch(taskStyles, /\.task-table thead\s*\{[\s\S]*?position:(?:fixed|sticky)/);
+});
+
 test('task headers and rendered cells follow the requested RTL sequence', () => {
   const table = sectionBetween('<table class="data-table task-table" id="taskTable">', '</table>');
   const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
