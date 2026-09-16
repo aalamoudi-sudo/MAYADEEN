@@ -106,10 +106,12 @@ test('كل مستخدم نشط موثق يفتح صفحة الاستفسارات
 
 test('bootstrap الإنشاء لا يقرأ الاستفسارات أو الإشعارات، والتحقق من نتيجة الإنشاء معزول بصاحب الطلب',()=>{
   const h=harness();h.metrics.ranges=[];h.metrics.rowsRead=0;
-  const bootstrap=call(h.c,'inquiry_bootstrap',h.users[0]);
+  const bootstrap=call(h.c,'inquiry_composer_bootstrap',h.users[0]);
   assert.equal(bootstrap.ok,true);assert.ok(Array.isArray(bootstrap.users));assert.ok(Array.isArray(bootstrap.tasks));
   assert.equal(bootstrap.summary,undefined);assert.equal(bootstrap.notifications,undefined);
   assert.equal(h.metrics.ranges.some(x=>x.row>1&&['Inquiries','Inquiry Notifications','Inquiry Replies','Inquiry Reads'].includes(x.sheet)),false);
+  const legacy=call(h.c,'inquiry_bootstrap',h.users[0]);
+  assert.deepEqual(Object.keys(legacy.summary).sort(),['needs_reply','new_replies']);assert.ok(Array.isArray(legacy.notifications));
   assert.equal(call(h.c,'inquiry_request_status',h.users[0],{request_kind:'create',request_id:'missing'}).found,false);
   const id=create(h);
   const own=call(h.c,'inquiry_request_status',h.users[0],{request_kind:'create',request_id:'create-1'});
@@ -265,6 +267,16 @@ test('mark_read يبطل Cache المستخدم فقط بينما mutation عا�
 });
 
 
+test('إنشاء حُفظ مع فقد الاستجابة ثم التحقق وإعادة نفس الطلب لا ينشئ صفًا مكررًا',()=>{
+  const h=harness(),payload={request_id:'lost-create-response',title:'استفسار محفوظ',details:'مسودة باقية',recipient_username:'recipient',priority:'عادي'};
+  const first=call(h.c,'inquiry_create',h.users[0],payload),rows=h.sheets.Inquiries.data.length;
+  const status=call(h.c,'inquiry_request_status',h.users[0],{request_kind:'create',request_id:payload.request_id});
+  assert.equal(status.found,true);assert.equal(status.inquiry_id,first.inquiry.inquiry_id);
+  const retry=call(h.c,'inquiry_create',h.users[0],payload);
+  assert.equal(retry.deduplicated,true);assert.equal(retry.inquiry.inquiry_id,first.inquiry.inquiry_id);
+  assert.equal(h.sheets.Inquiries.data.length,rows);
+});
+
 test('رد محفوظ ثم استجابة متأخرة مع polling وdata_sync وهميين لا يتكرر وتتحرر القراءة النهائية من القفل',()=>{
   const h=harness(),id=create(h),request={inquiry_id:id,body:'رد حُفظ قبل انتهاء مهلة العميل',request_id:'timeout-stable-id'};
   h.metrics.reads=0;h.metrics.readsWhileLocked=0;
@@ -276,4 +288,21 @@ test('رد محفوظ ثم استجابة متأخرة مع polling وdata_sync 
   call(h.c,'inquiry_bootstrap',h.users[1]);call(h.c,'inquiry_list',h.users[1],{scope:'assigned'});let dataSyncCalls=0;dataSyncCalls++;
   const retried=call(h.c,'inquiry_reply',h.users[1],request);
   assert.equal(retried.deduplicated,true);assert.equal(h.sheets['Inquiry Replies'].data.length,2);assert.equal(dataSyncCalls,1);
+});
+
+test('دورة المحادثة السلوكية تنفذ الرد والإجابة والحالات وإعادة التوجيه وفق الصلاحيات',()=>{
+  const h=harness(),id=create(h);
+  let result=call(h.c,'inquiry_status',h.users[1],{inquiry_id:id,status:'قيد المعالجة',request_id:'start-processing'});
+  assert.equal(result.inquiry.status,'قيد المعالجة');
+  result=call(h.c,'inquiry_reply',h.users[0],{inquiry_id:id,body:'متابعة السائل',request_id:'sender-followup'});
+  assert.equal(result.inquiry.replies.length,1);
+  result=call(h.c,'inquiry_answer',h.users[1],{inquiry_id:id,body:'الإجابة المعتمدة',request_id:'recipient-answer'});
+  assert.equal(result.inquiry.status,'تمت الإجابة');
+  result=call(h.c,'inquiry_status',h.users[0],{inquiry_id:id,status:'مغلق',request_id:'sender-close'});
+  assert.equal(result.inquiry.status,'مغلق');
+  result=call(h.c,'inquiry_status',h.users[0],{inquiry_id:id,status:'قيد المعالجة',request_id:'sender-reopen'});
+  assert.equal(result.inquiry.status,'قيد المعالجة');
+  result=call(h.c,'inquiry_redirect',h.users[4],{inquiry_id:id,recipient_username:'creator',request_id:'admin-redirect'});
+  assert.equal(result.inquiry.recipient_username,'creator');assert.equal(result.inquiry.status,'جديد');
+  assert.throws(()=>call(h.c,'inquiry_redirect',h.users[1],{inquiry_id:id,recipient_username:'recipient',request_id:'forbidden-redirect'}),/administration/);
 });

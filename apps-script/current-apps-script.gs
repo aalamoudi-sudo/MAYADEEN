@@ -4156,7 +4156,7 @@ function inquiryListForScope_(state, u, scope) {
     });
   return state.items;
 }
-function inquiryBootstrap_(u) {
+function inquiryComposerBootstrap_(u) {
   const active = inquiryUsers_(),
     eligible = active.filter(inquiryCanViewTask_),
     users = active
@@ -4199,6 +4199,24 @@ function inquiryBootstrap_(u) {
     tasks: tasks,
     can_admin: inquiryIsAdmin_(u),
   };
+}
+// Keep the original response contract while older web clients are still in
+// service.  The composer-specific endpoint below avoids these list reads.
+function inquiryBootstrap_(u) {
+  const result = inquiryComposerBootstrap_(u);
+  result.summary = inquirySummary_(u);
+  result.notifications = inquiryRows_(
+    KAG_INQUIRY_CONFIG.inquiryNotificationsSheetName,
+    inquiryNotificationHeaders_(),
+  )
+    .filter(function (n) {
+      return n.username === u.username && !n.read_at;
+    })
+    .filter(function (n) {
+      const q = inquiryFind_(n.inquiry_id);
+      return q && inquiryCanAccess_(q, u);
+    });
+  return result;
 }
 function inquiryRequestStatus_(p, u) {
   const kind = String(p.request_kind || ""),
@@ -4457,6 +4475,7 @@ function handleInquiryAction_(payload, session) {
   if (!inquiryCanUse_(session)) throw new Error("Unauthorized");
   const actions = [
     "inquiry_bootstrap",
+    "inquiry_composer_bootstrap",
     "inquiry_list",
     "inquiry_detail",
     "inquiry_mark_read",
@@ -4490,6 +4509,10 @@ function handleInquiryAction_(payload, session) {
     if (payload.action === "inquiry_bootstrap")
       return inquiryPerfTimed_("inquiryBootstrap", function () {
         return inquiryBootstrap_(user);
+      });
+    if (payload.action === "inquiry_composer_bootstrap")
+      return inquiryPerfTimed_("inquiryComposerBootstrap", function () {
+        return inquiryComposerBootstrap_(user);
       });
     if (payload.action === "inquiry_request_status")
       return inquiryPerfResponse_(inquiryPerfTimed_("inquiryRequestStatus", function () {
