@@ -3503,6 +3503,9 @@ function inquiryIsAdmin_(u) {
   return hasFullAccess_(u) || parseBool_(u.can_manage_users);
 }
 function inquiryCanUse_(u) {
+  // requireSession_ supplies only an authenticated, currently active user.
+  // Inquiry access is intentionally independent of page, path, role and
+  // access-level entitlements; record/action checks remain enforced below.
   return !!u && !!u.username;
 }
 function inquiryCanViewTask_(u) {
@@ -4316,7 +4319,7 @@ function handleAuthenticatedInquiryAction_(payload) {
   }
 }
 function handleInquiryAction_(payload, session) {
-  if (!session || !session.username) throw new Error("Unauthorized");
+  if (!inquiryCanUse_(session)) throw new Error("Unauthorized");
   const actions = [
     "inquiry_bootstrap",
     "inquiry_list",

@@ -30,6 +30,7 @@ function harness(){
     {username:'creator',display_name:'المنشئ',status:'active',allowed_pages:'tasks',access_level:'workstream'},
     {username:'recipient',display_name:'المستلم',status:'active',allowed_pages:'tasks',access_level:'workstream'},
     {username:'outsider',display_name:'غير مخول',status:'active',allowed_pages:'overview',access_level:'workstream'},
+    {username:'restricted',display_name:'مستخدم نشط محدود',status:'active',allowed_pages:'',path_scope:'isolated',role:'guest',access_level:'none'},
     {username:'admin',display_name:'الإدارة',status:'active',allowed_pages:'*',access_level:'full',can_manage_users:'TRUE'}
   ];
   sheets.Users=new Sheet(['username','display_name','status','allowed_pages','access_level','can_manage_users','email','role'],'Users');
@@ -87,6 +88,20 @@ test('مسار الإنتاج يقيس requireSession ويعيد استخدام 
   assert.match(production,/inquiryPerfTimed_\("requireSession"/);
   const handler=production.slice(production.indexOf('function handleInquiryAction_'));
   assert.doesNotMatch(handler,/const current = inquiryFindUser_\(session\.username\)/);
+});
+
+test('كل مستخدم نشط موثق يفتح صفحة الاستفسارات ويرسل استفسارًا دون قيود الصفحة أو المسار أو الدور أو مستوى الوصول',()=>{
+  const h=harness(),restricted=h.users.find(user=>user.username==='restricted');
+  assert.equal(h.c.inquiryCanUse_(restricted),true);
+  const created=call(h.c,'inquiry_create',restricted,{request_id:'restricted-create',title:'استفسار مستخدم محدود',details:'تفاصيل',recipient_username:'recipient',priority:'عادي'});
+  assert.equal(created.ok,true);
+  assert.equal(created.inquiry.sender_username,'restricted');
+
+  const frontend=fs.readFileSync('index.html','utf8');
+  assert.match(frontend,/if\(id==='inquiries'\) return !!currentUser\.username;/);
+  const production=fs.readFileSync('apps-script/current-apps-script.gs','utf8');
+  assert.match(production,/function handleInquiryAction_\(payload, session\) \{\s*if \(!inquiryCanUse_\(session\)\) throw new Error\("Unauthorized"\);/);
+  assert.match(production,/function requireSession_\(payload\)[\s\S]*?const user = findActiveUser_\(session\.sub\);[\s\S]*?if \(!user\) throw new Error\('Unauthorized'\);/);
 });
 
 test('فتح التفاصيل قراءة فقط وينجح مع انشغال قفل الكتابة',()=>{
@@ -158,7 +173,7 @@ test('inquiry_detail يقرأ Replies وEvents من النهاية في chunks �
   assert.equal(eventReads.length,1);assert.equal(eventReads[0].numRows,100);
   assert.ok(replyReads[0].row>2900);assert.ok(eventReads[0].row>2900);
   const perf=JSON.parse(h.logs.at(-1).replace(/^\[inquiry_perf\] /,''));
-  assert.equal(perf.action,'inquiry_detail');assert.equal(perf.rows_read,207);
+  assert.equal(perf.action,'inquiry_detail');assert.equal(perf.rows_read,208);
   assert.equal(perf.sheet_reads,5);assert.equal(perf.spreadsheet_accesses,1);
   assert.ok(perf.duration_ms>=0);assert.ok(perf.response_size_chars>0);
 });
