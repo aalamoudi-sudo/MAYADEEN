@@ -4,7 +4,8 @@ const fs=require('node:fs');
 const html=fs.readFileSync('index.html','utf8');
 
 test('مهل الاستفسار وتحميل الرئيسية مستقلة وموسومة باسم الطلب',()=>{
-  assert.match(html,/action\+' timeout'/);
+  assert.match(html,/timedOut=true;controller\.abort\(\)/);
+  assert.match(html,/},15000\)/);
   assert.match(html,/dashboard_home timeout/);
   assert.match(html,/e\?\.inquiryAction==='inquiry_reply'/);
 });
