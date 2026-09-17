@@ -716,6 +716,15 @@ function inquiryMarkRead_(q, u, cursor) {
   return { last_read_at: next };
 }
 function inquirySerializeImpl_(q, u, detail, detailLimit) {
+  // The list route uses inquiryListItem_ directly, but keep the non-detail
+  // serializer cheap as a regression guard for compatibility callers.
+  if (!detail)
+    return inquiryListItem_(
+      q,
+      u,
+      inquiryDisplayNameMap_(),
+      inquiryUnreadNotificationMap_(u.username),
+    );
   const names = inquiryDisplayNameMap_(),
     read = inquiryUserReadMap_(u.username)[q.inquiry_id],
     limit = Math.max(1, Math.min(Number(detailLimit) || INQUIRY_DETAIL_PAGE_SIZE, 1000)),
@@ -780,6 +789,23 @@ function inquirySerialize_(q, u, detail, detailLimit) {
     return inquirySerializeImpl_(q, u, detail, detailLimit);
   });
 }
+function inquiryListItem_(q, u, names, unread) {
+  return {
+    inquiry_id: q.inquiry_id,
+    project_id: q.project_id,
+    title: q.title,
+    sender_username: q.sender_username,
+    sender_name: names[q.sender_username] || q.sender_username,
+    recipient_username: q.recipient_username,
+    recipient_name: names[q.recipient_username] || q.recipient_username,
+    task_id: q.task_id && inquiryCanViewTask_(u) ? q.task_id : "",
+    task_title: q.task_id && inquiryCanViewTask_(u) ? q.task_title : "",
+    priority: q.priority,
+    status: q.status,
+    updated_at: q.updated_at,
+    unread: !!(unread[q.inquiry_id] && unread[q.inquiry_id].any),
+  };
+}
 function inquiryList_(u, scope) {
   if (scope === "all" && !inquiryIsAdmin_(u))
     throw new Error("Forbidden: administration required");
@@ -794,21 +820,7 @@ function inquiryList_(u, scope) {
       return true;
     })
     .map(function (q) {
-      return {
-        inquiry_id: q.inquiry_id,
-        project_id: q.project_id,
-        title: q.title,
-        sender_username: q.sender_username,
-        sender_name: names[q.sender_username] || q.sender_username,
-        recipient_username: q.recipient_username,
-        recipient_name: names[q.recipient_username] || q.recipient_username,
-        task_id: q.task_id && inquiryCanViewTask_(u) ? q.task_id : "",
-        task_title: q.task_id && inquiryCanViewTask_(u) ? q.task_title : "",
-        priority: q.priority,
-        status: q.status,
-        updated_at: q.updated_at,
-        unread: !!(unread[q.inquiry_id] && unread[q.inquiry_id].any),
-      };
+      return inquiryListItem_(q, u, names, unread);
     })
     .sort(function (a, b) {
       return b.updated_at.localeCompare(a.updated_at);

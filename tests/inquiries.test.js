@@ -2,6 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
+const {performance}=require('node:perf_hooks');
 
 class Range{
   constructor(sheet,r,c,nr,nc){Object.assign(this,{sheet,r,c,nr,nc});}
@@ -218,6 +219,7 @@ test('inquiry_list لا يقرأ سجل الردود أو القراءات وت�
   const h=harness(),id=create(h),replies=h.sheets['Inquiry Replies'];
   for(let i=0;i<3000;i++)replies.appendRow([`history-${i}`,id,'KAG','recipient',`رد قديم ${i}`,new Date(2025,0,1,0,0,i).toISOString(),`history-request-${i}`]);
   h.metrics.reads=0;h.metrics.rowsRead=0;h.metrics.ranges=[];
+  assert.equal(Object.keys(h.cacheData).some(key=>key.startsWith('kag-inquiry-list-v1:')),false,'القياس يبدأ من دون list cache');
   const result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'});
   assert.equal(result.items.length,1);
   assert.equal(result.items[0].unread,false,'الصفوف التاريخية المصطنعة بلا notification لا تغيّر الحالة الموثقة');
@@ -225,6 +227,58 @@ test('inquiry_list لا يقرأ سجل الردود أو القراءات وت�
   assert.equal(h.metrics.ranges.filter(x=>x.sheet==='Inquiry Reads').length,0);
   assert.deepEqual([...new Set(h.metrics.ranges.map(x=>x.sheet))].sort(),['Inquiries','Inquiry Notifications','Users']);
   assert.equal(h.metrics.rowsRead,8,'استفسار + إشعار + ستة صفوف Users فقط، بصرف النظر عن 3000 رد');
+});
+
+test('المسار غير التفصيلي في inquirySerialize لا يقرأ Replies أو Reads أو Events',()=>{
+  const h=harness(),id=create(h),row=h.sheets.Inquiries.data[1],headers=h.sheets.Inquiries.data[0],q={_row:2};
+  headers.forEach((name,index)=>{q[name]=row[index];});
+  h.metrics.reads=0;h.metrics.rowsRead=0;h.metrics.ranges=[];
+  vm.runInContext(`kagInquiryContext={rows:{},indexes:{},users:null,tasks:null,spreadsheet:null,schemaValidated:false,perf:inquiryPerfStart_('serialize-list-guard')}`,h.c);
+  const item=h.c.inquirySerialize_(q,h.users[0],false);
+  assert.equal(item.inquiry_id,id);assert.equal(item.details,undefined);assert.equal(item.unread,false);
+  assert.equal(h.metrics.ranges.some(x=>x.row>1&&['Inquiry Replies','Inquiry Reads','Inquiry Events'].includes(x.sheet)),false);
+  vm.runInContext('kagInquiryContext=null',h.c);
+});
+
+test('قياس تمثيلي: inquiry_list البارد يتجنب كلفة المسح التاريخي قبل الإصلاح',t=>{
+  const h=harness(),inquiries=h.sheets.Inquiries,replies=h.sheets['Inquiry Replies'],reads=h.sheets['Inquiry Reads'],notifications=h.sheets['Inquiry Notifications'];
+  const inquiryCount=600,replyCount=12000;
+  for(let i=0;i<inquiryCount;i++){
+    const id=`q-${i}`,at=new Date(2026,0,1,0,0,i%60).toISOString();
+    inquiries.appendRow([id,'KAG',`عنوان ${i}`,'تفاصيل خاصة','creator','recipient','','','عادي','جديد',at,at,`create-${i}`]);
+    notifications.appendRow([`n-${i}`,'KAG',id,'recipient','استفسار جديد',at,'',`create-${i}:recipient`]);
+  }
+  for(let i=0;i<replyCount;i++){
+    const id=`q-${i%inquiryCount}`,at=new Date(2026,0,2,0,0,i%60).toISOString();
+    replies.appendRow([`r-${i}`,id,'KAG','recipient',`رد ${i}`,at,`reply-${i}`]);
+  }
+  reads.appendRow(['q-0','KAG','creator',new Date(2026,0,1).toISOString()]);
+
+  // Faithful CPU/data-access baseline for the repository implementation before
+  // 2da1977: each visible item filtered all reply/event data and summary built
+  // the list again. Sheet reads were request-cached, but all history was still
+  // loaded and repeatedly scanned in memory.
+  const inquiryObjects=inquiries.data.slice(1).map(row=>Object.fromEntries(inquiries.data[0].map((name,index)=>[name,row[index]])));
+  const replyObjects=replies.data.slice(1).map(row=>Object.fromEntries(replies.data[0].map((name,index)=>[name,row[index]])));
+  const readObjects=reads.data.slice(1).map(row=>Object.fromEntries(reads.data[0].map((name,index)=>[name,row[index]])));
+  const notificationObjects=notifications.data.slice(1).map(row=>Object.fromEntries(notifications.data[0].map((name,index)=>[name,row[index]])));
+  const beforeStart=performance.now();
+  const legacyItems=inquiryObjects.filter(q=>q.sender_username==='creator').map(q=>{
+    const read=readObjects.find(r=>r.inquiry_id===q.inquiry_id&&r.username==='creator');
+    const ownReplies=replyObjects.filter(r=>r.inquiry_id===q.inquiry_id);
+    const unread=notificationObjects.some(n=>n.inquiry_id===q.inquiry_id&&n.username==='creator'&&!n.read_at)||ownReplies.some(r=>r.author_username!=='creator'&&(!read||r.created_at>read.last_read_at));
+    return {inquiry_id:q.inquiry_id,unread};
+  });
+  // inquirySummary_ called inquiryList_ again in the old implementation.
+  legacyItems.forEach(q=>replyObjects.some(r=>r.inquiry_id===q.inquiry_id&&r.author_username!=='creator'));
+  const beforeMs=performance.now()-beforeStart;
+
+  h.metrics.reads=0;h.metrics.rowsRead=0;h.metrics.ranges=[];
+  const afterStart=performance.now(),result=call(h.c,'inquiry_list',h.users[0],{scope:'mine'}),afterMs=performance.now()-afterStart;
+  assert.equal(result.items.length,inquiryCount);assert.equal(legacyItems.length,result.items.length);
+  assert.equal(h.metrics.ranges.some(x=>x.row>1&&['Inquiry Replies','Inquiry Reads','Inquiry Events'].includes(x.sheet)),false);
+  const oldRows=inquiryCount+replyCount+1+inquiryCount+5;
+  t.diagnostic(`representative cold-cache benchmark: legacy=${beforeMs.toFixed(2)}ms/${oldRows} source rows, current=${afterMs.toFixed(2)}ms/${h.metrics.rowsRead} source rows (${inquiryCount} inquiries, ${replyCount} replies)`);
 });
 
 test('تغير generation قبل نشر القائمة يمنع نشر الحالة القديمة ويعيد البناء من Sheets',()=>{

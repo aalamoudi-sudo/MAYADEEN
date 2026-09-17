@@ -11,7 +11,7 @@ function uiHarness(){
   const drawer={classList:{active:false,add(){this.active=true;},contains(){return this.active;}}};
   const content={innerHTML:''};
   const document={visibilityState:'visible',activeElement:null,getElementById(id){if(id==='drawer')return drawer;if(id==='drawerContent')return content;return null;},querySelectorAll(){return [];}};
-  const c={console,Map,Promise,Math,Date,String,Error,Array,setTimeout,clearTimeout,document,sessionToken:'token-a',currentUser:{username:'alpha'},authState:{phase:'AUTHENTICATED'},MayadeenAuth:{phases:{AUTHENTICATED:'AUTHENTICATED'}},
+  const c={console,Map,Promise,Math,Date,String,Error,Array,AbortController,setTimeout,clearTimeout,document,sessionToken:'token-a',currentUser:{username:'alpha'},authState:{phase:'AUTHENTICATED'},MayadeenAuth:{phases:{AUTHENTICATED:'AUTHENTICATED'}},
     crypto:{randomUUID:()=>`id-${Math.random()}`},wait:ms=>new Promise(r=>setTimeout(r,ms)),escapeHtml:s=>String(s),withTimeout:p=>p,postApi(){},getConfiguredApiUrl(){},sanitizeUserError:(e,f)=>f,isSessionExpiredError:()=>false,returnToLoginForExpiredSession(){},showPage(){},getActivePageId:()=>'',requestAnimationFrame:f=>f()};
   vm.createContext(c);vm.runInContext(source,c);return {c,drawer,content};
 }
@@ -103,6 +103,25 @@ test('استجابة API null أو عقد ناقص تسجل السبب وتتح�
   assert.equal(logged.length,2);
   assert.match(String(logged[0][0]),/Null or invalid API response/);
   assert.match(String(logged[1][0]),/contract mismatch/);
+});
+
+test('تحميل القائمة محاولة واحدة محدودة ويعرض فشلًا واضحًا مع إعادة المحاولة',async()=>{
+  const {c}=uiHarness(),list={innerHTML:''};let calls=0;
+  c.document.getElementById=id=>id==='inquiryList'?list:null;c.getActivePageId=()=> 'inquiries';
+  c.failureForTest=c.inquiryApiError('inquiry_list timeout','timeout',0,'inquiry_list');
+  vm.runInContext(`inquiryReadWithRetry=async(p,attempts)=>{callsForTest++;attemptsForTest=attempts;throw failureForTest}`,c);
+  c.callsForTest=calls;c.attemptsForTest=0;
+  await c.loadInquiries();
+  assert.equal(c.callsForTest,1);assert.equal(c.attemptsForTest,1);
+  assert.match(list.innerHTML,/انتهت مهلة طلب الاستفسار/);
+  assert.match(list.innerHTML,/role="alert"/);assert.match(list.innerHTML,/إعادة المحاولة/);
+});
+
+test('inquiryApi يمرر AbortSignal ويلغي طلب القائمة عند المهلة',()=>{
+  assert.match(source,/controller=new AbortController\(\)/);
+  assert.match(source,/controller\.abort\(\)/);
+  assert.match(source,/\{signal:controller\.signal\}/);
+  assert.match(html,/signal:options\.signal/);
 });
 
 function composerHarness(){
