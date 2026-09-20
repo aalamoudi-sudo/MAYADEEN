@@ -68,7 +68,7 @@ assert.equal(webContext.formatTaskProgress({ progress: 70, progressDisplay: '70%
 assert.equal(webContext.formatTaskProgress({ progress: null }), '—');
 assert.equal(webContext.getTaskProgress({ progress: 70, status: 'مكتملة' }), 70, 'status must not override sheet progress');
 assert.match(functionSource(appSource, 'normalizeRow'), /progress=normalizeTaskProgress\(raw\)/);
-assert.match(functionSource(appSource, 'applyFilters'), /formatTaskProgress\(r\)/);
+assert.doesNotMatch(functionSource(appSource, 'applyFilters'), /formatTaskProgress\(r\)/, 'tasks table must not render progress values');
 assert.match(scriptSource, /task_progress_contract:\s*\{[\s\S]*?scale:\s*'percent_points'/);
 assert.match(scriptSource, /getDisplayValues\(\)/);
 assert.match(scriptSource, /getNumberFormats\(\)/);
