@@ -295,9 +295,9 @@ function buildDashboardSectionData_(session, pageId, requestedDatasets) {
     assignments: ['assignments'], meetingsHub: ['meetings'], commitmentsHub: ['commitments'], fileControl: ['files'],
     urgentTasksPage: ['urgent_tasks'], escalationHub: ['escalations', 'task_escalations', 'escalation_chain', 'approvals', 'assignments', 'decisions', 'risk_governance'],
     escalationsCenter: ['escalations', 'task_escalations', 'escalation_chain'],
-    baselineManagement: ['baseline_management'], raciWorkload: ['raci_matrix', 'employee_workload'],
+    raciWorkload: ['raci_matrix', 'employee_workload'],
     criticalPath: ['critical_path'], dataQualityCenter: ['data_quality'], projectHealth: ['approvals', 'assignments'],
-    executiveBoard: ['approvals', 'assignments', 'decisions', 'risk_governance'], reportsGenerator: ['approvals', 'assignments', 'decisions', 'risk_governance']
+    executiveBoard: ['approvals', 'assignments', 'decisions', 'risk_governance'], reportsGenerator: ['approvals', 'assignments', 'decisions', 'risk_governance', 'baseline_management']
   };
   pageId = String(pageId || '').trim();
   requirePageAccess_(session, pageId);
