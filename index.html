@@ -1394,6 +1394,13 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #dataQualityCenter .data-table{min-width:1280px}
 #dataQualityCenter .data-table th button{border:0;background:none;color:inherit;font:inherit;font-weight:inherit;cursor:pointer;padding:0}
 #dataQualityCenter .data-table tbody tr{cursor:pointer}
+#criticalPath .cp-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+#criticalPath .cp-metric{padding:16px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.025)}
+#criticalPath .cp-metric b{display:block;font-size:24px;font-variant-numeric:tabular-nums;margin-top:5px}#criticalPath .cp-metric span{color:var(--muted);font-size:12px}
+#criticalPath .cp-paths{display:grid;gap:9px;margin-top:12px}.cp-path{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:10px;border-radius:12px;background:rgba(124,92,255,.07)}.cp-path-node{white-space:nowrap;border:1px solid rgba(124,92,255,.25);border-radius:9px;padding:7px 10px}.cp-path-arrow{color:var(--cyan);white-space:nowrap}
+#criticalPath .cp-note{line-height:1.8;color:var(--text-secondary);font-size:12px}#criticalPath .cp-alert{border-color:rgba(255,77,106,.35);background:rgba(255,77,106,.07)}
+#criticalPath .cp-controls{display:grid;grid-template-columns:minmax(220px,2fr) minmax(180px,1fr);gap:10px;margin-bottom:12px}
+#criticalPath .cp-table-card{overflow:auto;max-height:65vh}#criticalPathTable{min-width:1180px;table-layout:auto}#criticalPathTable th,#criticalPathTable td{white-space:nowrap;overflow-wrap:normal;font-variant-numeric:tabular-nums}#criticalPathTable th:nth-child(2),#criticalPathTable td:nth-child(2){white-space:normal;min-width:250px;max-width:420px}#criticalPathTable .cp-critical td{background:rgba(255,77,106,.055)}
 #dataQualityCenter .dq-empty td{text-align:center;padding:38px 18px!important;color:var(--muted)}
 #dataQualityCenter .dq-date-value{font-size:20px;line-height:1.4;white-space:nowrap}
 .dq-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
@@ -1402,7 +1409,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 .dq-detail-wide{grid-column:1/-1}.dq-record-link{display:inline-flex;margin-top:16px;padding:10px 14px;border-radius:10px;background:var(--purple);color:#fff;text-decoration:none;font-weight:700}
 @media(max-width:1100px){.app{flex-direction:row}.mobile-menu-btn,.sidebar-close{display:inline-flex;align-items:center}.sidebar{position:fixed;right:0;top:0;bottom:0;height:100vh;width:min(320px,86vw);z-index:80;transform:translateX(105%);transition:transform .22s ease}.app.sidebar-open .sidebar{transform:translateX(0)}.app.sidebar-open .sidebar-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}.sidebar-nav{display:block}.topbar{flex-wrap:wrap}.topbar-search{order:3;flex-basis:100%;max-width:none}.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.filters{grid-template-columns:1fr 1fr}.page-area{padding:16px}}
 @media(max-width:1100px){#dataQualityCenter .dq-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid,.filters,#dataQualityCenter .dq-filters{grid-template-columns:1fr!important}.dq-detail-grid{grid-template-columns:1fr}.dq-detail-wide{grid-column:auto}.page-area{padding:12px}.page-header{padding:14px}.topbar-left,.topbar-right{width:100%;flex-wrap:wrap}.data-table{min-width:760px}.card{padding:14px}.kpi-value{font-size:32px!important}}
+@media(max-width:700px){.kpi-grid,.health-grid,.charts-row,.phase-grid,.dec-kpi-grid,.ac-grid,.risk-kpi-grid,#kpis2.kpi-grid,.filters,#dataQualityCenter .dq-filters,#criticalPath .cp-summary,#criticalPath .cp-controls{grid-template-columns:1fr!important}.dq-detail-grid{grid-template-columns:1fr}.dq-detail-wide{grid-column:auto}.page-area{padding:12px}.page-header{padding:14px}.topbar-left,.topbar-right{width:100%;flex-wrap:wrap}.data-table{min-width:760px}.card{padding:14px}.kpi-value{font-size:32px!important}}
 @media(max-width:700px){.phase-progress-chart-wrap{height:auto;min-height:190px}.phase-progress-summary{min-height:180px}.phase-progress-summary-pct{font-size:31px}.phase-progress-summary-dates{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){.sidebar,.nav-group-toggle .chev{transition:none!important}}
 
@@ -1817,9 +1824,10 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="card" style="overflow:auto"><div class="sec-title"><h2>عبء العمل</h2><span>بدون أرقام ثابتة: الحدود من Employee Master</span></div><table class="data-table" id="workloadTable"><thead><tr><th>الموظف</th><th>البريد</th><th>عدد المهام</th><th>المتأخرة</th><th>الحرجة</th><th>إجمالي المدة</th><th>الحد</th><th>التنبيه</th></tr></thead><tbody></tbody></table></div>
       </section>
       <section class="page" id="criticalPath">
-        <div class="page-header"><h1>Critical Path</h1><p>يُحتسب من الاعتماديات الرسمية ونوع الاعتمادية والـ Lag فقط، وليس من ترتيب WBS.</p></div>
-        <div class="card" style="margin-bottom:14px"><div id="criticalPathStatus" style="color:var(--muted)">لا توجد بيانات كافية لاحتساب المسار الحرج</div></div>
-        <div class="card" style="overflow:auto;max-height:70vh"><table class="data-table" id="criticalPathTable"><thead><tr><th>الكود</th><th>المهمة</th><th>ES</th><th>EF</th><th>LS</th><th>LF</th><th>Total Float</th><th>Free Float</th><th>حرج</th><th>يؤثر على الافتتاح</th><th>النوع</th><th>Lag</th></tr></thead><tbody></tbody></table></div>
+        <div class="page-header"><h1>Critical Path — المسار الحرج</h1><p>حساب CPM من الروابط المسجلة فقط؛ لا يُستنتج أي رابط من ترتيب WBS.</p></div>
+        <div class="cp-summary" aria-label="ملخص المسار الحرج"><div class="cp-metric"><span>مدة الشبكة المحسوبة</span><b id="cpDuration">—</b></div><div class="cp-metric"><span>عدد المهام الحرجة</span><b id="cpCriticalCount">—</b></div><div class="cp-metric"><span>اكتمال بيانات الحساب</span><b id="cpCompleteness">—</b></div></div>
+        <div class="card" style="margin-bottom:14px"><div id="criticalPathStatus" class="cp-note">لا توجد بيانات كافية لاحتساب المسار الحرج</div><div id="criticalPathReasons" class="cp-note"></div><div id="criticalPathSequences" class="cp-paths"></div></div>
+        <div class="card cp-table-card"><div class="cp-controls"><input id="criticalPathSearch" type="search" placeholder="ابحث باسم المهمة أو كودها" aria-label="البحث في مهام المسار الحرج" oninput="renderCriticalPathTable()"><select id="criticalPathFilter" aria-label="تصفية مهام المسار" onchange="renderCriticalPathTable()"><option value="all">كل المهام</option><option value="critical">المهام الحرجة فقط</option><option value="noncritical">المهام غير الحرجة</option></select></div><p class="cp-note">القيم ES/EF/LS/LF إزاحات بأيام تقويمية من بداية المشروع (0)، وليست تواريخ. المدة المحسوبة للشبكة ليست الأيام المتبقية للافتتاح.</p><table class="data-table" id="criticalPathTable"><thead><tr><th>الكود</th><th>المهمة</th><th>المدة</th><th title="Early Start">البدء المبكر (ES)</th><th title="Early Finish">الإنهاء المبكر (EF)</th><th title="Late Start">البدء المتأخر (LS)</th><th title="Late Finish">الإنهاء المتأخر (LF)</th><th>السماح الكلي</th><th>السماح الحر</th><th>الحالة</th><th>السوابق (النوع / Lag)</th></tr></thead><tbody></tbody></table></div>
       </section>
       <section class="page" id="dataQualityCenter">
         <div class="page-header"><h1>مركز جودة البيانات</h1><p>مراقبة المخالفات التي تؤثر على سلامة المؤشرات والتقارير والقرارات.</p></div>
@@ -5317,8 +5325,24 @@ function renderRaciWorkload(){
   setTableRows_('workloadTable',(employeeWorkload||[]).map(r=>`<tr><td>${escapeHtml(r.employee)}</td><td>${escapeHtml(r.email)}</td><td>${escapeHtml(r.task_count)}</td><td>${escapeHtml(r.overdue_task_count)}</td><td>${escapeHtml(r.critical_task_count)}</td><td>${escapeHtml(r.total_duration_days)}</td><td>${escapeHtml(r.workload_limit_days||'لا توجد بيانات كافية')}</td><td><span class="pill ${r.alert==='تجاوز الحد'?'red':''}">${escapeHtml(r.alert)}</span></td></tr>`).join(''),8);
 }
 function renderCriticalPath(){
-  const st=document.getElementById('criticalPathStatus'); if(st) st.textContent=criticalPathAnalysis&&criticalPathAnalysis.ok?`مدة المشروع المحسوبة: ${criticalPathAnalysis.project_duration_days} يوم`:'لا توجد بيانات كافية لاحتساب المسار الحرج';
-  setTableRows_('criticalPathTable',((criticalPathAnalysis&&criticalPathAnalysis.tasks)||[]).map(r=>`<tr><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.early_start)}</td><td>${escapeHtml(r.early_finish)}</td><td>${escapeHtml(r.late_start)}</td><td>${escapeHtml(r.late_finish)}</td><td>${escapeHtml(r.total_float)}</td><td>${escapeHtml(r.free_float)}</td><td>${r.is_critical?'نعم':'لا'}</td><td>${r.directly_impacts_opening?'نعم':'لا'}</td><td>${escapeHtml(r.dependency_type)}</td><td>${escapeHtml(r.lag)}</td></tr>`).join(''),12);
+  const result=criticalPathAnalysis||{}, valid=result.ok===true&&result.reliable!==false;
+  const duration=document.getElementById('cpDuration'), count=document.getElementById('cpCriticalCount'), completeness=document.getElementById('cpCompleteness');
+  if(duration)duration.textContent=valid?`${result.project_duration_days} يوم تقويمي`:'غير متاح';
+  if(count)count.textContent=valid?String(result.critical_task_count??(result.tasks||[]).filter(t=>t.is_critical).length):'غير محسوب';
+  if(completeness){completeness.textContent=valid?'مكتملة':'غير مكتملة';completeness.style.color=valid?'var(--green)':'var(--red)';}
+  const st=document.getElementById('criticalPathStatus');
+  if(st){st.textContent=valid?'حساب موثوق لكامل شبكة المهام المستلمة. العرض أدناه لا يعيد الحساب عند التصفية.':escapeHtml(result.message||'لا توجد بيانات كافية لاحتساب المسار الحرج');st.parentElement.classList.toggle('cp-alert',!valid);}
+  const reasons=document.getElementById('criticalPathReasons'), errors=Array.isArray(result.errors)?result.errors:[];
+  if(reasons)reasons.innerHTML=errors.length?`<strong>أسباب تعذر الاعتماد:</strong><ul>${errors.map(e=>`<li>${escapeHtml(e.message||e.type)}</li>`).join('')}</ul>`:'';
+  const sequences=document.getElementById('criticalPathSequences'), paths=Array.isArray(result.critical_paths)?result.critical_paths:[];
+  if(sequences)sequences.innerHTML=valid?(paths.length?`<strong>تسلسل ${paths.length>1?'المسارات الحرجة':'المسار الحرج'}:</strong>${paths.map((path,i)=>`<div class="cp-path" aria-label="المسار الحرج ${i+1}">${path.map((code,j)=>`${j?'<span class="cp-path-arrow">←</span>':''}<span class="cp-path-node">${escapeHtml(code)}</span>`).join('')}</div>`).join('')}`:'<span>لم يُستخرج تسلسل حرج.</span>'):'';
+  renderCriticalPathTable();
+}
+function renderCriticalPathTable(){
+  const search=String(document.getElementById('criticalPathSearch')?.value||'').trim().toLocaleLowerCase('ar'), filter=document.getElementById('criticalPathFilter')?.value||'all';
+  const source=(criticalPathAnalysis&&criticalPathAnalysis.ok&&criticalPathAnalysis.reliable!==false)?(criticalPathAnalysis.tasks||[]):[];
+  const visible=source.filter(r=>(!search||`${r.task_code||''} ${r.task_name||''}`.toLocaleLowerCase('ar').includes(search))&&(filter==='all'||(filter==='critical')===Boolean(r.is_critical)));
+  setTableRows_('criticalPathTable',visible.map(r=>{const predecessors=(r.predecessors||[]).map(p=>`${p.task_code} (${p.type} / ${Number(p.lag)||0})`).join('، ')||'مستقلة — بلا سوابق';return `<tr class="${r.is_critical?'cp-critical':''}"><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.duration_days)} يوم</td><td>${escapeHtml(r.early_start)}</td><td>${escapeHtml(r.early_finish)}</td><td>${escapeHtml(r.late_start)}</td><td>${escapeHtml(r.late_finish)}</td><td>${escapeHtml(r.total_float)}</td><td>${escapeHtml(r.free_float)}</td><td><span class="pill ${r.is_critical?'red':'green'}">${r.is_critical?'حرجة':'غير حرجة'}</span></td><td>${escapeHtml(predecessors)}</td></tr>`;}).join(''),11);
 }
 let dataQualitySort={field:'first_detected_at',direction:'desc'}, visibleDataQualityIssues=[];
 function dataQualityValue_(value){return value===undefined||value===null||value===''?'غير مسجل':String(value);}
