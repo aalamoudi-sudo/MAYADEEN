@@ -36,7 +36,26 @@ test('task table omits direct owner while retaining the path owner', () => {
 });
 
 test('empty task results span exactly the remaining visible columns', () => {
-  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?14:13\)/);
+  assert.match(html, /const visibleColumns=\(canViewCompletionEvidence\(\)\?13:12\)/);
+});
+
+test('task table omits progress presentation while retaining progress data and filtering logic', () => {
+  const table = sectionBetween('<table class="data-table task-table" id="taskTable">', '</table>');
+  const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
+  const taskStyles = sectionBetween('#tasks .task-table{', '/* لوحة مراحل المشروع التنفيذية');
+
+  assert.doesNotMatch(table, /نسبة الإنجاز|task-col-progress/);
+  assert.doesNotMatch(renderedRows, /task-col-progress|formatTaskProgress\(r\)/);
+  assert.doesNotMatch(taskStyles, /task-col-progress/);
+  assert.match(html, /progress:\['نسبة الإنجاز'/);
+  assert.match(html, /const haystack=\[[^\n]+r\.progress/);
+});
+
+test('task table width closes the removed progress column gap at desktop and responsive sizes', () => {
+  const taskStyles = sectionBetween('#tasks .task-table{', '/* لوحة مراحل المشروع التنفيذية');
+
+  assert.match(taskStyles, /min-width:1930px;\s*width:1930px;/);
+  assert.match(taskStyles, /@media\(max-width:1100px\)[^\n]+\.task-table\{min-width:1560px;width:1560px\}/);
 });
 
 test('task table shows planned dates after status with concise labels and retains date data logic', () => {
@@ -106,10 +125,10 @@ test('task headers and rendered cells follow the requested RTL sequence', () => 
   const renderedRows = sectionBetween('return `<tr onclick="openDetail(', '</tr>`;');
   const headerClasses = [...table.matchAll(/<th class="([^"]+)"/g)].map(match => match[1]);
   const cellClasses = [...renderedRows.matchAll(/<td class="([^"]+)"/g)].map(match => match[1]);
-  const expected = ['task-col-code', 'task-col-name', 'task-col-status', 'task-col-date', 'task-col-date', 'task-col-progress', 'task-col-path-owner', 'task-col-follow-up', 'task-col-priority', 'task-col-path', 'task-col-phase', 'task-col-type', 'task-col-duration', 'task-col-evidence'];
+  const expected = ['task-col-code', 'task-col-name', 'task-col-status', 'task-col-date', 'task-col-date', 'task-col-path-owner', 'task-col-follow-up', 'task-col-priority', 'task-col-path', 'task-col-phase', 'task-col-type', 'task-col-duration', 'task-col-evidence'];
 
   assert.deepEqual(headerClasses.slice(0, expected.length), expected);
-  assert.deepEqual(cellClasses.slice(0, 13), expected.slice(0, 13));
+  assert.deepEqual(cellClasses.slice(0, 12), expected.slice(0, 12));
   assert.match(renderedRows, /task-col-duration[^\n]+canViewCompletionEvidence\(\)\?`<td class="task-col-evidence">/);
   assert.match(html, /row\.insertBefore\(header,document\.getElementById\('taskEscalationHeader'\)\)/);
 });
