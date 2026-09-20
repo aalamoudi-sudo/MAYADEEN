@@ -5080,28 +5080,100 @@ function normalizeProjectPhase(task){
   }
   return PROJECT_PHASE_UNSPECIFIED;
 }
-function taskOwnerFilterValues(task){
-  return [task?.executionOwner, task?.owner]
-    .map(v=>String(v||'').trim())
-    .filter(Boolean);
+function normalizeOwnerIdentityText(value){
+  // Keep Arabic spelling intact. Only formatting characters that can produce
+  // visually identical Sheet values are removed, and whitespace is collapsed.
+  return String(value??'').normalize('NFC')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g,'')
+    .replace(/[\s\u00A0]+/g,' ')
+    .trim();
+}
+function employeeOwnerIdentity(employee){
+  const name=normalizeOwnerIdentityText(valueOf(employee,['name','employee_name','اسم الموظف','اسم المسؤول']));
+  const email=normalizeOwnerIdentityText(valueOf(employee,['email','employee_email','البريد الإلكتروني','البريد الالكتروني'])).toLowerCase();
+  const id=normalizeOwnerIdentityText(valueOf(employee,['employee_id','person_id','staff_id','user_id','id','معرف الموظف','رقم الموظف']));
+  // WBS rows already expose owner email, so prefer that shared immutable key;
+  // fall back to an Employee Master identifier when no email is available.
+  return {name,id:email?`email:${email}`:(id?`id:${id}`:''),detail:email||id};
+}
+function ownerDirectory(masterRows=(typeof employeeMaster!=='undefined'?employeeMaster:[])){
+  const byName=new Map();
+  (Array.isArray(masterRows)?masterRows:[]).forEach(employee=>{
+    const identity=employeeOwnerIdentity(employee);
+    if(!identity.name||!identity.id) return;
+    const found=byName.get(identity.name)||new Map();
+    found.set(identity.id,identity);
+    byName.set(identity.name,found);
+  });
+  return byName;
+}
+function taskOwnerIdentities(task,masterRows=(typeof employeeMaster!=='undefined'?employeeMaster:[])){
+  const directory=ownerDirectory(masterRows);
+  const values=[
+    {name:task?.executionOwner,id:'',detail:''},
+    {name:task?.owner,id:normalizeOwnerIdentityText(task?.ownerEmail).toLowerCase(),detail:normalizeOwnerIdentityText(task?.ownerEmail).toLowerCase()}
+  ];
+  const identities=new Map();
+  values.forEach(value=>{
+    const name=normalizeOwnerIdentityText(value.name);
+    if(!isProjectOwnerName(name)) return;
+    let id=value.id?`email:${value.id}`:'';
+    let detail=value.detail;
+    const directoryMatches=directory.get(name);
+    if(!id&&directoryMatches?.size===1){
+      const match=[...directoryMatches.values()][0]; id=match.id; detail=match.detail;
+    }
+    const key=id||`name:${name}`;
+    if(!identities.has(key)) identities.set(key,{key,name,id,detail});
+  });
+  return [...identities.values()];
+}
+function taskOwnerFilterValues(task,masterRows=(typeof employeeMaster!=='undefined'?employeeMaster:[])){
+  return taskOwnerIdentities(task,masterRows).map(identity=>identity.name);
 }
 function isProjectOwnerName(name){
-  const value=String(name||'').trim();
+  const value=normalizeOwnerIdentityText(name);
   return Boolean(value)&&normalizeArabic(value)!==normalizeArabic('غير محدد');
 }
-function projectOwnerGroups(taskRows=tasks){
-  const ownerCounts=new Map();
+function projectOwnerGroups(taskRows=tasks,masterRows=(typeof employeeMaster!=='undefined'?employeeMaster:[])){
+  const occurrences=[];
   (Array.isArray(taskRows)?taskRows:[]).forEach(task=>{
-    // الاسم المطابق وحده يمثل الشخص نفسه؛ لا نوحّد تهجئات قد تخص أشخاصاً مختلفين.
-    const taskOwners=new Set(taskOwnerFilterValues(task).filter(isProjectOwnerName));
-    taskOwners.forEach(name=>ownerCounts.set(name,(ownerCounts.get(name)||0)+1));
+    taskOwnerIdentities(task,masterRows).forEach(identity=>occurrences.push({task,identity}));
   });
-  return [...ownerCounts].map(([name,count])=>({name,count}));
+  const idsByName=new Map();
+  occurrences.forEach(({identity})=>{
+    if(!identity.id) return;
+    const ids=idsByName.get(identity.name)||new Set(); ids.add(identity.id); idsByName.set(identity.name,ids);
+  });
+  const groups=new Map();
+  occurrences.forEach(({task,identity})=>{
+    // A name-only WBS row can safely join a stable identity only when exactly
+    // one such person has that exact, formatting-cleaned name.
+    const ids=idsByName.get(identity.name);
+    const key=identity.id||((ids?.size===1)?[...ids][0]:identity.key);
+    if(!groups.has(key)) groups.set(key,{key,name:identity.name,detail:identity.detail||'',tasks:new Set()});
+    const group=groups.get(key); group.tasks.add(task); if(!group.detail&&identity.detail) group.detail=identity.detail;
+  });
+  const nameCounts=new Map();
+  groups.forEach(group=>nameCounts.set(group.name,(nameCounts.get(group.name)||0)+1));
+  return [...groups.values()].map(group=>({
+    key:group.key,
+    name:group.name,
+    label:nameCounts.get(group.name)>1?`${group.name} (${group.detail||(group.key.startsWith('name:')?'دون معرّف':group.key.replace(/^[^:]+:/,''))})`:group.name,
+    count:group.tasks.size
+  }));
 }
-function taskMatchesOwnerFilter(task, selectedOwner){
+function taskMatchesOwnerFilter(task, selectedOwner,taskRows=(typeof rows!=='undefined'?rows:[]),masterRows=(typeof employeeMaster!=='undefined'?employeeMaster:[])){
   if(!selectedOwner) return true;
-  const wanted=String(selectedOwner).trim();
-  return taskOwnerFilterValues(task).some(v=>v===wanted);
+  const wanted=normalizeOwnerIdentityText(selectedOwner);
+  const groups=projectOwnerGroups(taskRows,masterRows);
+  const selected=groups.find(group=>group.key===wanted)||groups.find(group=>group.name===wanted&&groups.filter(item=>item.name===wanted).length===1);
+  if(!selected) return taskOwnerIdentities(task,masterRows).some(identity=>identity.name===wanted);
+  const sameNameStableGroups=groups.filter(group=>group.name===selected.name&&!group.key.startsWith('name:'));
+  return taskOwnerIdentities(task,masterRows).some(identity=>
+    identity.id===selected.key||identity.key===selected.key||
+    (!identity.id&&identity.name===selected.name&&sameNameStableGroups.length===1)
+  );
 }
 const TASK_STATUS_VALUES=['مكتملة','متأخرة','قيد التنفيذ','لم تبدأ','ملغاة','غير مكتملة البيانات'];
 const WBS_FIELD_ALIASES={
@@ -6575,13 +6647,21 @@ document.addEventListener('input',event=>{ if(['overdue-escalation-recipient','o
 /* ══ FILL FILTERS ══ */
 function fillFilters(){
   const phases=[...PROJECT_PHASE_ORDER,PROJECT_PHASE_UNSPECIFIED];
-  const owners=projectOwnerGroups(rows).map(owner=>owner.name).sort((a,b)=>a.localeCompare(b,'ar'));
+  const owners=projectOwnerGroups(rows).sort((a,b)=>a.label.localeCompare(b.label,'ar'));
   const pSel=document.getElementById('filterPhase');
   const pathSel=document.getElementById('filterPath');
   const oSel=document.getElementById('filterOwner');
   if(pSel) pSel.innerHTML='<option value="">جميع المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
   if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`).join('');
-  if(oSel) oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(o=>`<option>${o}</option>`).join('');
+  if(oSel){
+    const previous=oSel.value;
+    oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(owner=>`<option value="${escapeHtml(owner.key)}">${escapeHtml(owner.label)}</option>`).join('');
+    if([...oSel.options].some(option=>option.value===previous)) oSel.value=previous;
+    else {
+      const legacy=owners.filter(owner=>owner.name===normalizeOwnerIdentityText(previous));
+      oSel.value=legacy.length===1?legacy[0].key:'';
+    }
+  }
 }
 
 /* ══ DONUT CHART ══ */
@@ -6979,12 +7059,12 @@ function renderMilestonesPage(){
 function renderOwnersPage(){
   const el=document.getElementById('ownersList'); if(!el) return;
   const owners=projectOwnerGroups(tasks).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ar')).slice(0,200);
-  el.innerHTML=owners.map(({name,count})=>`<div class="owner-card" onclick="showOwnerTasks(${JSON.stringify(name)})"><b>${escapeHtml(name)}</b><span>${count} مهمة مرتبطة</span></div>`).join('');
+  el.innerHTML=owners.map(({key,label,count})=>`<div class="owner-card" onclick="showOwnerTasks(${JSON.stringify(key)})"><b>${escapeHtml(label)}</b><span>${count} مهمة مرتبطة</span></div>`).join('');
 }
-function showOwnerTasks(name){
+function showOwnerTasks(ownerKey){
   showPage('tasks');
   const o=document.getElementById('filterOwner');
-  if(o){o.value=name; applyFilters();}
+  if(o){o.value=ownerKey; applyFilters();}
 }
 
 /* ══ PROJECT PAGE ══ */
