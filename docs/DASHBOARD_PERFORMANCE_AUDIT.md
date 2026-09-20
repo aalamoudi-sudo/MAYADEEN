@@ -70,3 +70,20 @@ These are operation counts, not production latency measurements. Production cred
 2. Smoke-test `auth_session`, `dashboard_home`, one simple section (`meetingsHub`), one derived section (`criticalPath`), a forbidden section, manual refresh, logout/account switch, and one existing mutation in an isolated test sheet/account.
 3. Publish `index.html` only after the Apps Script version passes. The new UI then opts into the new actions.
 4. To roll back, restore the previous `index.html` first (it uses retained `data_sync`), then point the existing Apps Script deployment back to the prior version. Do not create a new web-app URL or alter Sheet data/sharing.
+
+## Cross-page request deduplication (2026-09-20)
+
+Profiling the lazy read plan exposed a remaining navigation bottleneck: the home response already contains approvals, assignments, urgent tasks, decisions, and risks, but the first visit to a page requested those same registers again. Pages that share summary data repeated the work independently. For example, opening Approvals performed two dataset reads although only the approval-chain register was missing; Decisions performed one redundant read; opening Project Health and then Executive Board performed six reads even though all were in the home snapshot.
+
+The browser now records which datasets belong to the current authoritative home refresh and sends only a missing-dataset delta. The server intersects that delta with its own page allowlist before opening Sheets, preserving page and executive-board authorization. A manual refresh clears the registry and seeds it only from the newly returned home response, so no data survives an account change or refresh. Section timing is emitted as `DashboardSectionProfile`, including end-to-end browser time, server duration, spreadsheet-open time, and per-dataset durations.
+
+Measured by the isolated Apps Script read harness (the repository has no production Sheet credentials):
+
+| Navigation scenario after home load | Before | After |
+|---|---:|---:|
+| Open Approvals | 2 dataset reads / 1 Sheets open | 1 dataset read / 1 Sheets open |
+| Open Decisions | 1 dataset read / 1 Sheets open | 0 reads / 0 opens |
+| Open Project Health, then Executive Board | 6 dataset reads / 2 Sheets opens | 0 reads / 0 opens |
+| Unauthorized extra dataset in a section request | not applicable | rejected by plan intersection |
+
+These are executed operation counts, not invented network timings. Exact cold/warm latency still requires deployment against the production-sized Sheet; capture `DataSyncProfile` and `DashboardSectionProfile` under the same account and network before and after release.

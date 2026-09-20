@@ -58,3 +58,18 @@ test('section route enforces server-side page permission before opening Sheets',
   assert.throws(()=>ctx.buildDashboardSectionData_({username:'restricted',allowed_pages:['overview']},'meetingsHub'),/Forbidden/);
   assert.deepEqual(calls,[]);
 });
+
+test('section request skips home datasets and cannot request data outside its server plan',()=>{
+  const {ctx,calls}=runtime();
+  const session={username:'user',allowed_pages:['*']};
+  const result=ctx.buildDashboardSectionData_(session,'approvals',['approval_chain','decisions','approval_chain']);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.datasets)),{approval_chain:[{id:'Approval Chain Register',path_scope:'delivery'}]});
+  assert.deepEqual(calls,['open','Approval Chain Register']);
+});
+
+test('empty section delta avoids opening the spreadsheet',()=>{
+  const {ctx,calls}=runtime();
+  const result=ctx.buildDashboardSectionData_({username:'user',allowed_pages:['*']},'decisions',[]);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.datasets)),{});
+  assert.deepEqual(calls,[]);
+});
