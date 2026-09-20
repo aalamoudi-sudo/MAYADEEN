@@ -1222,7 +1222,7 @@ function ensureP1Batch3Sheets_() {
 function getBaselineHeaders_() { return ['task_code','task_name','original_baseline_start','original_baseline_end','current_plan_start','current_plan_end','start_variance_days','end_variance_days','revision_number','modified_at','revision_reason','modified_by','approved_by','audit_status']; }
 function getRaciHeaders_() { return ['task_code','task_name','responsible','accountable','consulted','informed','source','data_status']; }
 function getWorkloadHeaders_() { return ['employee','email','task_count','overdue_task_count','critical_task_count','total_duration_days','workload_limit_days','alert','source']; }
-function getCriticalPathHeaders_() { return ['task_code','task_name','early_start','early_finish','late_start','late_finish','total_float','free_float','is_critical','directly_impacts_opening','dependency_type','lag','data_status']; }
+function getCriticalPathHeaders_() { return ['task_code','task_name','duration_days','early_start','early_finish','late_start','late_finish','total_float','free_float','is_critical','predecessors','data_status']; }
 function getDataQualityHeaders_() { return ['issue_key','issue_type','data_source','sheet_name','field_name','record_reference','row_number','description','severity','status','current_value','expected_rule','suggested_resolution','first_detected_at','last_seen_at','last_updated_at','occurrence_count','original_record_url']; }
 
 function getEmployeeMasterRows_(ss) { return getExistingRegisterRows_(ss || SpreadsheetApp.openById(SPREADSHEET_ID), KAG_CONFIG.employeeMasterSheetName); }
@@ -1256,8 +1256,89 @@ function buildEmployeeWorkload_(ss, rows, employees, criticalPath) {
   const idx=employeeByNameOrEmail_(employees), today=dayNumber_(Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd')), critical=criticalPath || buildCriticalPathAnalysis_(ss, rows); const crit={}; (critical.tasks||[]).forEach(function(t){ if(t.is_critical) crit[normKey_(t.task_code)]=true; }); const agg={}; rows.forEach(function(r){ const emp=findEmployee_(idx, taskOwner_(r), taskField_(r,'ownerEmail')); if(!emp) return; const key=employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||employeeField_(emp,['name','employee_name','اسم الموظف']); if(!agg[key]) agg[key]={employee:employeeField_(emp,['name','employee_name','اسم الموظف'])||taskOwner_(r),email:employeeField_(emp,['email','البريد الإلكتروني','employee_email'])||'',task_count:0,overdue_task_count:0,critical_task_count:0,total_duration_days:0,workload_limit_days:Number(employeeField_(emp,['workload_limit_days','capacity_days','حد العبء'])||0)}; agg[key].task_count++; agg[key].total_duration_days+=durationDays_(r); if(!isCompleteTask_(r)&&dayNumber_(taskEnd_(r))!==null&&dayNumber_(taskEnd_(r))<today) agg[key].overdue_task_count++; if(crit[normKey_(taskCode_(r))]) agg[key].critical_task_count++; }); return Object.keys(agg).map(function(k){ const a=agg[k]; a.alert=a.workload_limit_days&&a.total_duration_days>a.workload_limit_days?'تجاوز الحد':'ضمن الحد'; a.source='Employee Master + WBS'; return a; });
 }
 
+function splitCriticalPathField_(value) {
+  return String(value === null || value === undefined ? '' : value).split(/[,;،]/).map(function(v){ return v.trim(); }).filter(Boolean);
+}
+
+/*
+ * CPM uses elapsed calendar-day offsets from project start (start = 0).  The
+ * source sheet has no working-calendar definition, so this function must not
+ * claim to calculate working days.  WBS order is deliberately never used.
+ */
 function buildCriticalPathAnalysis_(ss, rows) {
-  const nodes={}, missing=[]; rows.forEach(function(r){ const c=taskCode_(r); if(c&&taskStart_(r)&&taskEnd_(r)) nodes[c]={row:r,code:c,dur:durationDays_(r),preds:[]}; }); rows.forEach(function(r){ const c=taskCode_(r); if(!nodes[c]) return; String(taskField_(r,'predecessor')||'').split(/[,;،]/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(p){ if(!nodes[p]) missing.push(p+' -> '+c); else nodes[c].preds.push({code:p,type:String(taskField_(r,'dependencyType')||'FS').trim().toUpperCase(),lag:Number(taskField_(r,'lag')||0)||0}); }); }); if(!Object.keys(nodes).length || missing.length) return { ok:false, message:'لا توجد بيانات كافية لاحتساب المسار الحرج', missing_dependencies:missing, tasks:[] }; const order=[], temp={}, perm={}, cycle=false; function visit(c){ if(temp[c]){cycle=true;return;} if(perm[c])return; temp[c]=true; nodes[c].preds.forEach(function(p){visit(p.code);}); perm[c]=true; temp[c]=false; order.push(c);} Object.keys(nodes).forEach(visit); if(cycle) return { ok:false, message:'لا توجد بيانات كافية لاحتساب المسار الحرج', circular_dependencies:true, tasks:[] }; order.forEach(function(c){ const n=nodes[c]; n.es=0; n.preds.forEach(function(p){ const pn=nodes[p.code], rel=(p.type==='SS'?pn.es:pn.ef)+p.lag; n.es=Math.max(n.es,rel); }); n.ef=n.es+n.dur; }); const projectFinish=Math.max.apply(null, order.map(function(c){return nodes[c].ef;})); order.slice().reverse().forEach(function(c){ const n=nodes[c]; n.lf=projectFinish; Object.keys(nodes).forEach(function(s){ nodes[s].preds.forEach(function(p){ if(p.code===c){ const succ=nodes[s], rel=(p.type==='SS'?succ.ls:succ.es)-p.lag; n.lf=Math.min(n.lf, rel+(p.type==='SS'?n.dur:0)); } }); }); n.ls=n.lf-n.dur; n.total_float=n.ls-n.es; let minFree=projectFinish-n.ef; Object.keys(nodes).forEach(function(s){ nodes[s].preds.forEach(function(p){ if(p.code===c) minFree=Math.min(minFree,(p.type==='SS'?nodes[s].es:nodes[s].es)-p.lag-n.ef); }); }); n.free_float=Math.max(0,minFree); }); return { ok:true, message:'ok', project_duration_days:projectFinish, tasks:order.map(function(c){ const n=nodes[c]; return {task_code:c,task_name:taskName_(n.row),early_start:n.es,early_finish:n.ef,late_start:n.ls,late_finish:n.lf,total_float:n.total_float,free_float:n.free_float,is_critical:n.total_float===0,directly_impacts_opening:n.ef===projectFinish||n.total_float===0,dependency_type:String(taskField_(n.row,'dependencyType')||'FS'),lag:Number(taskField_(n.row,'lag')||0)||0,data_status:'ok'}; }) };
+  const nodes={}, errors=[], warnings=[], duplicateCodes=[];
+  (rows || []).forEach(function(row, index) {
+    const code=taskCode_(row), name=taskName_(row), duration=durationDays_(row), rawDuration=taskField_(row,'plannedDurationDays');
+    const startDay=dayNumber_(taskStart_(row)), endDay=dayNumber_(taskEnd_(row));
+    if (!code) { errors.push({type:'missing_code',row:index+2,message:'صف بلا كود مهمة'}); return; }
+    if (nodes[code]) { duplicateCodes.push(code); errors.push({type:'duplicate_code',task_code:code,message:'كود مكرر: '+code}); return; }
+    if (rawDuration !== '' && rawDuration !== null && rawDuration !== undefined && (!Number.isFinite(Number(rawDuration)) || Number(rawDuration) <= 0)) { errors.push({type:'invalid_duration',task_code:code,message:'مدة مسجلة غير صالحة للمهمة '+code}); return; }
+    if ((rawDuration === '' || rawDuration === null || rawDuration === undefined) && startDay !== null && endDay !== null && endDay < startDay) { errors.push({type:'invalid_duration',task_code:code,message:'تاريخ نهاية يسبق البداية للمهمة '+code}); return; }
+    if (!Number.isFinite(duration) || duration <= 0) { errors.push({type:'invalid_duration',task_code:code,message:'مدة غير صالحة للمهمة '+code}); return; }
+    nodes[code]={row:row,code:code,name:name||code,dur:duration,preds:[],succs:[],es:0};
+  });
+
+  Object.keys(nodes).forEach(function(code) {
+    const node=nodes[code], predecessorCodes=splitCriticalPathField_(taskField_(node.row,'predecessor'));
+    const types=splitCriticalPathField_(taskField_(node.row,'dependencyType')).map(function(v){return v.toUpperCase();});
+    const lags=splitCriticalPathField_(taskField_(node.row,'lag'));
+    if (!predecessorCodes.length) { node.data_status='independent'; return; }
+    if (!types.length) { errors.push({type:'missing_relationship_type',task_code:code,message:'نوع العلاقة مفقود للمهمة '+code}); return; }
+    if (types.length !== 1 && types.length !== predecessorCodes.length) { errors.push({type:'relationship_count_mismatch',task_code:code,message:'عدد أنواع العلاقات لا يطابق عدد السوابق: '+code}); return; }
+    if (lags.length > 1 && lags.length !== predecessorCodes.length) { errors.push({type:'lag_count_mismatch',task_code:code,message:'عدد قيم Lag لا يطابق عدد السوابق: '+code}); return; }
+    predecessorCodes.forEach(function(predecessorCode, i) {
+      const predecessor=nodes[predecessorCode], type=types.length===1?types[0]:types[i];
+      const rawLag=lags.length?(lags.length===1?lags[0]:lags[i]):'0', lag=Number(String(rawLag).replace(',','.'));
+      if (!predecessor) { errors.push({type:'missing_reference',task_code:code,predecessor:predecessorCode,message:'مرجع غير موجود: '+predecessorCode+' → '+code}); return; }
+      if (['FS','SS','FF','SF'].indexOf(type) === -1) { errors.push({type:'unsupported_relationship',task_code:code,message:'نوع علاقة غير مدعوم '+type+' للمهمة '+code}); return; }
+      if (!Number.isFinite(lag)) { errors.push({type:'invalid_lag',task_code:code,message:'Lag غير صالح للمهمة '+code}); return; }
+      /* Convert every relation to ES(successor) >= ES(predecessor) + weight. */
+      const weight=type==='FS'?predecessor.dur+lag:type==='SS'?lag:type==='FF'?predecessor.dur+lag-node.dur:lag-node.dur;
+      const edge={from:predecessorCode,to:code,type:type,lag:lag,weight:weight};
+      node.preds.push(edge); predecessor.succs.push(edge);
+    });
+    node.data_status='linked';
+  });
+
+  const order=[], state={}, cycle=[];
+  function visit(code, trail) {
+    if (state[code]===1) { cycle.push(trail.concat([code]).join(' → ')); return; }
+    if (state[code]===2) return;
+    state[code]=1;
+    nodes[code].preds.forEach(function(edge){ visit(edge.from,trail.concat([code])); });
+    state[code]=2; order.push(code);
+  }
+  Object.keys(nodes).forEach(function(code){ visit(code,[]); });
+  if (cycle.length) errors.push({type:'circular_dependency',message:'علاقة دائرية: '+cycle[0]});
+
+  const baseResult={ok:false,reliable:false,message:'تعذر الحساب الموثوق',calendar_type:'calendar_days',offset_basis:'project_start_day_zero',calculation_scope:'full_unfiltered_network',errors:errors,warnings:warnings,missing_dependencies:errors.filter(function(e){return e.type==='missing_reference';}),circular_dependencies:cycle.length>0,duplicate_codes:duplicateCodes,tasks:[]};
+  if (!Object.keys(nodes).length) { baseResult.message='لا توجد مهام ذات مدد صالحة'; return baseResult; }
+  if (errors.length) return baseResult;
+
+  order.forEach(function(code) {
+    const node=nodes[code]; node.es=0;
+    node.preds.forEach(function(edge){ node.es=Math.max(node.es,nodes[edge.from].es+edge.weight); });
+    node.ef=node.es+node.dur;
+  });
+  const projectFinish=Math.max.apply(null,order.map(function(code){return nodes[code].ef;}));
+  order.slice().reverse().forEach(function(code) {
+    const node=nodes[code]; node.ls=projectFinish-node.dur;
+    node.succs.forEach(function(edge){ node.ls=Math.min(node.ls,nodes[edge.to].ls-edge.weight); });
+    node.lf=node.ls+node.dur;
+    node.totalFloat=node.ls-node.es;
+    node.freeFloat=node.succs.length?Math.min.apply(null,node.succs.map(function(edge){return nodes[edge.to].es-node.es-edge.weight;})):projectFinish-node.ef;
+  });
+  const criticalEdges=[];
+  Object.keys(nodes).forEach(function(code){ nodes[code].succs.forEach(function(edge){if(nodes[edge.from].totalFloat===0&&nodes[edge.to].totalFloat===0&&nodes[edge.to].es===nodes[edge.from].es+edge.weight)criticalEdges.push(edge);}); });
+  const criticalPaths=[];
+  function walkCritical(code,path) {
+    const next=criticalEdges.filter(function(edge){return edge.from===code;});
+    if (!next.length) { if(nodes[code].ef===projectFinish) criticalPaths.push(path.concat([code])); return; }
+    next.forEach(function(edge){walkCritical(edge.to,path.concat([code]));});
+  }
+  order.filter(function(code){return nodes[code].totalFloat===0&&!criticalEdges.some(function(edge){return edge.to===code;});}).forEach(function(code){walkCritical(code,[]);});
+  const tasks=order.map(function(code){const n=nodes[code];return {task_code:code,task_name:n.name,duration_days:n.dur,early_start:n.es,early_finish:n.ef,late_start:n.ls,late_finish:n.lf,total_float:n.totalFloat,free_float:n.freeFloat,is_critical:n.totalFloat===0,predecessors:n.preds.map(function(e){return {task_code:e.from,type:e.type,lag:e.lag};}),data_status:n.data_status};});
+  return {ok:true,reliable:true,message:'الحساب مكتمل',project_duration_days:projectFinish,critical_task_count:tasks.filter(function(t){return t.is_critical;}).length,critical_paths:criticalPaths,calendar_type:'calendar_days',offset_basis:'project_start_day_zero',calculation_scope:'full_unfiltered_network',errors:[],warnings:warnings,tasks:tasks};
 }
 
 function buildDataQualityCenter_(ss, rows, employees, criticalPath) {
