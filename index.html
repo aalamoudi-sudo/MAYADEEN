@@ -3297,6 +3297,13 @@ let syncRequestInFlight=null;
 let syncRequestSequence=0;
 const sectionLoadState=new Map();
 const SECTION_DATA_PAGES=new Set(['approvals','decisions','risksMgmt','assignments','meetingsHub','commitmentsHub','fileControl','urgentTasksPage','escalationHub','escalationsCenter','baselineManagement','raciWorkload','criticalPath','dataQualityCenter','projectHealth','executiveBoard','reportsGenerator']);
+const SECTION_DATASETS={
+  approvals:['approvals','approval_chain'],decisions:['decisions'],risksMgmt:['risk_governance'],assignments:['assignments'],meetingsHub:['meetings'],commitmentsHub:['commitments'],fileControl:['files'],urgentTasksPage:['urgent_tasks'],
+  escalationHub:['escalations','task_escalations','escalation_chain','approvals','assignments','decisions','risk_governance'],escalationsCenter:['escalations','task_escalations','escalation_chain'],
+  baselineManagement:['baseline_management'],raciWorkload:['raci_matrix','employee_workload'],criticalPath:['critical_path'],dataQualityCenter:['data_quality'],projectHealth:['approvals','assignments'],
+  executiveBoard:['approvals','assignments','decisions','risk_governance'],reportsGenerator:['approvals','assignments','decisions','risk_governance']
+};
+const loadedDashboardDatasets=new Set();
 let authGeneration=0;
 const loginPerfCounters={authLoginRequests:0,dataSyncRequests:0,mainRenders:0};
 let syncBackoffMs=30000;
@@ -3385,7 +3392,7 @@ function renderOverview(){
   measurePerf('overview_render_duration','overview_render_start','overview_render_end');
 }
 function renderCurrentPage(force=false){renderPageIfNeeded(getActivePageId(),force);}
-function resetSectionLoads(){sectionLoadState.clear();}
+function resetSectionLoads(){sectionLoadState.clear();loadedDashboardDatasets.clear();}
 function sectionLoadingNotice(page,message){
   if(!page)return;
   let notice=page.querySelector(':scope > .section-load-notice');
@@ -3417,16 +3424,30 @@ async function ensureSectionData(pageId,{force=false}={}){
   if(existing?.status==='loading')return existing.promise;
   if(!force&&existing?.status==='loaded')return true;
   const sequence=syncRequestSequence, token=sessionToken, generation=authGeneration;
+  const required=SECTION_DATASETS[pageId]||[];
+  // A home refresh has just replaced its five datasets with a current snapshot;
+  // even a forced active-page refresh should fetch only the remaining delta.
+  const missing=required.filter(name=>!loadedDashboardDatasets.has(name));
+  if(!missing.length){
+    sectionLoadState.set(pageId,{status:'loaded',loadedAt:Date.now()});
+    renderPageIfNeeded(pageId);
+    return true;
+  }
   const page=document.getElementById(pageId); if(!existing?.loadedAt)sectionLoadingNotice(page,'جارٍ تحميل بيانات هذا القسم من Google Sheets…');
   page?.setAttribute('aria-busy','true');
   const promise=(async()=>{
+    const sectionStartedAt=performance.now();
     try{
-      const response=await withTimeout(postApi(getConfiguredApiUrl(),{action:'dashboard_section',page_id:pageId}),30000,'dashboard_section timeout');
+      const response=await withTimeout(postApi(getConfiguredApiUrl(),{action:'dashboard_section',page_id:pageId,datasets:missing}),30000,'dashboard_section timeout');
       const result=await parseApiJson(response,'dashboard_section');
       if(!response.ok||!result.ok)throw new Error(result.error||result.message||`HTTP ${response.status}`);
+      console.info('⏱️ [DashboardSectionProfile]',{page_id:pageId,requested_datasets:missing,duration_ms:Math.round(performance.now()-sectionStartedAt),server_duration_ms:result.section_meta?.duration_ms,spreadsheet_open_ms:result.section_meta?.performance?.spreadsheet_open_ms});
+      if(result.section_meta?.performance?.datasets)console.table(result.section_meta.performance.datasets);
       const responseUser=String(result.user?.username||'').trim().toLowerCase(), activeUser=String(currentUser?.username||'').trim().toLowerCase();
       if(sequence!==syncRequestSequence||token!==sessionToken||generation!==authGeneration||responseUser!==activeUser)return false;
-      applySectionDatasets(result.datasets); dashboardDataVersion++; pageRenderState[pageId]={rendered:false,dataVersion:-1};
+      applySectionDatasets(result.datasets);
+      Object.keys(result.datasets||{}).forEach(name=>loadedDashboardDatasets.add(name));
+      Object.entries(SECTION_DATASETS).forEach(([id,names])=>{if(names.some(name=>Object.prototype.hasOwnProperty.call(result.datasets||{},name)))pageRenderState[id]={rendered:false,dataVersion:-1};});
       sectionLoadState.set(pageId,{status:'loaded',loadedAt:Date.now()});
       page?.querySelector(':scope > .section-load-notice')?.setAttribute('hidden',''); page?.removeAttribute('aria-busy');
       if(getActivePageId()===pageId)renderPageIfNeeded(pageId,true);
@@ -6244,6 +6265,7 @@ async function loadExternal(initial=true){
       // Mutations and explicit refreshes invalidate lazy datasets. Only the
       // active section is fetched again; opening the home page never fans out.
       resetSectionLoads();
+      ['approvals','assignments','urgent_tasks','decisions','risk_governance'].forEach(name=>loadedDashboardDatasets.add(name));
       markPerf('normalize_end');
       measurePerf('normalize_duration','data_sync_start','normalize_end');
       const stateUpdateStartedAt=performance.now();

@@ -288,7 +288,8 @@ function buildDashboardHomeData_(session) {
   return response;
 }
 
-function buildDashboardSectionData_(session, pageId) {
+function buildDashboardSectionData_(session, pageId, requestedDatasets) {
+  const sectionStartedAt = new Date().getTime();
   const plans = {
     approvals: ['approvals', 'approval_chain'], decisions: ['decisions'], risksMgmt: ['risk_governance'],
     assignments: ['assignments'], meetingsHub: ['meetings'], commitmentsHub: ['commitments'], fileControl: ['files'],
@@ -300,9 +301,16 @@ function buildDashboardSectionData_(session, pageId) {
   };
   pageId = String(pageId || '').trim();
   requirePageAccess_(session, pageId);
-  const requested = plans[pageId];
-  if (!requested) return { ok: true, user: safeUser_(session), page_id: pageId, datasets: {}, generated_at: new Date().toISOString() };
+  const allowed = plans[pageId];
+  if (!allowed) return { ok: true, user: safeUser_(session), page_id: pageId, datasets: {}, generated_at: new Date().toISOString() };
   if (pageId === 'executiveBoard') requireExecutiveBoardAccess_(session);
+  // The browser may omit datasets already returned by dashboard_home or another
+  // section. Intersect with the server-owned plan so this optimization cannot
+  // broaden page permissions or expose an undeclared register.
+  const requested = Array.isArray(requestedDatasets)
+    ? requestedDatasets.map(String).filter(function(name, index, values) { return allowed.indexOf(name) !== -1 && values.indexOf(name) === index; })
+    : allowed;
+  if (!requested.length) return { ok: true, user: safeUser_(session), page_id: pageId, datasets: {}, generated_at: new Date().toISOString() };
   const profile = { spreadsheet_open_ms: 0, datasets: [] }, openedAt = new Date().getTime();
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   profile.spreadsheet_open_ms = new Date().getTime() - openedAt;
@@ -326,7 +334,7 @@ function buildDashboardSectionData_(session, pageId) {
     const value = timedDashboardOperation_(profile, name, readers[name]);
     datasets[name] = Array.isArray(value) ? projectVisibleRows_(value) : value;
   });
-  return { ok: true, api_version: '2026-09-lazy-dashboard-v1', user: safeUser_(session), page_id: pageId, datasets: datasets, generated_at: new Date().toISOString(), section_meta: { performance: profile } };
+  return { ok: true, api_version: '2026-09-lazy-dashboard-v1', user: safeUser_(session), page_id: pageId, datasets: datasets, generated_at: new Date().toISOString(), section_meta: { duration_ms: new Date().getTime() - sectionStartedAt, dataset_count: requested.length, performance: profile } };
 }
 
 function canViewTaskEvidence_(session) {
@@ -535,7 +543,7 @@ function doPost(e) {
     }
 
     if (payload.action === 'dashboard_section') {
-      return json_(buildDashboardSectionData_(session, payload.page_id));
+      return json_(buildDashboardSectionData_(session, payload.page_id, payload.datasets));
     }
 
     if (String(payload.page_id || payload.page || payload.target_page || '').trim() === 'executiveBoard') {
