@@ -1619,7 +1619,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <button class="nav-item" data-page="executiveBoard" title="لوحة المدير العام" aria-label="فتح صفحة لوحة المدير العام"><span class="nav-icon" aria-hidden="true">Σ</span><span class="nav-text">لوحة المدير العام</span></button>
       <button class="nav-item" data-page="supervisorDaily" title="لوحة المشرف اليومية" aria-label="فتح صفحة لوحة المشرف اليومية"><span class="nav-icon" aria-hidden="true">⌁</span><span class="nav-text">لوحة المشرف اليومية</span></button>
       <button class="nav-item" data-page="analytics" title="التحليلات التنفيذية" aria-label="فتح صفحة التحليلات التنفيذية"><span class="nav-icon" aria-hidden="true">⛓</span><span class="nav-text">التحليلات التنفيذية</span></button>
-      <button class="nav-item" data-page="baselineManagement" title="Baseline Management" aria-label="فتح صفحة Baseline Management"><span class="nav-icon" aria-hidden="true">◆</span><span class="nav-text">Baseline Management</span></button>
       <button class="nav-item" data-page="raciWorkload" title="RACI وعبء العمل" aria-label="فتح صفحة RACI وعبء العمل"><span class="nav-icon" aria-hidden="true">◫</span><span class="nav-text">RACI وعبء العمل</span></button>
       <button class="nav-item" data-page="criticalPath" title="Critical Path" aria-label="فتح صفحة Critical Path"><span class="nav-icon" aria-hidden="true">☰</span><span class="nav-text">Critical Path</span></button>
       <button class="nav-item" data-page="dataQualityCenter" title="مركز جودة البيانات" aria-label="فتح صفحة مركز جودة البيانات"><span class="nav-icon" aria-hidden="true">▧</span><span class="nav-text">مركز جودة البيانات</span></button>
@@ -1811,12 +1810,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <div class="kpi-value" id="urgentTasksCount" style="color:var(--red);font-size:30px;margin-bottom:8px">0</div>
           <div id="urgentTasksCardList"></div>
         </div>
-      </section>
-
-
-      <section class="page" id="baselineManagement">
-        <div class="page-header"><h1>Baseline Management</h1><p>خط الأساس الأصلي ثابت، والخطة الحالية والانحرافات والمراجعات من Google Sheets فقط.</p></div>
-        <div class="card" style="overflow:auto;max-height:70vh"><table class="data-table" id="baselineTable"><thead><tr><th>الكود</th><th>المهمة</th><th>Baseline Start</th><th>Baseline End</th><th>Current Start</th><th>Current End</th><th>فرق البداية</th><th>فرق النهاية</th><th>Revision</th><th>تاريخ التعديل</th><th>سبب التعديل</th><th>عدّل</th><th>اعتمد</th></tr></thead><tbody></tbody></table></div>
       </section>
       <section class="page" id="raciWorkload">
         <div class="page-header"><h1>RACI وعبء العمل</h1><p>كل الأدوار والحدود تُقرأ من Employee Master دون إنشاء قيم افتراضية.</p></div>
@@ -3296,12 +3289,12 @@ let loginRequestInFlight=null;
 let syncRequestInFlight=null;
 let syncRequestSequence=0;
 const sectionLoadState=new Map();
-const SECTION_DATA_PAGES=new Set(['approvals','decisions','risksMgmt','assignments','meetingsHub','commitmentsHub','fileControl','urgentTasksPage','escalationHub','escalationsCenter','baselineManagement','raciWorkload','criticalPath','dataQualityCenter','projectHealth','executiveBoard','reportsGenerator']);
+const SECTION_DATA_PAGES=new Set(['approvals','decisions','risksMgmt','assignments','meetingsHub','commitmentsHub','fileControl','urgentTasksPage','escalationHub','escalationsCenter','raciWorkload','criticalPath','dataQualityCenter','projectHealth','executiveBoard','reportsGenerator']);
 const SECTION_DATASETS={
   approvals:['approvals','approval_chain'],decisions:['decisions'],risksMgmt:['risk_governance'],assignments:['assignments'],meetingsHub:['meetings'],commitmentsHub:['commitments'],fileControl:['files'],urgentTasksPage:['urgent_tasks'],
   escalationHub:['escalations','task_escalations','escalation_chain','approvals','assignments','decisions','risk_governance'],escalationsCenter:['escalations','task_escalations','escalation_chain'],
-  baselineManagement:['baseline_management'],raciWorkload:['raci_matrix','employee_workload'],criticalPath:['critical_path'],dataQualityCenter:['data_quality'],projectHealth:['approvals','assignments'],
-  executiveBoard:['approvals','assignments','decisions','risk_governance'],reportsGenerator:['approvals','assignments','decisions','risk_governance']
+  raciWorkload:['raci_matrix','employee_workload'],criticalPath:['critical_path'],dataQualityCenter:['data_quality'],projectHealth:['approvals','assignments'],
+  executiveBoard:['approvals','assignments','decisions','risk_governance'],reportsGenerator:['approvals','assignments','decisions','risk_governance','baseline_management']
 };
 const loadedDashboardDatasets=new Set();
 let authGeneration=0;
@@ -3342,7 +3335,6 @@ const PAGE_RENDERERS={
   executiveBoard:['renderExecutiveBoard'],
   supervisorDaily:['renderSupervisorDaily'],
   inquiries:['loadInquiries'],
-  baselineManagement:['renderBaselineManagement'],
   raciWorkload:['renderRaciWorkload'],
   criticalPath:['renderCriticalPath'],
   dataQualityCenter:['renderDataQualityCenter'],
@@ -5320,9 +5312,6 @@ function completionPct(taskList){
 function monthName(n){return ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][n-1]}
 
 function setTableRows_(id, rowsHtml, colspan){ const tb=document.querySelector('#'+id+' tbody'); if(tb) tb.innerHTML=rowsHtml||`<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted)">لا توجد بيانات كافية</td></tr>`; }
-function renderBaselineManagement(){
-  setTableRows_('baselineTable',(baselineManagement||[]).map(r=>`<tr><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.original_baseline_start)}</td><td>${escapeHtml(r.original_baseline_end)}</td><td>${escapeHtml(r.current_plan_start)}</td><td>${escapeHtml(r.current_plan_end)}</td><td>${escapeHtml(r.start_variance_days)}</td><td>${escapeHtml(r.end_variance_days)}</td><td>${escapeHtml(r.revision_number)}</td><td>${escapeHtml(r.modified_at)}</td><td>${escapeHtml(r.revision_reason||'لا توجد بيانات كافية')}</td><td>${escapeHtml(r.modified_by||'لا توجد بيانات كافية')}</td><td>${escapeHtml(r.approved_by||'لا توجد بيانات كافية')}</td></tr>`).join(''),13);
-}
 function renderRaciWorkload(){
   setTableRows_('raciTable',(raciMatrix||[]).map(r=>`<tr><td>${escapeHtml(r.task_code)}</td><td>${escapeHtml(r.task_name)}</td><td>${escapeHtml(r.responsible)}</td><td>${escapeHtml(r.accountable)}</td><td>${escapeHtml(r.consulted)}</td><td>${escapeHtml(r.informed)}</td><td>${escapeHtml(r.data_status)}</td></tr>`).join(''),7);
   setTableRows_('workloadTable',(employeeWorkload||[]).map(r=>`<tr><td>${escapeHtml(r.employee)}</td><td>${escapeHtml(r.email)}</td><td>${escapeHtml(r.task_count)}</td><td>${escapeHtml(r.overdue_task_count)}</td><td>${escapeHtml(r.critical_task_count)}</td><td>${escapeHtml(r.total_duration_days)}</td><td>${escapeHtml(r.workload_limit_days||'لا توجد بيانات كافية')}</td><td><span class="pill ${r.alert==='تجاوز الحد'?'red':''}">${escapeHtml(r.alert)}</span></td></tr>`).join(''),8);
