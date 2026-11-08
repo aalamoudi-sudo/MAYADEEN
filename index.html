@@ -1641,15 +1641,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
     </nav>
 
     <div class="sidebar-footer">
-      <div class="days-card">
-        <div class="days-num" id="daysLeft">--</div>
-        <div class="days-label">يوم حتى حفل الافتتاح</div>
-        <div class="countdown-details">
-          <span id="weeksLeft">-- أسبوع</span>
-          <span id="monthsLeft">-- شهر</span>
-          <span id="daysLeftSmall">-- يوم</span>
-        </div>
-      </div>
+      <div class="days-card"><strong>المشروع مؤجل</strong><p>الموعد الجديد غير محدد</p></div>
     </div>
   </aside>
 
@@ -1696,7 +1688,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <section class="page active" id="overview">
         <div class="page-header">
           <h1 id="pageTitle">الرئيسية</h1>
-          <p id="pageSubtitle">نظرة تنفيذية على مسار ميادين في حفل افتتاح حدائق الملك عبدالله</p>
+          <p id="pageSubtitle">المشروع مؤجل — الموعد الجديد غير محدد. تواريخ المهام محفوظة من الخطة السابقة ولا تمثل موعد استئناف معتمدًا.</p>
         </div>
 
         <div class="inquiry-summary" id="inquirySummary" aria-live="polite">
@@ -1713,7 +1705,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <div class="esb-divider"></div>
           <div class="esb-metric" onclick="showPage('analytics')" title="فتح التحليلات التنفيذية">
             <b id="esbReadiness" style="color:#7c5cff">--</b>
-            <small>جاهزية الافتتاح</small>
+            <small>إنجاز المهام</small>
           </div>
           <div class="esb-divider"></div>
           <div class="esb-metric" onclick="goToRisksFiltered('حرج')" title="فتح سجل المخاطر الحرجة">
@@ -1721,11 +1713,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <small>مخاطر حرجة</small>
           </div>
           <div class="esb-divider"></div>
-          <div class="esb-metric" onclick="showPage('timeline')" title="فتح الجدول الزمني">
-            <b id="esbDaysLeft" style="color:#00d4ff">--</b>
-            <small>يوم للافتتاح</small>
-          </div>
-          <div class="esb-divider"></div>
+
           <div class="esb-decision" onclick="showPage('actions')" style="cursor:pointer" title="فتح مركز الأولويات">
 
             <span class="esb-decision-text" id="esbDecision">جاري تحليل البيانات...</span>
@@ -1930,12 +1918,9 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <div id="tl-pressureStatus" class="schedule-diff" style="margin-top:9px"></div>
           </div>
 
-          <!-- Days countdown -->
-          <div class="card" style="background:linear-gradient(160deg,rgba(18,22,48,.97),rgba(11,14,30,.97));text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
-            <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.5px">1 نوفمبر 2026</div>
-            <div id="tl-daysLeft" style="font-size:72px;font-weight:900;color:#b8a0ff;line-height:1;font-variant-numeric:tabular-nums">--</div>
-            <div style="font-size:13px;font-weight:700;color:#c4b5fd;letter-spacing:.3px">العد التنازلي للافتتاح</div>
-            <div id="tl-countdown-details" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;width:100%"></div>
+          <div class="card" style="text-align:center">
+            <h3>المشروع مؤجل</h3><p>موعد الاستئناف والافتتاح غير محدد</p>
+            <p>الجدول المعروض هو الخطة السابقة، وليس موعدًا معتمدًا للتنفيذ.</p>
           </div>
 
           <!-- Progress Line Chart -->
@@ -2121,7 +2106,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <div id="rm-trendInsight" style="margin-top:8px;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)"></div>
           </div>
           <div class="card">
-            <div class="sec-title"><h2>المخاطر المؤثرة على الافتتاح</h2><span>مخاطر قد تؤثر على 1 نوفمبر</span></div>
+            <div class="sec-title"><h2>المخاطر المؤثرة على الافتتاح</h2><span>تصنيف محفوظ من الخطة السابقة — موعد الافتتاح غير محدد</span></div>
             <div id="rm-openingRisks" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:220px;overflow-y:auto"></div>
           </div>
         </div>
@@ -3174,6 +3159,9 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
 
 <script>
+const PROJECT_SCHEDULE = Object.freeze({status:'postponed', openingDate:null});
+const PROJECT_POSTPONED_LABEL = 'المشروع مؤجل — الموعد الجديد غير محدد';
+
 const NO_KPI_DATA_TEXT='لا توجد بيانات كافية لاحتساب المؤشر';
 const PROJECT_PHASE_ORDER=['البدء','التخطيط','التنفيذ','التشغيل','الإغلاق'];
 const PROJECT_PHASE_UNSPECIFIED='غير مصنفة';
@@ -5577,13 +5565,6 @@ function escalationLevelForItem(item){
   return 'L0';
 }
 function renderAll(){
-  const opening='2026-11-01';
-  const daysRemaining=Math.max(0,daysBetween(riyadhTodayKey(),opening));
-  const daysEl=document.getElementById('daysLeft');
-  if(daysEl) daysEl.textContent=daysRemaining;
-  const weeksEl=document.getElementById('weeksLeft'); if(weeksEl) weeksEl.textContent=Math.ceil(daysRemaining/7)+' أسبوع';
-  const monthsEl=document.getElementById('monthsLeft'); if(monthsEl) monthsEl.textContent=Math.floor(daysRemaining/30)+' شهر';
-  const daysSmall=document.getElementById('daysLeftSmall'); if(daysSmall) daysSmall.textContent=daysRemaining+' يوم';
   renderKpis();
   renderHealth();
   renderBars();
@@ -5781,19 +5762,6 @@ function renderTimeline(options={}){
 function renderTimelinePage(){
   renderTimeline({ignoreFilters:!timelineFiltersTouchedInSession});
   const today=riyadhTodayKey();
-  const opening='2026-11-01';
-  const daysLeft=Math.max(0,daysBetween(today,opening));
-
-  /* ── Days countdown ── */
-  const dlEl=document.getElementById('tl-daysLeft');
-  if(dlEl) dlEl.textContent=daysLeft;
-  const cdDet=document.getElementById('tl-countdown-details');
-  if(cdDet) cdDet.innerHTML=[
-    ['أسبوع',Math.ceil(daysLeft/7)],
-    ['شهر',Math.floor(daysLeft/30)],
-    ['يوم',daysLeft]
-  ].map(([l,v])=>`<div style="background:rgba(255,255,255,.045);border:1px solid rgba(124,92,255,.12);border-radius:8px;padding:5px 3px;font-size:10px;color:#c4d0f0;text-align:center"><b style="display:block;font-size:14px;font-weight:900;color:#b8a0ff">${v}</b>${l}</div>`).join('');
-
   /* ── Schedule Pressure ── */
   renderSchedulePressure('tl-pressureRows','tl-pressureStatus');
 
@@ -6417,15 +6385,6 @@ async function loadExternal(initial=true){
 
 /* ══ CLOCK ══ */
 let clockTimer=null;
-function updateOpeningCountdown(){
-  const opening='2026-11-01';
-  const daysRemaining=Math.max(0,daysBetween(riyadhTodayKey(),opening));
-  const daysEl=document.getElementById('daysLeft'); if(daysEl) daysEl.textContent=daysRemaining;
-  const weeksEl=document.getElementById('weeksLeft'); if(weeksEl) weeksEl.textContent=Math.ceil(daysRemaining/7)+' أسبوع';
-  const monthsEl=document.getElementById('monthsLeft'); if(monthsEl) monthsEl.textContent=Math.floor(daysRemaining/30)+' شهر';
-  const daysSmall=document.getElementById('daysLeftSmall'); if(daysSmall) daysSmall.textContent=daysRemaining+' يوم';
-  const esbDays=document.getElementById('esbDaysLeft'); if(esbDays) esbDays.textContent=daysRemaining;
-}
 function startClock(){
   if(clockTimer) return;
   function tick(){
@@ -6435,7 +6394,6 @@ function startClock(){
     refreshRiyadhToday();
     if(d) d.textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:RIYADH_TIME_ZONE});
     if(t) t.textContent=now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:RIYADH_TIME_ZONE});
-    updateOpeningCountdown();
     clockTimer=setTimeout(tick,1000);
   }
   tick();
@@ -6852,6 +6810,14 @@ function getScheduleProgressMetrics(){
 /* بطاقة الالتزام بالجدول الزمني (Planned vs Actual) — منطق موحّد لكلا نسختيها
    (الصفحة الرئيسية وصفحة الجدول الزمني) بناءً على نفس بيانات WBS الحية. */
 function renderScheduleCard(rowsId, diffId){
+  if(PROJECT_SCHEDULE.status==='postponed'){
+    const rows=document.getElementById(rowsId);
+    const status=document.getElementById(diffId);
+    if(rows) rows.innerHTML='';
+    if(status){status.textContent='تقييم الالتزام الزمني معلّق حتى اعتماد خطة جديدة؛ تواريخ المهام السابقة محفوظة.';status.style.cssText='color:#b8a0ff';}
+    return;
+  }
+
   const metrics=getScheduleProgressMetrics();
   if(!metrics) return;
   const {actual,planned,diff,absDiff}=metrics;
@@ -6869,7 +6835,7 @@ function renderScheduleCard(rowsId, diffId){
   } else {
     ({toneColor,toneBg,toneBorder}=metrics);
     statusBadge='يحتاج تدخل';
-    message=`التنفيذ الحالي أقل من المخطط بنسبة ${absDiff}%. يوصى بمراجعة الأنشطة الحرجة وتسريع التنفيذ للحفاظ على موعد الافتتاح.`;
+    message=`التنفيذ الحالي أقل من المخطط بنسبة ${absDiff}%. يوصى بمراجعة الأنشطة الحرجة وتسريع التنفيذ وفق الخطة الزمنية المعتمدة.`;
   }
 
   const maxVal=Math.max(planned,actual,absDiff,1);
@@ -6906,6 +6872,14 @@ function renderScheduleCard(rowsId, diffId){
    لتجنب تكرار بطاقة الالتزام بالجدول الزمني الموجودة في الصفحة الرئيسية.
    جميع القيم تُحسب تلقائياً من بيانات WBS الحية. */
 function renderSchedulePressure(rowsId, statusId){
+  if(PROJECT_SCHEDULE.status==='postponed'){
+    const rows=document.getElementById(rowsId);
+    const status=document.getElementById(statusId);
+    if(rows) rows.innerHTML='';
+    if(status){status.textContent='تقييم الالتزام الزمني معلّق حتى اعتماد خطة جديدة؛ تواريخ المهام السابقة محفوظة.';status.style.cssText='color:#b8a0ff';}
+    return;
+  }
+
   const todayStr=riyadhTodayKey();
 
   const dueSoon=tasks.filter(t=>{
@@ -6962,8 +6936,6 @@ function renderExecutiveAdditions(){
   const planned=plannedProgressPct();
   const diff=actual-planned;
   const today=riyadhTodayKey();
-  const opening='2026-11-01';
-  const daysLeft=Math.max(0,daysBetween(today,opening));
   const nextMs=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY)).sort((a,b)=>d(a.end)-d(b.end))[0];
   const soonMs=nextMs?daysBetween(today,nextMs.end):null;
   const criticalMs=milestones.filter(m=>d(m.end)&&isOnOrAfterDay(m.end,TODAY)&&daysBetween(today,m.end)<=30).length;
@@ -6972,7 +6944,8 @@ function renderExecutiveAdditions(){
   /* ── 1. EXECUTIVE STATUS BAR ── */
   const esbBar=document.getElementById('execStatusBar');
   let statusLabel,statusColor,statusAccent;
-  if(late>20){statusLabel='يحتاج تدخل عاجل';statusColor='#ff4d6a';statusAccent='255,77,106';}
+  if(PROJECT_SCHEDULE.status==='postponed'){statusLabel=PROJECT_POSTPONED_LABEL;statusColor='#b8a0ff';statusAccent='184,160,255';}
+  else if(late>20){statusLabel='يحتاج تدخل عاجل';statusColor='#ff4d6a';statusAccent='255,77,106';}
   else if(late>5||diff<-10){statusLabel='يحتاج متابعة';statusColor='#f5b800';statusAccent='245,184,0';}
   else if(actual>=80){statusLabel='يسير وفق الخطة';statusColor='#10e87a';statusAccent='16,232,122';}
   else{statusLabel='◎ قيد التنفيذ';statusColor='#3b82f6';statusAccent='59,130,246';}
@@ -6985,12 +6958,11 @@ function renderExecutiveAdditions(){
   if(readEl){readEl.textContent=actual+'%';readEl.style.color=actual>=70?'#10e87a':actual>=40?'#f5b800':'#ff4d6a';}
   const lateEl=document.getElementById('esbLate');
   if(lateEl){lateEl.textContent=criticalRisks;lateEl.style.color=criticalRisks>10?'#ff4d6a':criticalRisks>3?'#f5b800':'#10e87a';}
-  const daysElESB=document.getElementById('esbDaysLeft');
-  if(daysElESB){daysElESB.textContent=daysLeft;daysElESB.style.color=daysLeft<30?'#ff4d6a':daysLeft<60?'#f5b800':'#00d4ff';}
   const decEl=document.getElementById('esbDecision');
   if(decEl){
     let decision='';
-    if(late>0) decision=`مراجعة ${late} مهمة متأخرة فوراً`;
+    if(PROJECT_SCHEDULE.status==='postponed') decision='المواعيد السابقة محفوظة — بانتظار اعتماد خطة جديدة';
+    else if(late>0) decision=`مراجعة ${late} مهمة متأخرة فوراً`;
     else if(nextMs&&soonMs!==null&&soonMs<=14) decision=`معلم قريب: ${nextMs.name.substring(0,30)}... خلال ${soonMs} يوم`;
     else if(diff<-5) decision=`تسريع التنفيذ — تأخر ${Math.abs(diff)}% عن الخطة`;
     else decision='المشروع على المسار — استمر في المتابعة الأسبوعية';
