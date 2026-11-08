@@ -23,7 +23,6 @@ const renderBody = bodyOf('renderPhases');
 const statsBody = bodyOf('getProjectPhaseStats');
 const homeBody = bodyOf('renderPhaseProgressSummary');
 const taskBody = bodyOf('renderTasks');
-const timelineBody = bodyOf('renderTimeline');
 
 assert.equal(decision({ total: 4, done: 0, inprog: 0, late: 0 }, false).label, 'لم تبدأ');
 assert.equal(decision({ total: 4, done: 4, inprog: 0, late: 0 }, false).label, 'جاهزة للانتقال');
@@ -50,6 +49,5 @@ assert.doesNotMatch(renderBody, /👤 المسؤول/, 'Phase cards must not pre
 assert.doesNotMatch(statsBody, /getPhaseDecision|getPhaseRequiredAction|getPhaseRemainingTime/);
 assert.doesNotMatch(homeBody, /getPhaseDecision|getPhaseRequiredAction|getPhaseRemainingTime|قرار المرحلة|الإجراء المطلوب الآن/);
 assert.doesNotMatch(taskBody, /getPhaseDecision|getPhaseRequiredAction|getPhaseRemainingTime|قرار المرحلة|الإجراء المطلوب الآن/);
-assert.doesNotMatch(timelineBody, /getPhaseDecision|getPhaseRequiredAction|getPhaseRemainingTime|قرار المرحلة|الإجراء المطلوب الآن/);
 
 console.log('PASS phase decisions/actions are data-derived, trend is hidden, and calculation/page isolation guardrails hold');

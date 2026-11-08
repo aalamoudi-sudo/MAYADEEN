@@ -8,7 +8,7 @@ test('postponed dashboard has no fixed opening date or countdown bindings',()=>{
   for(const stale of ['2026-11-01','updateOpeningCountdown','id="daysLeft"','id="tl-daysLeft"','id="esbDaysLeft"']) assert.ok(!html.includes(stale),stale);
   assert.match(html,/إنجاز المهام/);
 });
-for(const [name,next] of [['renderScheduleCard','renderSchedulePressure'],['renderSchedulePressure','renderExecutiveAdditions']]){
+for(const [name,next] of [['renderScheduleCard','renderExecutiveAdditions']]){
   test(name+' suspends schedule judgment without accessing task data',()=>{
     const start=html.indexOf('function '+name+'(');
     const end=html.indexOf('function '+next+'(',start);
