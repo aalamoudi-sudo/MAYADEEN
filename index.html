@@ -1473,6 +1473,62 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #holdTipFloat:after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#5b4bc4}
 .task-date-chip.chip-hold{border-style:dashed}
 .phase-card-metric.is-hold b{color:#c4b5fd}
+
+/* ===== تصميم الجاهزية للصفحة الرئيسية ===== */
+#overview .rd-hero{display:grid;grid-template-columns:1.15fr 1fr;gap:10px;align-items:center;padding:30px 36px;border-radius:22px;margin-bottom:16px;position:relative;overflow:hidden;
+  background:radial-gradient(420px 420px at 10% 0%,rgba(124,92,240,.20),transparent 65%),linear-gradient(180deg,rgba(20,22,52,.92),rgba(13,15,36,.92));border:1px solid #3a2f8a}
+.rd-pill{display:inline-flex;align-items:center;gap:10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.35);color:#fcd34d;border-radius:999px;padding:7px 15px;font-weight:700;font-size:13px}
+.rd-pill i{width:8px;height:8px;border-radius:50%;background:#fbbf24;box-shadow:0 0 12px #fbbf24}
+.rd-hero h1{font-size:40px;font-weight:800;margin:18px 0 6px;line-height:1.15;color:#fff}
+.rd-sub{color:#a9aad0;font-size:18px;margin:0 0 22px}
+.rd-stack{display:flex;height:14px;border-radius:8px;overflow:hidden;gap:3px;max-width:520px;background:rgba(255,255,255,.04)}
+.rd-stack i{display:block;height:100%}
+.rd-legend{display:flex;gap:26px;margin-top:14px;flex-wrap:wrap}
+.rd-leg{cursor:pointer}.rd-leg b{display:block;font-size:28px;font-weight:800;line-height:1.1}.rd-leg span{font-size:12.5px;color:#a9aad0}
+.rd-gauge{position:relative;display:flex;align-items:center;justify-content:center;min-height:300px}
+.rd-gauge svg{width:100%;max-width:330px;height:auto}
+.rd-gauge-c{position:absolute;text-align:center}
+.rd-gauge-c b{display:block;font-size:76px;font-weight:800;line-height:1;background:linear-gradient(180deg,#fff,#b9a8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rd-gauge-c span{display:block;font-size:15px;color:#a9aad0;margin-top:6px}.rd-gauge-c small{display:block;font-size:12.5px;color:#7d7ea8;margin-top:4px}
+#overview .rd-journey{padding:24px 34px 28px;border-radius:22px;margin-bottom:16px;background:linear-gradient(180deg,rgba(20,22,52,.92),rgba(13,15,36,.92));border:1px solid #25285a}
+.rd-jh{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;gap:12px;flex-wrap:wrap}.rd-jh span{font-size:13px;color:#8c8db5}
+.rd-h3{font-size:18px;font-weight:800;display:flex;align-items:center;gap:10px;margin:0;color:#fff}
+.rd-h3:before{content:"";width:4px;height:20px;border-radius:2px;background:linear-gradient(#a78bfa,#5b8def)}
+.rd-track{display:flex;align-items:flex-start;position:relative}
+.rd-track:before{content:"";position:absolute;top:27px;right:10%;left:10%;height:3px;background:#24264f;border-radius:2px}
+.rd-track:after{content:"";position:absolute;top:27px;right:10%;width:calc(80% * var(--fill) / 100);height:3px;background:linear-gradient(270deg,#4ade80,#8b6cf6);border-radius:2px}
+.rd-st{flex:1;text-align:center;position:relative;z-index:1;cursor:pointer}
+.rd-node{width:56px;height:56px;border-radius:50%;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;background:#121433;border:2px solid #2c2e5c;color:#6f7099}
+.rd-st.done .rd-node{background:#0f2a1d;border-color:#4ade80;color:#4ade80}
+.rd-st.cur .rd-node{width:70px;height:70px;margin-top:-7px;background:#1d1650;border:3px solid #a78bfa;color:#fff;font-size:17px;box-shadow:0 0 0 8px rgba(167,139,250,.12),0 0 36px rgba(139,92,246,.55)}
+.rd-st b{display:block;font-size:16px;color:#e6e7f5}.rd-st span{font-size:12.5px;color:#8c8db5}
+.rd-st.off b{color:#7d7ea8}.rd-st.cur b{color:#c4b5fd;font-size:18px}
+.rd-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.rd-kpi{padding:18px 20px;border-radius:18px;background:rgba(17,19,45,.9);border:1px solid #23264f;position:relative;overflow:hidden;cursor:pointer;text-align:right;font:inherit;color:inherit}
+.rd-kpi:before{content:"";position:absolute;top:0;left:0;width:90px;height:90px;border-radius:50%;transform:translate(-30%,-30%);background:radial-gradient(circle,var(--c,#a78bfa),transparent 70%);opacity:.22}
+.rd-kpi span{display:block;font-size:13px;color:#a9aad0}
+.rd-kpi b{display:block;font-size:36px;font-weight:800;color:var(--c,#a78bfa);margin-top:4px;line-height:1.15;min-height:42px}
+.rd-kpi small{font-size:12px;color:#7d7ea8}.rd-kpi small em{font-style:normal;color:#c4b5fd;font-weight:700}
+.rd-skel b,.rd-skel-bar{background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.12) 50%,rgba(255,255,255,.05) 75%);background-size:200% 100%;animation:skShimmer 1.3s infinite linear;border-radius:8px;width:90px}
+.rd-attn #attentionList{display:flex;flex-direction:column;gap:10px}
+.rd-att{display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:14px;background:rgba(10,12,32,.6);border:1px solid #23264f;cursor:pointer}
+.rd-att:hover,.rd-kpi:hover,.rd-st:hover .rd-node{filter:brightness(1.15)}
+.rd-att-n{min-width:64px;font-size:30px;font-weight:800;color:var(--c);text-align:center}
+.rd-att-t{flex:1;min-width:0}.rd-att-t b{display:block;font-size:15.5px}.rd-att-t span{font-size:12.5px;color:#8c8db5}
+.rd-att-tg{font-size:11.5px;padding:4px 10px;border-radius:8px;background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c);font-weight:700;white-space:nowrap}
+.rd-timeline{position:relative;padding-right:22px}
+.rd-timeline:before{content:"";position:absolute;right:5px;top:10px;bottom:10px;width:2px;background:linear-gradient(#a78bfa,#23264f)}
+.rd-timeline .achievement-item{position:relative;background:none!important;border:0!important;padding:10px 0 12px!important}
+.rd-timeline .achievement-item:before{content:"";position:absolute;right:-22px;top:15px;width:12px;height:12px;border-radius:50%;background:#0d0f24;border:2px solid #a78bfa}
+.rd-timeline .achievement-item:first-child:before{background:#a78bfa;box-shadow:0 0 12px #a78bfa}
+.rd-btns{display:flex;gap:10px;margin-top:14px}
+:root[data-theme="light"] #overview .rd-hero,:root[data-theme="light"] #overview .rd-journey{background:#fff;border-color:#e2e0f5}
+:root[data-theme="light"] .rd-hero h1,:root[data-theme="light"] .rd-h3,:root[data-theme="light"] .rd-st b{color:#1e1b4b}
+:root[data-theme="light"] .rd-kpi,:root[data-theme="light"] .rd-att{background:#fff;border-color:#e2e0f5}
+:root[data-theme="light"] .rd-gauge-c b{background:linear-gradient(180deg,#4c1d95,#7c5cf0);-webkit-background-clip:text;background-clip:text}
+:root[data-theme="light"]{--rd-track:#ece9fb}
+@media (max-width:1100px){#overview .rd-hero{grid-template-columns:1fr}.rd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.rd-track{overflow-x:auto}.rd-st{min-width:96px}.rd-hero h1{font-size:30px}.rd-gauge-c b{font-size:56px}}
 </style>
 <link rel="stylesheet" href="theme.css"/>
 </head>
@@ -1608,18 +1664,23 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
       <!-- OVERVIEW PAGE -->
       <section class="page active" id="overview">
-        <div class="page-header">
+        <div class="page-header" style="display:none">
           <h1 id="pageTitle">الرئيسية</h1>
-          <p id="pageSubtitle">المشروع مؤجل — سيُبلَّغ بالموعد الجديد قبل أسبوعين من الافتتاح، والعمل مستمر على الجاهزية.</p>
+          <p id="pageSubtitle">المشروع مؤجل — الموعد الجديد غير محدد، والعمل مستمر على الجاهزية.</p>
         </div>
 
-        <div class="inquiry-summary" id="inquirySummary" aria-live="polite">
-          <button onclick="openInquiryScope('assigned')"><small>استفسارات تحتاج ردك</small><b id="inquiryNeedsReply">—</b></button>
-          <button onclick="openInquiryScope('mine')"><small>استفسارات عليها ردود جديدة</small><b id="inquiryNewReplies">—</b></button>
+        <!-- تصميم الجاهزية (وضع التأجيل) -->
+        <div class="rd-hero" id="readinessHero"></div>
+        <div class="rd-journey" id="phaseJourney"></div>
+        <div class="rd-kpis">
+          <div id="kpis" style="display:contents"></div>
+          <button type="button" class="rd-kpi rd-kpi-inq" id="inquirySummary" aria-live="polite" onclick="openInquiryScope('assigned')" style="--c:#f0abfc">
+            <span>استفسارات تحتاج ردك</span><b id="inquiryNeedsReply">—</b><small>ردود جديدة: <em id="inquiryNewReplies">—</em></small>
+          </button>
         </div>
 
         <!-- EXECUTIVE STATUS BAR -->
-        <div class="exec-status-bar" id="execStatusBar">
+        <div class="exec-status-bar" id="execStatusBar" style="display:none">
           <div class="esb-status">
             <span class="esb-dot" id="esbDot" style="background:#f5b800"></span>
             <span class="esb-label" id="esbStatusLabel" style="color:#f5b800">جاري التحميل...</span>
@@ -1651,21 +1712,14 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <span style="display:none" id="lastUpdateText"></span>
         <span style="display:none" id="dataSourceText"></span>
 
-        <!-- KPI CARDS -->
-        <div class="kpi-grid" id="kpis"></div>
+        
 
         <!-- OPERATIONAL CENTERS SNAPSHOT -->
         <div class="ops-snapshot-grid" id="opsSnapshot"></div>
 
-        <div class="card" style="margin-bottom:14px">
-          <div class="sec-title"><h2>الملخص القيادي اليومي</h2><span>يتولد فورياً من المهام والتصعيدات والمراكز التشغيلية</span></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="ops-primary-btn" onclick="openDailyCommandBrief()">الملخص القيادي اليومي</button>
-          </div>
-        </div>
-
+        
         <!-- CHARTS ROW -->
-        <div class="charts-row" style="grid-template-columns:1fr 1fr 1.1fr">
+        <div class="charts-row" style="display:none">
       <!-- توزيع المهام حسب المراحل (دونات): أُزيل — بطاقة تقدم المراحل تغطيه -->
           <div class="card">
             <div class="sec-title"><h2>المهام حسب الحالة</h2><span onclick="showPage('tasks')" style="cursor:pointer;color:var(--brand2)">عرض الكل</span></div>
@@ -1688,13 +1742,15 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
         <div class="exec-mid-grid">
       <!-- الالتزام بالجدول الزمني: معطّل أثناء التأجيل -->
-      <div class="card">
-        <div class="sec-title"><h2>ملخص تنفيذي</h2></div>
-        <div class="insight-list" id="insights"></div>
+      <div class="card rd-attn">
+        <div class="sec-title"><h2>يحتاج انتباهك</h2></div>
+        <div id="attentionList"></div>
+        <div class="insight-list" id="insights" style="display:none"></div>
       </div>
           <div class="achievements-card">
             <div class="sec-title"><h2>آخر الإنجازات</h2><span>آخر 5 مهام مكتملة</span></div>
-            <div class="achievement-list" id="latestAchievements"></div>
+            <div class="achievement-list rd-timeline" id="latestAchievements"></div>
+        <div class="rd-btns"><button class="ops-primary-btn" onclick="openDailyCommandBrief()">الملخص القيادي اليومي</button></div>
           </div>
         </div>
 
@@ -2530,10 +2586,10 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 <script>
 const PROJECT_SCHEDULE = Object.freeze({status:'postponed', openingDate:null});
 const PROJECT_POSTPONED_LABEL = 'المشروع مؤجل — الموعد الجديد غير محدد';
-// يُبلَّغ الفريق بالموعد الجديد قبل أسبوعين تقريباً من الافتتاح. أثناء التأجيل لا يوجد
+// أثناء التأجيل لا يوجد
 // جدول معتمد، فتُعطَّل كل المؤشرات المبنية على تواريخ الخطة السابقة (التأخير، المعالم،
 // المخطط مقابل الفعلي). لإعادتها عند اعتماد الموعد: غيّر status إلى 'active'.
-const PROJECT_RESUME_NOTICE = 'سيُبلَّغ بالموعد الجديد قبل أسبوعين من الافتتاح';
+const PROJECT_RESUME_NOTICE = 'العمل مستمر على الجاهزية حتى اعتماد الموعد الجديد';
 const IS_PROJECT_POSTPONED = PROJECT_SCHEDULE.status==='postponed';
 
 const NO_KPI_DATA_TEXT='لا توجد بيانات كافية لاحتساب المؤشر';
@@ -2724,6 +2780,7 @@ function renderOverview(){
   renderInsights();
   renderDataHealth();
   renderUrgentTasksCard();
+  renderHomeReadiness();
   renderExecutiveAdditions();
   
   markPerf('overview_render_end');
@@ -4830,28 +4887,23 @@ function renderAll(){
   
 }
 function renderKpis(){
-  if(!isOfficialKpiReady()){const el=document.getElementById('kpis'); if(el){const loading=typeof homeSyncFailed!=='undefined'&&!homeSyncFailed; el.innerHTML=['إجمالي المهام','المهام المتبقية','المسؤولون','مراحل المشروع'].map(x=>loading?`<div class="kpi-card kpi-skeleton" aria-busy="true"><div class="sk-line sk-num"></div><div class="kpi-label">${x}</div><div class="sk-line sk-hint"></div></div>`:noKpiCardHtml(x)).join(''); el.style.gridTemplateColumns='repeat(4,1fr)';} return;}
-  const byPhase=countBy(tasks,'phase');
+  const kpiGrid=document.getElementById('kpis'); if(!kpiGrid) return;
+  const labels=['إجمالي المهام','المهام المتبقية','المسؤولون','مخاطر حرجة'];
+  if(!isOfficialKpiReady()){
+    const failed=typeof homeSyncFailed!=='undefined'&&homeSyncFailed;
+    kpiGrid.innerHTML=labels.map(x=>`<div class="rd-kpi${failed?'':' rd-skel'}"><span>${x}</span><b>${failed?'—':''}</b><small>${failed?'لا توجد بيانات':''}</small></div>`).join('');
+    return;
+  }
   const owners=projectOwnerGroups(tasks);
   const remaining=tasks.filter(t=>classifyStatus(t)!=='مكتملة').length;
-  const phaseCount=Object.keys(byPhase).filter(k=>k&&k!=='غير محدد').length;
-  // مدة المشروع والمعالم الرئيسية أُزيلت: كلاهما مبني على تواريخ الخطة السابقة.
+  let critical=0; try{critical=getRiskMetrics().critical;}catch(e){}
   const k=[
-    {icon:'',label:'إجمالي المهام',value:tasks.length,hint:'من ملف WBS',color:'#7c5cff',rgb:'124,92,255',page:'tasks'},
-    {icon:'',label:'المهام المتبقية',value:remaining,hint:'غير مكتملة',color:'#3b82f6',rgb:'59,130,246',page:'tasks'},
-    {icon:'',label:'المسؤولون',value:owners.length,hint:'جهات وفرق مسؤولة',color:'#10e87a',rgb:'16,232,122',page:'ownersPage'},
-    {icon:'',label:'مراحل المشروع',value:phaseCount,hint:'مراحل العمل المستخدمة',color:'#a07dff',rgb:'160,125,255',page:'phases'},
+    {label:'إجمالي المهام',value:tasks.length,hint:'من ملف WBS',color:'#a78bfa',page:"showPage('tasks')"},
+    {label:'المهام المتبقية',value:remaining,hint:'غير مكتملة',color:'#60a5fa',page:"showPage('tasks')"},
+    {label:'المسؤولون',value:owners.length,hint:'جهات وفرق',color:'#4ade80',page:"showPage('ownersPage')"},
+    {label:'مخاطر حرجة',value:critical,hint:'من سجل المخاطر',color:critical?'#f87171':'#34d399',page:"goToRisksFiltered('حرج')"},
   ];
-  const kpiGrid=document.getElementById('kpis');
-  if(!kpiGrid) return;
-  kpiGrid.innerHTML=k.map(x=>`
-    <div class="kpi-card clickable" style="--kpi-color:${x.color};--kpi-rgb:${x.rgb}" onclick="showPage('${x.page}')">
-      <div class="kpi-icon">${x.icon}</div>
-      <div class="kpi-value">${x.value}</div>
-      <div class="kpi-label">${x.label}</div>
-      <div class="kpi-hint">${x.hint}</div>
-    </div>`).join('');
-  kpiGrid.style.gridTemplateColumns='repeat(4,1fr)';
+  kpiGrid.innerHTML=k.map(x=>`<div class="rd-kpi" role="button" tabindex="0" style="--c:${x.color}" onclick="${x.page}"><span>${x.label}</span><b>${x.value}</b><small>${x.hint}</small></div>`).join('');
 }
 function renderHealth(){
   if(!isOfficialKpiReady()){const el=document.getElementById('health'); if(el) el.innerHTML=noDataBoxHtml(); return;}
@@ -5772,6 +5824,63 @@ function renderLineChart(){
 }
 
 /* ══ INSIGHTS ══ */
+function renderHomeReadiness(){
+  const hero=document.getElementById('readinessHero');
+  const jr=document.getElementById('phaseJourney');
+  const att=document.getElementById('attentionList');
+  if(!hero) return;
+  const pill=`<span class="rd-pill"><i></i>${escapeHtml(PROJECT_POSTPONED_LABEL)}</span>`;
+  if(!isOfficialKpiReady()){
+    hero.innerHTML=`<div class="rd-hero-text">${pill}<h1>ملخص الجاهزية</h1><p class="rd-sub">العمل مستمر حتى اعتماد الموعد الجديد</p><div class="rd-stack rd-skel-bar"></div></div><div class="rd-gauge"><div class="rd-gauge-c"><b>—</b><span>نسبة الإنجاز</span></div></div>`;
+    if(jr) jr.innerHTML=''; if(att) att.innerHTML=''; return;
+  }
+  const sm=taskStatusSummary(tasks); const total=sm.total||0;
+  const pct=n=>total?Math.round(n/total*100):0;
+  const donePct=pct(sm.done);
+  const parts=[['مكتملة',sm.done,'#4ade80','مكتملة'],['قيد التنفيذ',sm.inprog,'#60a5fa','قيد التنفيذ'],['لم تبدأ',sm.notStarted,'#3b3e78','لم تبدأ'],['معلّقة لحين الموعد',sm.hold,'#a78bfa','معلّقة لحين الموعد']].filter(p=>p[1]>0||p[0]!=='معلّقة لحين الموعد');
+  const bar=parts.filter(p=>p[1]>0).map(p=>`<i style="flex:${p[1]};background:${p[2]}"></i>`).join('');
+  const legend=parts.map(p=>`<div class="rd-leg" role="button" tabindex="0" onclick="goToTasksFiltered('${p[3]}')"><b style="color:${p[2]==='#3b3e78'?'#c3c4de':p[2]}">${p[1]}</b><span>${p[0]} · ${pct(p[1])}%</span></div>`).join('');
+  // gauge: outer = completion, inner = phase segments sized by task count
+  const stats=getSharedProjectPhaseStats();
+  const R1=150,R2=122,C1=2*Math.PI*R1,C2=2*Math.PI*R2;
+  const cur=stats.find(st=>st.total&&st.done<st.total);
+  let off=0; const gap=3; const allT=stats.reduce((a,st)=>a+st.total,0)||1;
+  const segs=stats.map(st=>{const len=Math.max(0,st.total/allT*C2-gap); const col=st.total&&st.done===st.total?'#4ade80':st===cur?'#a78bfa':'#2c2e5c'; const el=`<circle cx="170" cy="170" r="${R2}" stroke="${col}" stroke-dasharray="${len.toFixed(1)} ${C2.toFixed(1)}" stroke-dashoffset="${(-off).toFixed(1)}"/>`; off+=st.total/allT*C2; return el;}).join('');
+  const arc=(donePct/100*C1).toFixed(1);
+  hero.innerHTML=`<div class="rd-hero-text">${pill}<h1>ملخص الجاهزية</h1><p class="rd-sub">العمل مستمر حتى اعتماد الموعد الجديد</p>
+    <div class="rd-stack">${bar}</div><div class="rd-legend">${legend}</div></div>
+    <div class="rd-gauge"><svg viewBox="0 0 340 340" aria-hidden="true"><defs><linearGradient id="rdGp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c4b5fd"/><stop offset="1" stop-color="#7c5cf0"/></linearGradient><filter id="rdGl"><feGaussianBlur stdDeviation="6"/></filter></defs>
+    <g transform="rotate(-90 170 170)"><circle cx="170" cy="170" r="${R1}" fill="none" stroke="var(--rd-track,#1c1e45)" stroke-width="16"/>
+    <circle cx="170" cy="170" r="${R1}" fill="none" stroke="#8b6cf6" stroke-width="16" stroke-dasharray="${arc} ${C1.toFixed(1)}" stroke-linecap="round" filter="url(#rdGl)" opacity=".6"/>
+    <circle cx="170" cy="170" r="${R1}" fill="none" stroke="url(#rdGp)" stroke-width="16" stroke-dasharray="${arc} ${C1.toFixed(1)}" stroke-linecap="round"/>
+    <g fill="none" stroke-width="8">${segs}</g></g></svg>
+    <div class="rd-gauge-c"><b>${donePct}%</b><span>نسبة الإنجاز</span><small>${sm.done} من ${total} مهمة</small></div></div>`;
+  // journey
+  if(jr){
+    const curIdx=stats.indexOf(cur); const doneIdx=stats.reduce((a,st,i)=>st.total&&st.done===st.total?i:a,-1);
+    const reach=Math.max(curIdx,doneIdx); const fill=stats.length>1&&reach>0?reach/(stats.length-1)*100:0;
+    const remainCur=cur?cur.total-cur.done:0;
+    jr.innerHTML=`<div class="rd-jh"><h3 class="rd-h3">رحلة المراحل</h3><span>${cur?`المرحلة الحالية: ${escapeHtml(cur.phase)} · ${remainCur} مهمة متبقية فيها`:'جميع المراحل مكتملة'}</span></div>
+      <div class="rd-track" style="--fill:${fill}%">${stats.map(st=>{const done=st.total&&st.done===st.total; const isCur=st===cur; const cls=done?'done':isCur?'cur':'off';
+        const sub=done?`${st.done} / ${st.total} مكتملة`:isCur?`${st.done} / ${st.total} مكتملة`:`${st.total} مهمة · ${st.done?st.pct+'%':'لم تبدأ'}`;
+        return `<div class="rd-st ${cls}" role="button" tabindex="0" onclick="openPhaseTasks(${JSON.stringify(st.phase)})"><div class="rd-node">${done?'✓':st.pct+'%'}</div><b>${escapeHtml(st.phase)}</b><span>${sub}${st.hold?` · ${st.hold} معلّقة`:''}</span></div>`;}).join('')}</div>`;
+  }
+  // attention
+  if(att){
+    let urgent=[]; try{urgent=activeUrgentTasks();}catch(e){}
+    const top=urgent[0]; const topName=top?(top.name||top.title||top.task||''):'';
+    const noOwner=tasks.filter(t=>!taskOwnerIdentities(t).length).length;
+    const topOwner=projectOwnerGroups(tasks).slice().sort((a,b)=>b.count-a.count)[0];
+    const items=[
+      {n:urgent.length,c:'#f87171',t:'مهام مستعجلة',s:urgent.length?`من سجل المهام المستعجلة${topName?' · أبرزها '+escapeHtml(String(topName).slice(0,40)):''}`:'لا توجد مهام مستعجلة',tg:'P1',go:"showPage('urgentTasksPage')"},
+      {n:sm.inprog,c:'#60a5fa',t:'مهام قيد التنفيذ',s:'تحتاج متابعة مع الجهات المسؤولة',tg:'متابعة',go:"goToTasksFiltered('قيد التنفيذ')"},
+      ...(sm.hold?[{n:sm.hold,c:'#a78bfa',t:'معلّقة لحين الموعد',s:'تبدأ بعد الإبلاغ بالموعد',tg:'معلّقة',go:"goToTasksFiltered('معلّقة لحين الموعد')"}]:[]),
+      {n:noOwner,c:'#fbbf24',t:'إسناد المسؤوليات',s:noOwner?'مهام تحتاج إسناد مسؤول':'جميع المهام مسندة لمسؤولين',tg:'إسناد',go:"showPage('assignments')"},
+      {n:topOwner?topOwner.count:0,c:'#c4b5fd',t:'أعلى عبء عمل',s:topOwner?escapeHtml(topOwner.label||topOwner.name||''):'لا توجد مهام مسندة',tg:'عبء',go:"showPage('raciWorkload')"},
+    ];
+    att.innerHTML=items.map(i=>`<div class="rd-att" style="--c:${i.c}" role="button" tabindex="0" onclick="${i.go}"><div class="rd-att-n">${i.n}</div><div class="rd-att-t"><b>${i.t}</b><span>${i.s}</span></div><span class="rd-att-tg">${i.tg}</span></div>`).join('');
+  }
+}
 function renderInsights(){
   const el=document.getElementById('insights'); if(!el) return;
   // نفس منطق بطاقة "المسؤولون" (projectOwnerGroups) بدل حقل owner وحده، الذي كان
