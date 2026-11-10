@@ -1532,7 +1532,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
 /* ===== الرئيسية: المتابعة اليومية ===== */
 .dp-pulse{display:flex;align-items:center;border-radius:18px;background:linear-gradient(90deg,rgba(124,92,240,.18),rgba(56,189,248,.06));border:1px solid #3a2f8a;padding:14px 22px;margin-bottom:14px;gap:4px;flex-wrap:wrap}
-.dp-hi{flex:1.4;min-width:200px}.dp-hi b{font-size:19px;font-weight:800;display:block}.dp-hi span{font-size:12px;color:#a9aad0;display:block}
+.dp-hi{flex:1.4;min-width:200px}.dp-hi b{font-size:17px;font-weight:800;display:block;white-space:nowrap}.dp-hi b em{font-style:normal;font-weight:600;color:#a9aad0;font-size:15px}.dp-hi span{font-size:12px;color:#a9aad0;display:block}
 .dp-track{color:#a78bfa!important;margin-top:3px}
 .dp-m{flex:1;min-width:110px;text-align:center;border-right:1px solid #2a2c5c;padding:2px 10px}
 .dp-m b{display:block;font-size:24px;font-weight:800;color:var(--c)}.dp-m span{font-size:11.5px;color:#a9aad0}
@@ -1562,6 +1562,19 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 .dp-day.done i{background:rgba(74,222,128,.14);border-color:rgba(74,222,128,.5);color:#4ade80}
 .dp-day.today i{background:rgba(167,139,250,.18);border-color:#a78bfa;color:#c4b5fd;box-shadow:0 0 12px rgba(167,139,250,.35)}
 .dp-day span{font-size:10.5px;color:#8c8db5}.dp-day.today span{color:#c4b5fd;font-weight:700}
+.dp-day.pre i{background:transparent;border-style:dashed;color:#4b4d78}.dp-day.pre span{color:#55577f}
+.dp-m small{display:block;font-size:10.5px;color:#7d7ea8;margin-top:2px}.dp-pending b{opacity:.55}
+.dp-tl{position:relative;padding-right:22px}
+.dp-tl:before{content:"";position:absolute;right:5px;top:12px;bottom:12px;width:2px;background:linear-gradient(#4ade80,#23264f)}
+.dp-ti{position:relative;display:flex;align-items:center;gap:10px;padding:9px 0;cursor:pointer}
+.dp-ti:before{content:"";position:absolute;right:-22px;top:50%;margin-top:-6px;width:12px;height:12px;border-radius:50%;background:#0d0f24;border:2px solid #4ade80}
+.dp-ti:first-child:before{background:#4ade80;box-shadow:0 0 10px #4ade80}
+.dp-ti:hover .dp-ti-t b{color:#fff}
+.dp-ti-t{flex:1;min-width:0}.dp-ti-t b{display:block;font-size:13px;font-weight:700;color:#e6e7f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dp-ti-t b em{font-style:normal;color:#a78bfa;font-weight:800;margin-left:7px;font-size:12px}
+.dp-ti-t span{font-size:10.5px;color:#7d7ea8;line-height:1.3}
+.dp-ti-d{font-size:11px;color:#8c8db5;white-space:nowrap}
+:root[data-theme="light"] .dp-ti-t b{color:#1e1b4b}:root[data-theme="light"] .dp-ti:before{background:#fff}
 .dp-note{font-size:11.5px;color:#7d7ea8;margin-top:14px;line-height:1.6}
 .dp-mom{display:flex;justify-content:space-between;margin-top:12px;font-size:12px;color:#a9aad0;gap:8px;flex-wrap:wrap}
 .dp-fl{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(10,12,32,.55);border:1px solid #23264f;margin-bottom:8px;font-size:13px;cursor:pointer}
@@ -1670,7 +1683,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <button class="nav-item" data-page="meetingsHub" title="الاجتماعات والمحاضر" aria-label="فتح صفحة الاجتماعات والمحاضر"><span class="nav-icon" aria-hidden="true">▥</span><span class="nav-text">الاجتماعات والمحاضر</span></button>
       <button class="nav-item" data-page="pmoAssistant" title="مساعد PMO" aria-label="فتح صفحة مساعد PMO"><span class="nav-icon" aria-hidden="true">☀</span><span class="nav-text">مساعد PMO</span></button>
 
-      </div></div><div class="nav-group" data-nav-group="analytics"><button class="nav-group-toggle" type="button" onclick="toggleNavGroup(this)"><span>التحليلات</span><span class="chev">⌄</span></button><div class="nav-group-items">
+      </div></div><div class="nav-group" data-nav-group="analytics"><button class="nav-group-toggle" type="button" onclick="toggleNavGroup(this)"><span>الأدوات والتقارير</span><span class="chev">⌄</span></button><div class="nav-group-items">
       <button class="nav-item" data-page="executiveBoard" title="لوحة المدير العام" aria-label="فتح صفحة لوحة المدير العام"><span class="nav-icon" aria-hidden="true">Σ</span><span class="nav-text">لوحة المدير العام</span></button>
       <button class="nav-item" data-page="dataQualityCenter" title="مركز جودة البيانات" aria-label="فتح صفحة مركز جودة البيانات"><span class="nav-icon" aria-hidden="true">▧</span><span class="nav-text">مركز جودة البيانات</span></button>
       <button class="nav-item" data-page="fileControl" title="مركز الملفات" aria-label="فتح صفحة مركز الملفات"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-text">مركز الملفات</span></button>
@@ -5750,9 +5763,8 @@ function renderDailyHome(){
   const wr=document.getElementById('workReadiness'), wk=document.getElementById('weeklyDone');
   const pr=document.getElementById('todayPriorities'), ap=document.getElementById('approvalsBottleneck');
   const ready=isOfficialKpiReady();
-  const hour=Number(new Intl.DateTimeFormat('en-GB',{hour:'numeric',hour12:false,timeZone:'Asia/Riyadh'}).format(new Date()));
-  const first=String((currentUser&&(currentUser.display_name||currentUser.username))||'').trim().split(/\s+/)[0]||'';
-  const greet=(hour<12?'صباح الخير':'مساء الخير')+(first?' '+escapeHtml(first):'');
+  // عنوان رسمي يصلح للعرض في الاجتماعات: "ملخص اليوم · الثلاثاء ١٠ نوفمبر"
+  const greet='ملخص اليوم <em>· '+escapeHtml(new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-arab',{weekday:'long',day:'numeric',month:'long',timeZone:'Asia/Riyadh'}).format(new Date()).replace('،',''))+'</em>';
   const m=window.kagDailyMetrics||null;
   const ownerOf=t=>{const id=(taskOwnerIdentities(t)||[])[0]; if(id&&typeof id==='object') return id.name||id.label||id.display_name||id.key||t.owner||'—'; return id||t.owner||'—';};
   const num=v=>v===null||v===undefined?'—':v;
@@ -5763,15 +5775,15 @@ function renderDailyHome(){
   const high=open.filter(t=>/عالي|high|p1/i.test(String(t.priority||'')));
   const weekDelta=m&&m.completed_this_week!=null&&m.completed_last_week!=null?m.completed_this_week-m.completed_last_week:null;
   const items=[
-    {v:num(m&&m.completed_yesterday),l:'أُنجزت أمس',c:'#4ade80'},
-    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',d:weekDelta},
-    {v:num(m&&m.moved_this_week),l:'بدأ العمل عليها هذا الأسبوع',c:'#60a5fa'},
-    {v:ready?approvals.length:'—',l:'اعتمادات تنتظر قرار',c:'#fbbf24'},
+    {v:num(m&&m.completed_yesterday),l:'أُنجزت أمس',c:'#4ade80',pending:!(m&&m.completed_yesterday!=null)},
+    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',d:weekDelta,pending:!(m&&m.completed_this_week!=null)},
+    {v:num(m&&m.moved_this_week),l:'بدأ العمل عليها هذا الأسبوع',c:'#60a5fa',pending:!(m&&m.moved_this_week!=null)},
+    {v:ready?approvals.length:'—',l:'اعتمادات في الخطة',c:'#fbbf24'},
     {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
   ];
   const tracking=m&&m.tracked_days<8?`<span class="dp-track">التتبع اليومي بدأ ${escapeHtml(fmt(m.tracking_since))}</span>`:'';
-  pulse.innerHTML=`<div class="dp-hi"><b>${greet} 👋</b><span>${escapeHtml(PROJECT_POSTPONED_LABEL)}</span>${tracking}</div>`+
-    items.map((x,i)=>`<div class="dp-m" style="--c:${x.c}"><b>${x.v}</b><span>${x.l}${x.d!=null&&x.d!==0?` <i class="${x.d>0?'up':'down'}">${x.d>0?'▲':'▼'} ${Math.abs(x.d)}</i>`:''}</span></div>`).join('');
+  pulse.innerHTML=`<div class="dp-hi"><b>${greet}</b><span>${escapeHtml(PROJECT_POSTPONED_LABEL)}</span>${tracking}</div>`+
+    items.map((x,i)=>`<div class="dp-m${x.pending?' dp-pending':''}" style="--c:${x.c}"><b>${x.v}</b><span>${x.l}${x.d!=null&&x.d!==0?` <i class="${x.d>0?'up':'down'}">${x.d>0?'▲':'▼'} ${Math.abs(x.d)}</i>`:''}</span>${x.pending?'<small>يبدأ من الغد</small>':''}</div>`).join('');
   if(!ready){[wr,wk,pr,ap].forEach(el=>{if(el) el.innerHTML='<div class="dp-skel"></div>';}); return;}
   const sm=taskStatusSummary(tasks);
   const actionableTotal=sm.done+sm.inprog+sm.notStarted;
@@ -5787,45 +5799,25 @@ function renderDailyHome(){
         <div style="--c:#60a5fa" role="button" tabindex="0" onclick="goToTasksFiltered('قيد التنفيذ')"><b>${sm.inprog}</b><span>قيد التنفيذ</span></div>
       </div></div></div>`;
   if(wk){
-    const weeks=(m&&Array.isArray(m.weekly))?m.weekly:[];
-    const vals=weeks.map(w=>w.completed);
-    const known=vals.filter(v=>v!=null);
-    if(!known.length){
-      // لا توجد أسابيع مسجلة بعد: نعرض تقدّم أسبوع التسجيل الأول يوماً بيوم.
-      const todayKey=(m&&m.today)||riyadhTodayKey();
-      const sinceKey=(m&&m.tracking_since)||todayKey;
-      const d0=new Date(todayKey+'T12:00:00Z'); const dow=d0.getUTCDay();
-      const names=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-      const dayKey=i=>{const x=new Date(d0); x.setUTCDate(x.getUTCDate()-dow+i); return x.toISOString().slice(0,10);};
-      const dots=names.map((n,i)=>{const k=dayKey(i); const cls=k===todayKey?'today':(k>=sinceKey&&k<todayKey?'done':'');
-        return `<div class="dp-day ${cls}"><i>${cls==='done'?'✓':cls==='today'?'●':''}</i><span>${n}</span></div>`;}).join('');
-      const recorded=names.map((_,i)=>dayKey(i)).filter(k=>k>=sinceKey&&k<=todayKey).length;
-      wk.innerHTML=`<div class="dp-h"><h3>الإنجاز الأسبوعي</h3><span>عدد المهام المكتملة كل أسبوع</span></div>
-        <div class="dp-first"><b>الأسبوع الأول قيد التسجيل</b><span>${recorded} من 7 أيام مسجّلة</span></div>
-        <div class="dp-days">${dots}</div>
-        <div class="dp-note">يبدأ عدّ المهام المكتملة من اليوم التالي لأول تسجيل، ويظهر عمود لكل أسبوع.</div>`;
-    }else{
-      const mx=Math.max(1,...known);
-      const labels=weeks.map((w,i)=>i===weeks.length-1?'الحالي':i===weeks.length-2?'الماضي':(String(w.week_start).slice(8,10).replace(/^0/,'')+'/'+String(w.week_start).slice(5,7).replace(/^0/,'')));
-      const prevKnown=known.slice(0,-1);
-      const avg=prevKnown.length?Math.round(prevKnown.reduce((a,b)=>a+b,0)/prevKnown.length):null;
-      const cur=vals[vals.length-1];
-      wk.innerHTML=`<div class="dp-h"><h3>الإنجاز الأسبوعي</h3><span>عدد المهام المكتملة كل أسبوع</span></div>
-        <div class="dp-spark">${vals.map((v,i)=>`<div class="${i===vals.length-1?'now':''}${v==null?' na':''}" style="height:${v==null?6:Math.max(6,v/mx*100)}%"><em>${v==null?'':v}</em></div>`).join('')}</div>
-        <div class="dp-wk">${labels.map(l=>`<span>${escapeHtml(String(l))}</span>`).join('')}</div>
-        <div class="dp-mom">${avg!=null?`<span>متوسط الأسابيع السابقة: <b>${avg} مهمة</b></span>`:'<span></span>'}${avg!=null&&cur!=null?`<span>الأسبوع الحالي: <b class="${cur>=avg?'up':'down'}">${cur>=avg?'أعلى من المتوسط ▲':'أقل من المتوسط ▼'}</b></span>`:''}</div>`;
-    }
+    // آخر ما تم إنجازه: آخر 5 مهام مكتملة (تاريخ الإكمال الفعلي إن وجد، وإلا تاريخ النهاية).
+    const doneDate=t=>d(t.actualEnd)||d(t.end)||null;
+    const latest=tasks.filter(t=>classifyStatus(t)==='مكتملة').sort((a,b)=>(doneDate(b)||0)-(doneDate(a)||0)).slice(0,5);
+    wk.innerHTML=`<div class="dp-h"><h3>آخر ما تم إنجازه</h3><span>آخر 5 مهام مكتملة</span></div>`+
+      (latest.length?`<div class="dp-tl">${latest.map(t=>`<div class="dp-ti" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(t.code)})">
+        <div class="dp-ti-t"><b><em>${escapeHtml(t.code)}</em>${escapeHtml(t.name)}</b></div>
+        <span class="dp-ti-d">${doneDate(t)?escapeHtml(fmt(t.actualEnd||t.end)):'—'}</span></div>`).join('')}</div>`
+      :'<div class="dp-empty">لا توجد مهام مكتملة بعد</div>');
   }
   if(pr){
     const pick=[];const add=(t,tag,c)=>{if(t&&!pick.some(p=>p.t===t)&&pick.length<5) pick.push({t,tag,c});};
-    high.forEach(t=>add(t,'عالية','#f87171'));
-    approvals.slice(0,2).forEach(t=>add(t,'اعتماد','#fbbf24'));
-    open.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').forEach(t=>add(t,'متابعة','#60a5fa'));
+    // الاعتمادات لها بطاقتها الخاصة، فلا تتكرر هنا.
+    high.filter(t=>!isApproval(t)).forEach(t=>add(t,'عالية','#f87171'));
+    open.filter(t=>!isApproval(t)&&taskStatusFamily(t)==='قيد التنفيذ').forEach(t=>add(t,'متابعة','#60a5fa'));
     pr.innerHTML=`<div class="dp-h"><h3>أولويات اليوم</h3><span>تتولد تلقائياً من المهام المفتوحة</span></div>`+
       (pick.length?pick.map(p=>`<div class="dp-fl" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(p.t.code)})"><span class="dp-k">${escapeHtml(p.t.code)}</span><div class="dp-t">${escapeHtml(p.t.name)}<small>${escapeHtml(String(ownerOf(p.t)))} · ${escapeHtml(classifyStatus(p.t))}</small></div><span class="dp-tag" style="--c:${p.c}">${p.tag}</span></div>`).join(''):'<div class="dp-empty">لا توجد مهام مفتوحة</div>');
   }
   if(ap){
-    ap.innerHTML=`<div class="dp-h"><h3>اختناق الاعتمادات</h3><span>مهام اعتماد وتعميد مفتوحة</span></div>
+    ap.innerHTML=`<div class="dp-h"><h3>اعتمادات في خطة العمل</h3><span>مهام اعتماد وتعميد مفتوحة في WBS</span></div>
       <div class="dp-big"><b>${approvals.length}</b><span>مهمة اعتماد أو تعميد<br>تنتظر قرار</span></div>`+
       approvals.slice(0,3).map(t=>`<div class="dp-fl" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(t.code)})"><span class="dp-k">${escapeHtml(t.code)}</span><div class="dp-t">${escapeHtml(t.name)}<small>${escapeHtml(String(ownerOf(t)))}</small></div></div>`).join('')+
       (approvals.length>3?`<button type="button" class="dp-more" onclick="showPage('tasks');document.getElementById('searchTask').value='اعتماد';applyFilters()">عرض كل الاعتمادات ←</button>`:'');
