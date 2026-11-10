@@ -4733,19 +4733,20 @@ function renderAll(){
 }
 function renderKpis(){
   const kpiGrid=document.getElementById('kpis'); if(!kpiGrid) return;
-  const labels=['إجمالي المهام','المهام المتبقية','المسؤولون','مخاطر حرجة'];
+  const labels=['إجمالي المهام','المهام المتبقية','قابلة للتنفيذ الآن','مخاطر حرجة'];
   if(!isOfficialKpiReady()){
     const failed=typeof homeSyncFailed!=='undefined'&&homeSyncFailed;
     kpiGrid.innerHTML=labels.map(x=>`<div class="rd-kpi${failed?'':' rd-skel'}"><span>${x}</span><b>${failed?'—':''}</b><small>${failed?'لا توجد بيانات':''}</small></div>`).join('');
     return;
   }
-  const owners=projectOwnerGroups(tasks);
   const remaining=tasks.filter(t=>classifyStatus(t)!=='مكتملة').length;
+  // قابلة للتنفيذ الآن = غير مكتملة وغير معلّقة لحين الموعد
+  const actionable=tasks.filter(t=>{const st=classifyStatus(t);return st!=='مكتملة'&&st!=='معلّقة لحين الموعد';}).length;
   let critical=0; try{critical=getRiskMetrics().critical;}catch(e){}
   const k=[
     {label:'إجمالي المهام',value:tasks.length,hint:'من ملف WBS',color:'#a78bfa',page:"showPage('tasks')"},
     {label:'المهام المتبقية',value:remaining,hint:'غير مكتملة',color:'#60a5fa',page:"showPage('tasks')"},
-    {label:'المسؤولون',value:owners.length,hint:'جهات وفرق',color:'#4ade80',page:"showPage('ownersPage')"},
+    {label:'قابلة للتنفيذ الآن',value:actionable,hint:'غير مكتملة وغير معلّقة',color:'#4ade80',page:"showPage('tasks');setTaskDateFilter('actionable')"},
     {label:'مخاطر حرجة',value:critical,hint:'من سجل المخاطر',color:critical?'#f87171':'#34d399',page:"goToRisksFiltered('حرج')"},
   ];
   kpiGrid.innerHTML=k.map(x=>`<div class="rd-kpi" role="button" tabindex="0" style="--c:${x.color}" onclick="${x.page}"><span>${x.label}</span><b>${x.value}</b><small>${x.hint}</small></div>`).join('');
