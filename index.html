@@ -1529,6 +1529,55 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 :root[data-theme="light"]{--rd-track:#ece9fb}
 @media (max-width:1100px){#overview .rd-hero{grid-template-columns:1fr}.rd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.rd-track{overflow-x:auto}.rd-st{min-width:86px}.rd-hero h1{font-size:22px}.rd-gauge-c b{font-size:34px}}
+.pr-row{display:grid;grid-template-columns:170px 1fr 46px 130px;gap:12px;align-items:center;padding:7px 4px;border-radius:10px;cursor:pointer;font-size:13px}
+.pr-row:hover{background:rgba(255,255,255,.03)}.pr-name{font-weight:700}
+.pr-bar{display:flex;height:10px;border-radius:6px;overflow:hidden;gap:2px;background:rgba(255,255,255,.05)}.pr-bar i{display:block;height:100%}
+.pr-pct{font-weight:800;color:#c4b5fd;text-align:left}.pr-n{font-size:11.5px;color:var(--muted,#8c8db5);text-align:left}
+.pr-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--muted,#8c8db5);margin-top:10px}
+.pr-legend span:before{content:"";display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--c);margin-left:5px;vertical-align:-1px}
+@media (max-width:760px){.pr-row{grid-template-columns:110px 1fr 40px}.pr-n{display:none}}
+
+/* ===== الرئيسية: المتابعة اليومية ===== */
+.dp-pulse{display:flex;align-items:center;border-radius:18px;background:linear-gradient(90deg,rgba(124,92,240,.18),rgba(56,189,248,.06));border:1px solid #3a2f8a;padding:14px 22px;margin-bottom:14px;gap:4px;flex-wrap:wrap}
+.dp-hi{flex:1.4;min-width:200px}.dp-hi b{font-size:19px;font-weight:800;display:block}.dp-hi span{font-size:12px;color:#a9aad0;display:block}
+.dp-track{color:#a78bfa!important;margin-top:3px}
+.dp-m{flex:1;min-width:110px;text-align:center;border-right:1px solid #2a2c5c;padding:2px 10px}
+.dp-m b{display:block;font-size:24px;font-weight:800;color:var(--c)}.dp-m span{font-size:11.5px;color:#a9aad0}
+.dp-m i{font-style:normal;font-size:11px;margin-right:3px}.dp-m i.up,.dp-mom b.up{color:#4ade80}.dp-m i.down,.dp-mom b.down{color:#f87171}
+.dp-row{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-bottom:14px}
+.dp-card{background:linear-gradient(180deg,rgba(20,22,52,.95),rgba(13,15,36,.95));border:1px solid #25285a;border-radius:18px;padding:18px 20px;min-width:0}
+.dp-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px}
+.dp-h h3{font-size:15.5px;font-weight:800;display:flex;align-items:center;gap:8px;margin:0;color:#fff}.dp-h h3:before{content:"";width:4px;height:17px;border-radius:2px;background:linear-gradient(#a78bfa,#5b8def)}
+.dp-h span{font-size:11.5px;color:#7d7ea8}
+.dp-ready{display:grid;grid-template-columns:190px 1fr;gap:18px;align-items:center}
+.dp-ring{position:relative;width:180px;height:180px}.dp-ring svg{width:180px;height:180px}
+.dp-ring-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.dp-ring-c b{font-size:40px;font-weight:800;line-height:1;background:linear-gradient(180deg,#fff,#86efac);-webkit-background-clip:text;background-clip:text;color:transparent}
+.dp-ring-c span{font-size:11px;color:#a9aad0;margin-top:4px}
+.dp-ready-t>b{font-size:16px;display:block;margin-bottom:4px}.dp-ready-t p{font-size:12px;color:#a9aad0;margin:0 0 12px}
+.dp-split{display:flex;gap:10px}.dp-split div{flex:1;border-radius:12px;padding:10px 12px;background:rgba(10,12,32,.6);border:1px solid #23264f;cursor:pointer}
+.dp-split b{display:block;font-size:22px;font-weight:800;color:var(--c)}.dp-split span{font-size:11px;color:#a9aad0}
+.dp-spark{display:flex;align-items:flex-end;gap:7px;height:110px;padding-top:16px}
+.dp-spark div{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#a78bfa,#5b4bc4);position:relative}
+.dp-spark div.now{background:linear-gradient(180deg,#86efac,#22c55e);box-shadow:0 0 14px rgba(74,222,128,.45)}
+.dp-spark div.na{background:rgba(255,255,255,.06);box-shadow:none}
+.dp-spark em{position:absolute;top:-17px;left:0;right:0;text-align:center;font-style:normal;font-size:10.5px;color:#c9cae6}
+.dp-wk{display:flex;gap:7px;margin-top:6px}.dp-wk span{flex:1;text-align:center;font-size:10px;color:#6f7099;white-space:nowrap;overflow:hidden}
+.dp-mom{display:flex;justify-content:space-between;margin-top:12px;font-size:12px;color:#a9aad0;gap:8px;flex-wrap:wrap}
+.dp-fl{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(10,12,32,.55);border:1px solid #23264f;margin-bottom:8px;font-size:13px;cursor:pointer}
+.dp-fl:hover,.dp-split div:hover{filter:brightness(1.15)}
+.dp-k{font-weight:800;color:#a78bfa;font-size:12px;min-width:46px}.dp-t{flex:1;min-width:0}.dp-t small{display:block;font-size:11px;color:#7d7ea8;margin-top:2px}
+.dp-tag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:7px;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);white-space:nowrap}
+.dp-big{display:flex;align-items:flex-end;gap:12px;margin-bottom:12px}.dp-big b{font-size:40px;font-weight:800;line-height:1;color:#fbbf24}.dp-big span{font-size:12.5px;color:#a9aad0;padding-bottom:3px}
+.dp-more{display:block;margin:4px auto 0;background:none;border:0;color:#a78bfa;font:inherit;font-size:12px;cursor:pointer}
+.dp-empty{color:#7d7ea8;font-size:13px;text-align:center;padding:30px 10px}
+.dp-skel{height:150px;border-radius:12px;background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:skShimmer 1.3s infinite linear}
+:root[data-theme="light"] .dp-card,:root[data-theme="light"] .dp-fl,:root[data-theme="light"] .dp-split div{background:#fff;border-color:#e2e0f5}
+:root[data-theme="light"] .dp-pulse{background:linear-gradient(90deg,#efeafe,#f5f9ff);border-color:#d9d0fb}
+:root[data-theme="light"] .dp-h h3{color:#1e1b4b}:root[data-theme="light"]{--dp-track:#ece9fb}
+:root[data-theme="light"] .dp-ring-c b{background:linear-gradient(180deg,#14532d,#22c55e);-webkit-background-clip:text;background-clip:text}
+@media (max-width:1100px){.dp-row{grid-template-columns:1fr}.dp-m{border:0}}
+@media (max-width:640px){.dp-ready{grid-template-columns:1fr;justify-items:center}.dp-split{flex-direction:column}}
 </style>
 <link rel="stylesheet" href="theme.css"/>
 </head>
@@ -1666,9 +1715,14 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         </div>
 
         <!-- تصميم الجاهزية (وضع التأجيل) -->
-        <div class="rd-hero" id="readinessHero"></div>
+        <div class="dp-pulse" id="dailyPulse"></div>
+        <div class="dp-row">
+          <div class="dp-card" id="workReadiness"></div>
+          <div class="dp-card" id="weeklyDone"></div>
+        </div>
+        <div class="rd-hero" id="readinessHero" style="display:none"></div>
         <div class="rd-journey" id="phaseJourney"></div>
-        <div class="rd-kpis">
+        <div class="rd-kpis" style="display:none">
           <div id="kpis" style="display:contents"></div>
           <button type="button" class="rd-kpi rd-kpi-inq" id="inquirySummary" aria-live="polite" onclick="openInquiryScope('assigned')" style="--c:#f0abfc">
             <span>استفسارات تحتاج ردك</span><b id="inquiryNeedsReply">—</b><small>ردود جديدة: <em id="inquiryNewReplies">—</em></small>
@@ -1736,7 +1790,11 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           </div>
         </div>
 
-        <div class="exec-mid-grid">
+        <div class="dp-row dp-row-b">
+          <div class="dp-card" id="todayPriorities"></div>
+          <div class="dp-card" id="approvalsBottleneck"></div>
+        </div>
+        <div class="exec-mid-grid" style="display:none">
       <!-- الالتزام بالجدول الزمني: معطّل أثناء التأجيل -->
       <div class="card rd-attn">
         <div class="sec-title"><h2>يحتاج انتباهك</h2></div>
@@ -1752,7 +1810,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 
         <!-- أقرب المعالم الرئيسية: أُزيل أثناء التأجيل؛ الملخص التنفيذي انتقل جنب آخر الإنجازات -->
 
-        <div class="card" style="margin-top:14px">
+        <div class="card" style="margin-top:14px;display:none">
           <div class="sec-title"><h2>المهام المستعجلة</h2><span id="urgentTasksOpenCount">0 مهمة</span></div>
           <div class="kpi-value" id="urgentTasksCount" style="color:var(--red);font-size:30px;margin-bottom:8px">0</div>
           <div id="urgentTasksCardList"></div>
@@ -1842,6 +1900,10 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="phase-executive-summary" id="phaseExecutiveSummary" aria-label="الملخص التنفيذي لمراحل المشروع"></div>
         <div class="phase-stage-track" id="phaseTimeline" aria-label="المراحل الخمس للمشروع"></div>
         <div class="phase-cards" id="phaseCards"></div>
+        <div class="card path-ready-card" style="margin-top:16px">
+          <div class="sec-title"><h2>جاهزية المسارات</h2><span>نسبة المكتمل في كل مسار رسمي</span></div>
+          <div id="pathReadiness"></div>
+        </div>
       </section>
 
       <!-- RISKS PAGE -->
@@ -2629,6 +2691,7 @@ function renderOverview(){
   renderDataHealth();
   renderUrgentTasksCard();
   renderHomeReadiness();
+  renderDailyHome();
   renderExecutiveAdditions();
   
   markPerf('overview_render_end');
@@ -4925,6 +4988,7 @@ function selectProjectPhase(phase){
 
 
 function renderPhases(){
+  try{renderPathReadiness();}catch(e){console.warn('path readiness',e);}
   const phaseStats=getSharedProjectPhaseStats();
   const active=getCurrentProjectPhaseStat(phaseStats)||phaseStats[0];
   if(!selectedProjectPhase) selectedProjectPhase=active?.phase||PROJECT_PHASE_ORDER[0];
@@ -5225,6 +5289,7 @@ async function loadExternal(initial=true){
     const normalizedMeetings=normalizeMeetingRows(data.meetings||[]);
     const normalizedCommitments=normalizeCommitmentRows(data.commitments||[]);
     const normalizedFiles=normalizeFileRows(data.files||data.file_control||[]);
+    if(Object.prototype.hasOwnProperty.call(data,'daily_metrics')) window.kagDailyMetrics=data.daily_metrics||null;
     const normalizedUrgentTasks=normalizeUrgentTaskRows(data.urgent_tasks||data.urgentTasks||[]);
     const normalizedProcurements=normalizeProcurementRows(data.procurements||data.procurement_requests||[]);
     const normalizedPermits=normalizePermitRows(data.permits||data.permits_register||[]);
@@ -5670,6 +5735,99 @@ function renderLineChart(){
 }
 
 /* ══ INSIGHTS ══ */
+function renderPathReadiness(){
+  const el=document.getElementById('pathReadiness'); if(!el) return;
+  if(typeof isOfficialKpiReady==='function'&&!isOfficialKpiReady()){el.innerHTML='';return;}
+  const groups=new Map();
+  tasks.forEach(t=>{const p=String(t.mainPath||'').trim()||'غير محدد'; if(!groups.has(p)) groups.set(p,[]); groups.get(p).push(t);});
+  const rows=[...groups.entries()].map(([path,list])=>{const sm=taskStatusSummary(list); return {path,total:sm.total,done:sm.done,inprog:sm.inprog,notStarted:sm.notStarted,hold:sm.hold,pct:sm.total?Math.round(sm.done/sm.total*100):0};})
+    .filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+  if(!rows.length){el.innerHTML='<div style="color:var(--muted);padding:16px;text-align:center">لا توجد بيانات</div>';return;}
+  el.innerHTML=rows.map(r=>`<div class="pr-row" role="button" tabindex="0" onclick="goToTasksFilteredByPath&&goToTasksFilteredByPath(${JSON.stringify(r.path)})">
+    <span class="pr-name">${escapeHtml(r.path)}</span>
+    <div class="pr-bar">${[['done','#4ade80'],['inprog','#60a5fa'],['notStarted','#8c8db5'],['hold','#7c6bd6']].filter(([k])=>r[k]>0).map(([k,c])=>`<i style="flex:${r[k]};background:${c}"></i>`).join('')}</div>
+    <span class="pr-pct">${r.pct}%</span><span class="pr-n">${r.total} مهمة${r.hold?` · ${r.hold} معلّقة`:''}</span></div>`).join('')+
+    `<div class="pr-legend"><span style="--c:#4ade80">مكتملة</span><span style="--c:#60a5fa">قيد التنفيذ</span><span style="--c:#8c8db5">لم تبدأ</span><span style="--c:#7c6bd6">معلّقة لحين الموعد</span></div>`;
+}
+function goToTasksFilteredByPath(path){
+  showPage('tasks');
+  const sel=document.getElementById('filterPath')||document.getElementById('filterMainPath');
+  if(sel){ if(![...sel.options].some(o=>o.value===path)){} sel.value=path; if(typeof applyFilters==='function') applyFilters(); }
+}
+function renderDailyHome(){
+  const pulse=document.getElementById('dailyPulse'); if(!pulse) return;
+  const wr=document.getElementById('workReadiness'), wk=document.getElementById('weeklyDone');
+  const pr=document.getElementById('todayPriorities'), ap=document.getElementById('approvalsBottleneck');
+  const ready=isOfficialKpiReady();
+  const hour=Number(new Intl.DateTimeFormat('en-GB',{hour:'numeric',hour12:false,timeZone:'Asia/Riyadh'}).format(new Date()));
+  const first=String((currentUser&&(currentUser.display_name||currentUser.username))||'').trim().split(/\s+/)[0]||'';
+  const greet=(hour<12?'صباح الخير':'مساء الخير')+(first?' '+escapeHtml(first):'');
+  const m=window.kagDailyMetrics||null;
+  const ownerOf=t=>{const id=(taskOwnerIdentities(t)||[])[0]; if(id&&typeof id==='object') return id.name||id.label||id.display_name||id.key||t.owner||'—'; return id||t.owner||'—';};
+  const num=v=>v===null||v===undefined?'—':v;
+  // approvals waiting: open approval-type WBS tasks that are not on hold
+  const isApproval=t=>/^\s*(اعتماد|تعميد)/.test(String(t.name||''));
+  const open=ready?tasks.filter(t=>{const st=classifyStatus(t);return st!=='مكتملة'&&st!=='معلّقة لحين الموعد';}):[];
+  const approvals=open.filter(isApproval).sort((a,b)=>(taskStatusFamily(b)==='قيد التنفيذ')-(taskStatusFamily(a)==='قيد التنفيذ'));
+  const high=open.filter(t=>/عالي|high|p1/i.test(String(t.priority||'')));
+  const weekDelta=m&&m.completed_this_week!=null&&m.completed_last_week!=null?m.completed_this_week-m.completed_last_week:null;
+  const items=[
+    {v:num(m&&m.completed_yesterday),l:'أُنجزت أمس',c:'#4ade80'},
+    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',d:weekDelta},
+    {v:num(m&&m.moved_this_week),l:'بدأ العمل عليها هذا الأسبوع',c:'#60a5fa'},
+    {v:ready?approvals.length:'—',l:'اعتمادات تنتظر قرار',c:'#fbbf24'},
+    {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
+  ];
+  const tracking=m&&m.tracked_days<8?`<span class="dp-track">التتبع اليومي بدأ ${escapeHtml(fmt(m.tracking_since))}</span>`:'';
+  pulse.innerHTML=`<div class="dp-hi"><b>${greet} 👋</b><span>${escapeHtml(PROJECT_POSTPONED_LABEL)}</span>${tracking}</div>`+
+    items.map((x,i)=>`<div class="dp-m" style="--c:${x.c}"><b>${x.v}</b><span>${x.l}${x.d!=null&&x.d!==0?` <i class="${x.d>0?'up':'down'}">${x.d>0?'▲':'▼'} ${Math.abs(x.d)}</i>`:''}</span></div>`).join('');
+  if(!ready){[wr,wk,pr,ap].forEach(el=>{if(el) el.innerHTML='<div class="dp-skel"></div>';}); return;}
+  const sm=taskStatusSummary(tasks);
+  const actionableTotal=sm.done+sm.inprog+sm.notStarted;
+  const pct=actionableTotal?Math.round(sm.done/actionableTotal*100):0;
+  const C=2*Math.PI*80;
+  if(wr) wr.innerHTML=`<div class="dp-h"><h3>جاهزية الشغل الممكن الآن</h3><span>لا يعتمد على أي تاريخ</span></div>
+    <div class="dp-ready"><div class="dp-ring"><svg viewBox="0 0 190 190" aria-hidden="true"><g transform="rotate(-90 95 95)"><circle cx="95" cy="95" r="80" fill="none" stroke="var(--dp-track,#1c1e45)" stroke-width="14"/><circle cx="95" cy="95" r="80" fill="none" stroke="#4ade80" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(pct/100*C).toFixed(1)} ${C.toFixed(1)}"/></g></svg>
+      <div class="dp-ring-c"><b>${pct}%</b><span>من المهام القابلة<br>للتنفيذ الآن</span></div></div>
+      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة قابلة للتنفيذ مكتملة</b><p>لا تشمل المهام المعلّقة لحين الموعد</p>
+      <div class="dp-split">
+        <div style="--c:#4ade80" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('actionable')"><b>${sm.inprog+sm.notStarted}</b><span>متبقية قابلة للتنفيذ</span></div>
+        <div style="--c:#a78bfa" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('hold')"><b>${sm.hold}</b><span>معلّقة لحين الموعد</span></div>
+        <div style="--c:#60a5fa" role="button" tabindex="0" onclick="goToTasksFiltered('قيد التنفيذ')"><b>${sm.inprog}</b><span>قيد التنفيذ</span></div>
+      </div></div></div>`;
+  if(wk){
+    const weeks=(m&&Array.isArray(m.weekly))?m.weekly:[];
+    const vals=weeks.map(w=>w.completed);
+    const known=vals.filter(v=>v!=null);
+    if(!known.length){
+      wk.innerHTML=`<div class="dp-h"><h3>الإنجاز الأسبوعي</h3><span>عدد المهام المكتملة كل أسبوع</span></div><div class="dp-empty">يبدأ العرض بعد أول يومين من التتبع اليومي.</div>`;
+    }else{
+      const mx=Math.max(1,...known);
+      const labels=weeks.map((w,i)=>i===weeks.length-1?'الحالي':i===weeks.length-2?'الماضي':(String(w.week_start).slice(8,10).replace(/^0/,'')+'/'+String(w.week_start).slice(5,7).replace(/^0/,'')));
+      const prevKnown=known.slice(0,-1);
+      const avg=prevKnown.length?Math.round(prevKnown.reduce((a,b)=>a+b,0)/prevKnown.length):null;
+      const cur=vals[vals.length-1];
+      wk.innerHTML=`<div class="dp-h"><h3>الإنجاز الأسبوعي</h3><span>عدد المهام المكتملة كل أسبوع</span></div>
+        <div class="dp-spark">${vals.map((v,i)=>`<div class="${i===vals.length-1?'now':''}${v==null?' na':''}" style="height:${v==null?6:Math.max(6,v/mx*100)}%"><em>${v==null?'':v}</em></div>`).join('')}</div>
+        <div class="dp-wk">${labels.map(l=>`<span>${escapeHtml(String(l))}</span>`).join('')}</div>
+        <div class="dp-mom">${avg!=null?`<span>متوسط الأسابيع السابقة: <b>${avg} مهمة</b></span>`:'<span></span>'}${avg!=null&&cur!=null?`<span>الأسبوع الحالي: <b class="${cur>=avg?'up':'down'}">${cur>=avg?'أعلى من المتوسط ▲':'أقل من المتوسط ▼'}</b></span>`:''}</div>`;
+    }
+  }
+  if(pr){
+    const pick=[];const add=(t,tag,c)=>{if(t&&!pick.some(p=>p.t===t)&&pick.length<5) pick.push({t,tag,c});};
+    high.forEach(t=>add(t,'عالية','#f87171'));
+    approvals.slice(0,2).forEach(t=>add(t,'اعتماد','#fbbf24'));
+    open.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').forEach(t=>add(t,'متابعة','#60a5fa'));
+    pr.innerHTML=`<div class="dp-h"><h3>أولويات اليوم</h3><span>تتولد تلقائياً من المهام المفتوحة</span></div>`+
+      (pick.length?pick.map(p=>`<div class="dp-fl" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(p.t.code)})"><span class="dp-k">${escapeHtml(p.t.code)}</span><div class="dp-t">${escapeHtml(p.t.name)}<small>${escapeHtml(String(ownerOf(p.t)))} · ${escapeHtml(classifyStatus(p.t))}</small></div><span class="dp-tag" style="--c:${p.c}">${p.tag}</span></div>`).join(''):'<div class="dp-empty">لا توجد مهام مفتوحة</div>');
+  }
+  if(ap){
+    ap.innerHTML=`<div class="dp-h"><h3>اختناق الاعتمادات</h3><span>مهام اعتماد وتعميد مفتوحة</span></div>
+      <div class="dp-big"><b>${approvals.length}</b><span>مهمة اعتماد أو تعميد<br>تنتظر قرار</span></div>`+
+      approvals.slice(0,3).map(t=>`<div class="dp-fl" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(t.code)})"><span class="dp-k">${escapeHtml(t.code)}</span><div class="dp-t">${escapeHtml(t.name)}<small>${escapeHtml(String(ownerOf(t)))}</small></div></div>`).join('')+
+      (approvals.length>3?`<button type="button" class="dp-more" onclick="showPage('tasks');document.getElementById('searchTask').value='اعتماد';applyFilters()">عرض كل الاعتمادات ←</button>`:'');
+  }
+}
 function renderHomeReadiness(){
   const hero=document.getElementById('readinessHero');
   const jr=document.getElementById('phaseJourney');
