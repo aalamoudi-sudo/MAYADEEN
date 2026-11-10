@@ -1560,7 +1560,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 .dp-spark{display:flex;align-items:flex-end;gap:7px;height:84px;padding-top:16px}
 .dp-spark div{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#a78bfa,#5b4bc4);position:relative}
 .dp-spark div.now{background:linear-gradient(180deg,#86efac,#22c55e);box-shadow:0 0 14px rgba(74,222,128,.45)}
-.dp-spark div.na{background:rgba(255,255,255,.06);box-shadow:none}
+.dp-spark div.na{background:rgba(255,255,255,.06);box-shadow:none}.dp-spark div.na-now{background:rgba(74,222,128,.18);outline:1px dashed rgba(74,222,128,.5)}
 .dp-spark em{position:absolute;top:-17px;left:0;right:0;text-align:center;font-style:normal;font-size:10.5px;color:#c9cae6}
 .dp-wk{display:flex;gap:7px;margin-top:6px}.dp-wk span{flex:1;text-align:center;font-size:10px;color:#6f7099;white-space:nowrap;overflow:hidden}
 .dp-mom{display:flex;justify-content:space-between;margin-top:12px;font-size:12px;color:#a9aad0;gap:8px;flex-wrap:wrap}
@@ -5800,7 +5800,14 @@ function renderDailyHome(){
     const vals=weeks.map(w=>w.completed);
     const known=vals.filter(v=>v!=null);
     if(!known.length){
-      wk.innerHTML=`<div class="dp-h"><h3>الإنجاز الأسبوعي</h3><span>عدد المهام المكتملة كل أسبوع</span></div><div class="dp-empty">يبدأ العرض بعد أول يومين من التتبع اليومي.</div>`;
+      // لا توجد أسابيع مسجلة بعد: أعمدة فارغة بنفس الشكل بدل رسالة في المنتصف.
+      const ws=weeks.length?weeks:Array.from({length:7},(_,i)=>({week_start:''}));
+      const lbl=ws.map((w,i)=>i===ws.length-1?'الحالي':i===ws.length-2?'الماضي':(w.week_start?String(w.week_start).slice(8,10).replace(/^0/,'')+'/'+String(w.week_start).slice(5,7).replace(/^0/,''):''));
+      const since=m&&m.tracking_since?escapeHtml(fmt(m.tracking_since)):'اليوم';
+      wk.innerHTML=`<div class="dp-h"><h3>الإنجاز الأسبوعي</h3><span>عدد المهام المكتملة كل أسبوع</span></div>
+        <div class="dp-spark">${ws.map((w,i)=>`<div class="na${i===ws.length-1?' na-now':''}" style="height:12%"></div>`).join('')}</div>
+        <div class="dp-wk">${lbl.map(l=>`<span>${escapeHtml(String(l))}</span>`).join('')}</div>
+        <div class="dp-mom"><span>بدأ التسجيل ${since}</span><span>تتعبى الأعمدة تلقائياً كل أسبوع</span></div>`;
     }else{
       const mx=Math.max(1,...known);
       const labels=weeks.map((w,i)=>i===weeks.length-1?'الحالي':i===weeks.length-2?'الماضي':(String(w.week_start).slice(8,10).replace(/^0/,'')+'/'+String(w.week_start).slice(5,7).replace(/^0/,'')));
