@@ -5838,8 +5838,7 @@ function renderDailyHome(){
     {v:ready?approvals.length:'—',l:'اعتمادات في الخطة',c:'#fbbf24'},
     {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
   ];
-  const tracking=m&&m.tracked_days<8?`<span class="dp-track">التتبع اليومي بدأ ${escapeHtml(fmt(m.tracking_since))}</span>`:'';
-  pulse.innerHTML=`<div class="dp-hi"><b>${greet}</b>${tracking}</div>`+
+  pulse.innerHTML=`<div class="dp-hi"><b>${greet}</b></div>`+
     items.map((x,i)=>`<div class="dp-m${x.pending?' dp-pending':''}" style="--c:${x.c}"><b>${x.v}</b><span>${x.l}${x.d!=null&&x.d!==0?` <i class="${x.d>0?'up':'down'}">${x.d>0?'▲':'▼'} ${Math.abs(x.d)}</i>`:''}</span>${x.pending?'<small>يبدأ من الغد</small>':''}</div>`).join('');
   if(!ready){[wr,wk,pr,ap].forEach(el=>{if(el) el.innerHTML='<div class="dp-skel"></div>';}); return;}
   const sm=taskStatusSummary(tasks);
