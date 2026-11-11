@@ -3080,7 +3080,35 @@ async function bootstrapSession(){
   const saved=MayadeenAuth.read(sessionStorage);
   if(!saved){dispatchAuth({type:'NO_SESSION'});returnToAnonymousLogin('');return;}
   authState=Object.assign(MayadeenAuth.initialState(),saved); dispatchAuth({type:'CHECK'});
-  authGeneration++; sessionToken=saved.token; setLoginVisualState('loading'); setLoginTransitionStatus('جاري التحقق من الصلاحيات',35);
+  authGeneration++; sessionToken=saved.token;
+  const cachedHome=saved.user&&(!saved.expiresAt||Date.parse(saved.expiresAt)>Date.now())?readHomeCache(saved.user.username):null;
+  if(cachedHome){
+    // عرض فوري: نفس المستخدم ونفس التبويب. التحقق من الجلسة يكمل في الخلفية.
+    // التحقق من الجلسة يبدأ فوراً بالتوازي مع العرض من الذاكرة.
+    const validation=validatePersistedSession();
+    validation.catch(()=>{});
+    try{
+      dispatchAuth({type:'AUTHENTICATED',token:saved.token,user:saved.user,expiresAt:saved.expiresAt});
+      currentUser=authState.user; revealAuthenticatedApp();
+      const cachedPayload=cachedHome; prefetchedHomeResponse=null;
+      await loadExternalFromCache(cachedPayload);
+    }catch(e){console.warn('[Cache] instant render failed',e);}
+    setSyncLoadingState();
+    try{
+      const user=await validation;
+      dispatchAuth({type:'AUTHENTICATED',token:saved.token,user,expiresAt:saved.expiresAt});
+      currentUser=authState.user; MayadeenAuth.write(sessionStorage,authState); applyPermissions();
+      if(syncRequestInFlight){try{await syncRequestInFlight;}catch(_){}}
+      await new Promise(r=>setTimeout(r,0)); // انتظر تنظيف syncRequestInFlight
+      nextSyncAllowedAt=0; loadExternal(false).catch(e=>console.warn('Refresh data sync failed',e));
+    }catch(e){
+      console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage); clearHomeCache();
+      dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
+      returnToAnonymousLogin(authState.error);
+    }
+    return;
+  }
+  setLoginVisualState('loading'); setLoginTransitionStatus('جاري التحقق من الصلاحيات',35);
   try{
     const user=await validatePersistedSession();
     dispatchAuth({type:'AUTHENTICATED',token:saved.token,user,expiresAt:saved.expiresAt});
@@ -3111,6 +3139,7 @@ async function validatePersistedSession(){
 function returnToAnonymousLogin(error){
   clearCompletionEvidenceState();
   prefetchedHomeResponse=null;
+  clearHomeCache();
   authGeneration++; syncRequestSequence++; sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const app=document.getElementById('app'); app?.classList.remove('visible'); if(app) app.style.cssText='display:none!important';
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
@@ -5213,6 +5242,31 @@ let forceFreshHomeSync=false;
   document.addEventListener('scroll',()=>{const el=document.querySelector('.hold-dash:hover,.hold-dash:focus'); if(el) show(el); else hide();},true);
   document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('.hold-dash'); if(el){e.stopPropagation(); show(el);}},true);
 })();
+// ===== عرض فوري لآخر بيانات (sessionStorage فقط: نفس التبويب ونفس المستخدم) =====
+// عند إعادة تحميل الصفحة تُعرض آخر بيانات وصلت لهذا المستخدم في هذا التبويب فوراً،
+// ثم يتحقق الخادم من الجلسة ويجلب البيانات الحالية في الخلفية. تُمسح عند الخروج أو فشل الجلسة.
+const HOME_CACHE_KEY='kag.homeCache.v1';
+const HOME_CACHE_MAX_AGE=12*60*60*1000;
+function saveHomeCache(data){
+  try{
+    if(!data||data.__fromCache||!Array.isArray(data.rows)||!currentUser||!currentUser.username) return;
+    sessionStorage.setItem(HOME_CACHE_KEY,JSON.stringify({u:String(currentUser.username),t:Date.now(),d:data}));
+  }catch(e){try{sessionStorage.removeItem(HOME_CACHE_KEY);}catch(_){}}
+}
+function readHomeCache(username){
+  try{
+    const raw=sessionStorage.getItem(HOME_CACHE_KEY); if(!raw) return null;
+    const c=JSON.parse(raw);
+    if(!c||c.u!==String(username||'')||!c.d||Date.now()-Number(c.t||0)>HOME_CACHE_MAX_AGE) return null;
+    c.d.__fromCache=true; return c.d;
+  }catch(e){return null;}
+}
+async function loadExternalFromCache(payload){
+  const fresh=prefetchedHomeResponse; prefetchedHomeResponse=payload;
+  try{ return await loadExternal(true); }
+  finally{ if(fresh&&!prefetchedHomeResponse) prefetchedHomeResponse=fresh; }
+}
+function clearHomeCache(){try{sessionStorage.removeItem(HOME_CACHE_KEY);}catch(e){}}
 let prefetchedHomeResponse=null;
 let homeSyncFailed=false;
 async function manualRefreshNow(){
@@ -5246,6 +5300,8 @@ async function loadExternal(initial=true){
   const requestToken=sessionToken;
   const requestAuthGeneration=authGeneration;
   syncRequestInFlight=(async()=>{
+  // يضمن أن finally يعمل بعد إسناد syncRequestInFlight حتى لو كانت البيانات جاهزة دون انتظار شبكة.
+  await null;
   const baseUrl=getConfiguredApiUrl();
   const input=document.getElementById('apiUrl'); if(input) input.value=baseUrl;
 
@@ -5274,7 +5330,7 @@ async function loadExternal(initial=true){
     // fresh:true يتجاوز ذاكرة الخادم المؤقتة (5 دقائق) عند الضغط على "تحديث البيانات الآن".
     const homeRequest={action:'dashboard_home'};
     if(forceFreshHomeSync){homeRequest.fresh=true;forceFreshHomeSync=false;}
-    if(initial&&prefetchedHomeResponse){
+    if(prefetchedHomeResponse){
       data=prefetchedHomeResponse; prefetchedHomeResponse=null;
       console.info('⏱️ [Sync] استخدام بيانات الرئيسية الواصلة مع طلب الدخول');
     }else{
@@ -5311,6 +5367,7 @@ async function loadExternal(initial=true){
     const normalizedCommitments=normalizeCommitmentRows(data.commitments||[]);
     const normalizedFiles=normalizeFileRows(data.files||data.file_control||[]);
     if(Object.prototype.hasOwnProperty.call(data,'daily_metrics')) window.kagDailyMetrics=data.daily_metrics||null;
+    saveHomeCache(data);
     const normalizedUrgentTasks=normalizeUrgentTaskRows(data.urgent_tasks||data.urgentTasks||[]);
     const normalizedProcurements=normalizeProcurementRows(data.procurements||data.procurement_requests||[]);
     const normalizedPermits=normalizePermitRows(data.permits||data.permits_register||[]);
@@ -5782,7 +5839,7 @@ function renderDailyHome(){
     {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
   ];
   const tracking=m&&m.tracked_days<8?`<span class="dp-track">التتبع اليومي بدأ ${escapeHtml(fmt(m.tracking_since))}</span>`:'';
-  pulse.innerHTML=`<div class="dp-hi"><b>${greet}</b><span>${escapeHtml(PROJECT_POSTPONED_LABEL)}</span>${tracking}</div>`+
+  pulse.innerHTML=`<div class="dp-hi"><b>${greet}</b>${tracking}</div>`+
     items.map((x,i)=>`<div class="dp-m${x.pending?' dp-pending':''}" style="--c:${x.c}"><b>${x.v}</b><span>${x.l}${x.d!=null&&x.d!==0?` <i class="${x.d>0?'up':'down'}">${x.d>0?'▲':'▼'} ${Math.abs(x.d)}</i>`:''}</span>${x.pending?'<small>يبدأ من الغد</small>':''}</div>`).join('');
   if(!ready){[wr,wk,pr,ap].forEach(el=>{if(el) el.innerHTML='<div class="dp-skel"></div>';}); return;}
   const sm=taskStatusSummary(tasks);
