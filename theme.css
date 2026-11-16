@@ -264,3 +264,81 @@
 [data-theme="light"] :is(.empty-state,.no-data,.loading-state){color:var(--text-secondary)}
 [data-theme="light"] :is(a:not(.nav-item):not(.login-btn),.text-link){color:var(--brand-primary)}
 [data-theme="light"] :is(a:not(.nav-item):not(.login-btn),.text-link):hover{color:var(--brand-deep)}
+
+/* Light surface completion — 2026-11-16.
+   Keep every selector light-scoped; the original dark rules remain untouched.
+   Match the page-ID specificity of the base phase styles. */
+:root[data-theme="light"] #phases .phase-executive-summary{background:var(--border-color);border-color:var(--border-color);box-shadow:var(--command-shadow)}
+:root[data-theme="light"] #phases .phase-executive-item{background:var(--surface-primary)}
+:root[data-theme="light"] #phases .phase-executive-item small{color:var(--text-secondary)}
+:root[data-theme="light"] #phases .phase-executive-item b{color:var(--text-primary)}
+:root[data-theme="light"] #phases .phase-stage-track{background:var(--surface-secondary);border-color:var(--border-color);box-shadow:inset 0 0 0 1px var(--border-color)}
+:root[data-theme="light"] #phases .phase-stage{color:var(--text-secondary);opacity:1}
+:root[data-theme="light"] #phases .phase-stage-node{color:var(--text-secondary);text-shadow:none}
+:root[data-theme="light"] #phases .phase-stage:is(:hover,.is-selected,.is-current){background:#eee8fb;color:#593b91;border-color:#c6b5e8;box-shadow:inset 0 -2px #72569b}
+:root[data-theme="light"] #phases .phase-stage.is-current .phase-stage-node{color:#69459b;text-shadow:none}
+:root[data-theme="light"] #phases .phase-stage.is-complete,:root[data-theme="light"] #phases .phase-stage.is-complete .phase-stage-node{color:var(--success)}
+:root[data-theme="light"] #phases .phase-summary-card{background:var(--surface-primary);color:var(--text-primary);border-color:var(--border-color);box-shadow:var(--command-shadow)}
+:root[data-theme="light"] #phases .phase-summary-card:is(:hover,.is-selected){border-color:#aa92d2;box-shadow:var(--command-shadow-hover)}
+:root[data-theme="light"] #phases .phase-summary-card.is-current{background:linear-gradient(155deg,#f4effc,#ffffff);border-color:#9b7dc7;box-shadow:0 8px 24px rgba(89,59,145,.12)}
+:root[data-theme="light"] #phases .phase-card-head h2,:root[data-theme="light"] #phases .phase-percent b,:root[data-theme="light"] #phases .phase-card-metric b,:root[data-theme="light"] #phases .phase-quick-fact b{color:var(--text-primary)}
+:root[data-theme="light"] #phases .phase-percent small,:root[data-theme="light"] #phases .phase-card-metric small,:root[data-theme="light"] #phases .phase-card-metric-icon,:root[data-theme="light"] #phases .phase-quick-fact span{color:var(--text-secondary)}
+:root[data-theme="light"] #phases .phase-card-progress{background:#e8e3f0;box-shadow:inset 0 1px 2px rgba(16,43,63,.06)}
+:root[data-theme="light"] #phases .phase-card-progress span{background:linear-gradient(90deg,#6947ad,#9271c6);box-shadow:none}
+:root[data-theme="light"] #phases .phase-status-badge{background:#eef1f4;color:#526575;border-color:#d4dde3}
+:root[data-theme="light"] #phases .phase-status-badge.is-complete{background:#e4f4ec;color:#08734e;border-color:#b5ddc8}
+:root[data-theme="light"] #phases .phase-status-badge:is(.is-current,.is-active){background:#eee7fa;color:#593b91;border-color:#d2c2ea}
+:root[data-theme="light"] #phases .phase-status-badge.is-delayed{background:var(--danger-soft);color:var(--danger);border-color:var(--danger-border)}
+:root[data-theme="light"] #phases :is(.phase-card-metrics,.phase-card-metric,.phase-executive-lines,.phase-executive-line){border-color:var(--border-color)}
+:root[data-theme="light"] #phases .phase-executive-line{color:var(--text-secondary)}
+:root[data-theme="light"] #phases .phase-executive-line b{color:var(--text-primary)}
+:root[data-theme="light"] #phases .phase-executive-line.is-ready b{color:var(--success)}
+:root[data-theme="light"] #phases .phase-executive-line.is-current b,:root[data-theme="light"] #phases .phase-card-metric.is-hold b{color:#69459b}
+:root[data-theme="light"] #phases .phase-executive-line.is-pending b{color:var(--text-secondary)}
+:root[data-theme="light"] #phases .phase-executive-line.is-delayed b,:root[data-theme="light"] #phases .phase-card-metric.is-late.has-late b{color:var(--danger)}
+:root[data-theme="light"] #phases .phase-quick-fact{background:var(--surface-secondary);border:1px solid var(--border-color)}
+:root[data-theme="light"] #phases .phase-detail-toggle{background:var(--surface-primary);color:#593b91;border-color:#c6b5e8}
+:root[data-theme="light"] #phases .phase-detail-toggle:hover{background:#eee8fb;border-color:#9271c6}
+:root[data-theme="light"] #phases .phase-card-details{background:var(--surface-secondary);color:var(--text-primary);border-color:var(--border-color)}
+
+/* Recent overview and daily-work modules use their own dark surfaces. */
+:root[data-theme="light"] #overview :is(.rd-hero,.rd-journey){background:linear-gradient(145deg,#ffffff,#f4f0fb);border-color:#d8cce9;box-shadow:var(--command-shadow)}
+:root[data-theme="light"] :is(.rd-hero h1,.rd-h3,.rd-gauge-c b,.dp-h h3,.dp-ti-t b,.dp-mix-l b,.dp-mix-h b){color:var(--text-primary);-webkit-text-fill-color:currentColor;background-image:none}
+:root[data-theme="light"] :is(.rd-sub,.rd-leg span,.rd-gauge-c span,.rd-gauge-c small,.rd-jh span,.dp-note,.dp-empty,.dp-mom,.dp-mix-l,.dp-mix-h,.dp-ti-t span,.dp-ti-d,.dp-t small,.dp-m small,.dp-big span,.dp-day span){color:var(--text-secondary)}
+:root[data-theme="light"] :is(.rd-pill){background:var(--warning-soft);border-color:var(--warning-border);color:var(--warning)}
+:root[data-theme="light"] :is(.rd-stack,.dp-mix-bar){background:var(--bg-secondary)}
+:root[data-theme="light"] :is(.dp-card,.dp-fl,.dp-split div){background:var(--surface-primary);border-color:var(--border-color);box-shadow:var(--command-shadow)}
+:root[data-theme="light"] :is(.dp-k,.dp-more,.dp-ti-t b em){color:#69459b}
+:root[data-theme="light"] .dp-day i{background:var(--surface-secondary);color:var(--text-secondary);border-color:var(--border-color)}
+:root[data-theme="light"] .dp-day.done i{background:var(--success-soft);color:var(--success);border-color:var(--success-border)}
+:root[data-theme="light"] .dp-day.today i{background:#eee8fb;color:#593b91;border-color:#c6b5e8;box-shadow:none}
+:root[data-theme="light"] .dp-day.today span{color:#593b91}
+:root[data-theme="light"] .dp-day.pre i,:root[data-theme="light"] .dp-day.pre span{color:var(--text-secondary)}
+:root[data-theme="light"] .dp-big b{color:var(--warning)}
+:root[data-theme="light"] .dp-ti:hover .dp-ti-t b{color:var(--brand-primary)}
+:root[data-theme="light"] .dp-mix{border-color:var(--border-color)}
+:root[data-theme="light"] :is(.sk-line,.dp-skel){background:linear-gradient(90deg,#e8edf1 25%,#f8fafb 50%,#e8edf1 75%);background-size:200% 100%}
+
+/* Held tasks, inquiries and their feedback. Preserve status meaning. */
+:root[data-theme="light"] .pill.hold{background:#eee8fb;color:#593b91;border-color:#b9a3da}
+:root[data-theme="light"] #taskTable tr.task-hold td{color:var(--text-secondary)}
+:root[data-theme="light"] .hold-dash{color:var(--text-secondary);opacity:1}
+:root[data-theme="light"] .hold-dash:is(:hover,:focus){color:#593b91}
+:root[data-theme="light"] #holdTipFloat{background:#ffffff;color:#593b91;border-color:#b9a3da;box-shadow:var(--command-shadow-hover)}
+:root[data-theme="light"] #holdTipFloat:after{border-top-color:#b9a3da}
+:root[data-theme="light"] .inquiry-summary b{color:#69459b}
+:root[data-theme="light"] .inquiry-notice.error{background:var(--danger-soft);color:var(--danger);border-color:var(--danger-border)}
+:root[data-theme="light"] .inquiry-notice.info{background:var(--info-soft);color:var(--info);border-color:var(--info-border)}
+:root[data-theme="light"] .inquiry-message.mine{background:#f4effc;border-color:#d2c2ea}
+:root[data-theme="light"] :is(.rd-track:before,.dp-tl:before){background:var(--border-color)}
+:root[data-theme="light"] .rd-node{background:var(--surface-secondary);border-color:var(--border-strong);color:var(--text-secondary)}
+:root[data-theme="light"] .rd-st.done .rd-node{background:var(--success-soft);border-color:var(--success-border);color:var(--success)}
+:root[data-theme="light"] .rd-st.cur .rd-node{background:#eee8fb;border-color:#9271c6;color:#593b91;box-shadow:0 0 0 5px #eee8fb}
+:root[data-theme="light"] :is(.rd-st span,.rd-st.off b,.rd-kpi span,.rd-kpi small,.rd-att-t span,.dp-hi span,.dp-hi b em,.dp-m span,.dp-h span){color:var(--text-secondary)}
+:root[data-theme="light"] .rd-st.cur b,:root[data-theme="light"] .rd-kpi small em{color:#593b91}
+:root[data-theme="light"] :is(.rd-kpi,.rd-att){background:var(--surface-primary);border-color:var(--border-color)}
+:root[data-theme="light"] .dp-track{color:#69459b!important}
+:root[data-theme="light"] .dp-m{border-color:var(--border-color)}
+:root[data-theme="light"] :is(.dp-m i.up,.dp-mom b.up){color:var(--success)}
+:root[data-theme="light"] :is(.dp-m i.down,.dp-mom b.down){color:var(--danger)}
+:root[data-theme="light"] :is(.rd-att:hover,.rd-kpi:hover,.dp-fl:hover,.dp-split div:hover){filter:none;background:var(--hover-bg)}
