@@ -6238,7 +6238,7 @@ function renderTasksKpis(){
   const eligibleTotal=tasks.length-(hold||0);
   const pct=eligibleTotal>0?Math.round((done/eligibleTotal)*100):null;
   const k=[
-    {label:'نسبة الإنجاز',value:pct===null?'—':pct+'%',hint:eligibleTotal>0?`باستثناء المعلّقة: ${done} من ${eligibleTotal} مهمة`:'لا توجد مهام غير معلّقة',showHint:true,color:'#f5b800',rgb:'245,184,0',page:'tasks'},
+    {label:'نسبة الإنجاز',value:pct===null?'—':pct+'%',hint:eligibleTotal>0?`باستثناء المعلّقة: ${done} من ${eligibleTotal} مهمة`:'لا توجد مهام غير معلّقة',color:'#f5b800',rgb:'245,184,0',page:'tasks'},
     postponed?{label:'معلّقة لحين الموعد',value:hold||0,hint:'تبدأ بعد الإبلاغ بالموعد',color:'#a78bfa',rgb:'167,139,250',page:'tasks',filterStatus:'معلّقة لحين الموعد'}:{label:'متأخرة',value:late,hint:'تحتاج متابعة عاجلة',color:'#ff4d6a',rgb:'255,77,106',page:'tasks',filterStatus:'متأخرة'},
     {label:'لم تبدأ',value:notStarted,hint:postponed?'جاهزة للبدء الآن':'تشمل المهام المتأخرة',color:'#a07dff',rgb:'160,125,255',page:'tasks',filterStatus:'لم تبدأ'},
     {label:'قيد التنفيذ',value:inprog,hint:postponed?'العمل جارٍ عليها':'تشمل المهام المتأخرة',color:'#3b82f6',rgb:'59,130,246',page:'tasks',filterStatus:'قيد التنفيذ'},
@@ -6248,7 +6248,6 @@ function renderTasksKpis(){
     <div class="kpi-card clickable" style="--kpi-color:${x.color};--kpi-rgb:${x.rgb}" onclick="${x.filterStatus?`goToTasksFiltered('${x.filterStatus}')`:`showPage('${x.page}')`}">
       <div class="kpi-value">${x.value}</div>
       <div class="kpi-label">${x.label}</div>
-      ${x.showHint?`<div class="kpi-hint">${x.hint}</div>`:''}
     </div>`).join('');
   el.style.gridTemplateColumns='repeat(5,1fr)';
 }
