@@ -1901,12 +1901,12 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <select id="filterPath" onchange="applyFilters()"><option value="">كل المسارات الرسمية</option></select>
           <select id="filterOwner" onchange="applyFilters()"><option value="">كل المسؤولين</option></select>
           <select id="filterType" onchange="applyFilters()"><option value="">كل الأنواع</option><option value="Task">Task</option><option value="Milestone">Milestone</option></select>
-          <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="لم تبدأ">لم تبدأ</option><option value="معلّقة لحين الموعد">معلّقة لحين الموعد</option></select>
+          <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="لم تبدأ">لم تبدأ</option><option value="معلّقة لحين الموعد">مرتبطة بموعد التدشين</option></select>
         </div>
         <div class="task-date-filter" id="taskDateFilter" aria-label="فلتر تاريخ استحقاق المهام">
           <button type="button" class="task-date-chip active" data-date-filter="all" onclick="setTaskDateFilter('all')"><span>كل المهام</span><b id="taskDateAllCount">0</b></button>
           <button type="button" class="task-date-chip chip-actionable" data-date-filter="actionable" onclick="setTaskDateFilter('actionable')"><span>▶ متبقية غير معلّقة</span><b id="taskActionableCount">0</b></button>
-          <button type="button" class="task-date-chip chip-hold" data-date-filter="hold" onclick="setTaskDateFilter('hold')"><span><i class="hold-ico" aria-hidden="true"></i>معلّقة لحين الموعد</span><b id="taskHoldCount">0</b></button>
+          <button type="button" class="task-date-chip chip-hold" data-date-filter="hold" onclick="setTaskDateFilter('hold')"><span><i class="hold-ico" aria-hidden="true"></i>مرتبطة بموعد التدشين</span><b id="taskHoldCount">0</b></button>
         </div>
         <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
@@ -4274,7 +4274,7 @@ function openEscalationModal(type,id){
       <div><small>المسؤول الحالي</small><b>${escapeHtml(own.currentResponsible)}</b></div>
       <div><small>سبب التصعيد المقترح</small><b>${escapeHtml(suggestEscalationReason(item,type))}</b></div>
       <div><small>مدة التأخير</small><b>${delay<0?`${Math.abs(delay)} يوم`:'غير متأخر'}</b></div>
-      <div><small>المرحلة الحالية</small><b>${escapeHtml(itemStatus(item,type))}</b></div>
+      <div><small>المرحلة الحالية</small><b>${escapeHtml(type==='task'?taskStatusDisplayLabel(itemStatus(item,type)):itemStatus(item,type))}</b></div>
       <div><small>مستوى الخطورة</small><b>${escapeHtml(own.risk)}</b></div>
     </div>
     <div class="ops-form" style="margin-top:14px">
@@ -4656,6 +4656,8 @@ function computeTaskStatus(task){
   return sheetStatus;
 }
 function classifyStatus(r){return computeTaskStatus(r);}
+// Display wording only: preserve the canonical status used by filters and calculations.
+function taskStatusDisplayLabel(status){return status==='معلّقة لحين الموعد'?'مرتبطة بموعد التدشين':status;}
 // المهام التي عليها علامة * في كودها أو اسمها بالشيت معلّقة حتى تحديد موعد الحفل الجديد.
 // تُقبل العلامة في كود المهمة أو اسمها أو خانة الحالة (* أو ＊ أو ٭).
 const HOLD_MARK_RE=/[*＊٭]/;
@@ -5088,7 +5090,7 @@ function renderPhases(){
       <div class="phase-percent"><b>${stat.pct}%</b><small>نسبة الإنجاز</small></div>
       <div class="phase-card-progress" role="progressbar" aria-label="نسبة إنجاز ${escapeHtml(stat.phase)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${stat.pct}"><span style="width:${stat.pct}%"></span></div>
       <div class="phase-executive-lines"><div class="phase-executive-line ${decision.className}"><span>قرار المرحلة</span><b>${decision.label}</b></div>${requiredAction?`<div class="phase-executive-line is-current"><span>الإجراء المطلوب الآن</span><b>${requiredAction}</b></div>`:''}</div>
-      <div class="phase-card-metrics"><div class="phase-card-metric"><span class="phase-card-metric-icon">∑</span><small>إجمالي المهام</small><b>${stat.total}</b></div><div class="phase-card-metric"><span class="phase-card-metric-icon">✓</span><small>مكتملة</small><b>${stat.done}</b></div><div class="phase-card-metric"><span class="phase-card-metric-icon">▶</span><small>قيد التنفيذ</small><b>${stat.inprog}</b></div>${(typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED)?'':`<div class="phase-card-metric is-late ${stat.late>0?'has-late':''}"><span class="phase-card-metric-icon">!</span><small>متأخرة</small><b>${stat.late}</b></div>`}<div class="phase-card-metric"><span class="phase-card-metric-icon">○</span><small>لم تبدأ</small><b>${stat.notStarted}</b></div>${stat.hold?`<div class="phase-card-metric is-hold"><span class="phase-card-metric-icon">‖</span><small>معلّقة لحين الموعد</small><b>${stat.hold}</b></div>`:''}</div>
+      <div class="phase-card-metrics"><div class="phase-card-metric"><span class="phase-card-metric-icon">∑</span><small>إجمالي المهام</small><b>${stat.total}</b></div><div class="phase-card-metric"><span class="phase-card-metric-icon">✓</span><small>مكتملة</small><b>${stat.done}</b></div><div class="phase-card-metric"><span class="phase-card-metric-icon">▶</span><small>قيد التنفيذ</small><b>${stat.inprog}</b></div>${(typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED)?'':`<div class="phase-card-metric is-late ${stat.late>0?'has-late':''}"><span class="phase-card-metric-icon">!</span><small>متأخرة</small><b>${stat.late}</b></div>`}<div class="phase-card-metric"><span class="phase-card-metric-icon">○</span><small>لم تبدأ</small><b>${stat.notStarted}</b></div>${stat.hold?`<div class="phase-card-metric is-hold"><span class="phase-card-metric-icon">‖</span><small>مرتبطة بموعد التدشين</small><b>${stat.hold}</b></div>`:''}</div>
       <div class="phase-quick-facts">${(typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED)?'':`<div class="phase-quick-fact"><span>📅 الوقت المتبقي</span><b>${escapeHtml(remainingTime||'غير متوفر')}</b></div><div class="phase-quick-fact ${stat.late>0?'has-late':''}"><span>⚠ المتأخر</span><b>${stat.late}</b></div>`}<div class="phase-quick-fact"><span>✓ ${(typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED)?'المهام المتبقية':'المتبقي للإغلاق'}</span><b>${complete?'المرحلة مكتملة':`${remainingTasks} مهمة`}</b></div></div>
       <button type="button" class="phase-detail-toggle" onclick="event.stopPropagation();openPhaseTasks(${JSON.stringify(stat.phase)})">عرض تفاصيل المرحلة</button>
     </article>`;
@@ -5182,7 +5184,7 @@ function openDetail(code){
         ${predecessors.map(p=>`<div onclick="openDetail(${JSON.stringify(p.code)})" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer;margin-bottom:4px">
           <span style="font-size:10px;color:var(--muted)">${escapeHtml(p.code)}</span>
           <span style="font-size:12px;color:#c4d0f0;flex:1">${escapeHtml(p.name)}</span>
-          <span class="pill ${classifyStatus(p)==='مكتملة'?'green':isTaskStatusOverdue(p)?'red':'blue'}" style="font-size:10px">${classifyStatus(p)}</span>
+          <span class="pill ${classifyStatus(p)==='مكتملة'?'green':isTaskStatusOverdue(p)?'red':'blue'}" style="font-size:10px">${taskStatusDisplayLabel(classifyStatus(p))}</span>
         </div>`).join('')}
       </div>`:''}
       ${successors.length?`<div>
@@ -5190,7 +5192,7 @@ function openDetail(code){
         ${successors.map(s=>`<div onclick="openDetail(${JSON.stringify(s.code)})" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer;margin-bottom:4px">
           <span style="font-size:10px;color:var(--muted)">${escapeHtml(s.code)}</span>
           <span style="font-size:12px;color:#c4d0f0;flex:1">${escapeHtml(s.name)}</span>
-          <span class="pill ${classifyStatus(s)==='مكتملة'?'green':isTaskStatusOverdue(s)?'red':'blue'}" style="font-size:10px">${classifyStatus(s)}</span>
+          <span class="pill ${classifyStatus(s)==='مكتملة'?'green':isTaskStatusOverdue(s)?'red':'blue'}" style="font-size:10px">${taskStatusDisplayLabel(classifyStatus(s))}</span>
         </div>`).join('')}
       </div>`:''}
     </div>`;
@@ -5203,7 +5205,7 @@ function openDetail(code){
   <div><small>المسؤول</small><b>${escapeHtml(r.owner||'-')}</b></div>
   <div><small>البداية</small><b>${fmt(r.start)}</b></div>
   <div><small>النهاية</small><b>${fmt(r.end)}</b></div>
-  <div><small>الحالة (من الشيت)</small><b>${escapeHtml(r.status||'—')}</b></div>
+  <div><small>الحالة (من الشيت)</small><b>${escapeHtml(taskStatusDisplayLabel(r.status)||'—')}</b></div>
   <div><small>نسبة الإنجاز</small><b class="task-progress-value" dir="ltr">${escapeHtml(formatTaskProgress(r))}</b></div>
   <div><small>ملاحظات</small><b>${escapeHtml(r.notes||'-')}</b></div>
 </div>
@@ -5654,9 +5656,9 @@ function applyFilters(){
     if(onHold) r={...r,name:stripHoldMark(r.name)}; // إخفاء علامة * من العرض فقط؛ الكود الأصلي يبقى للفتح والتحديث.
     const sc=s==='مكتملة'?'green':onHold?'hold':isTaskStatusOverdue(r)?'red':taskStatusFamily(r)==='قيد التنفيذ'?'blue':taskStatusFamily(r)==='لم تبدأ'?'gray':'';
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
-    const holdDash='<span class="hold-dash" tabindex="0" aria-label="يُحدد بعد الإبلاغ بالموعد">—</span>';
+    const holdDash='<span class="hold-dash" tabindex="0" aria-label="يُحدد بعد اعتماد موعد التدشين">—</span>';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})"${onHold?' class="task-hold"':''}>
-      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(s||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(taskStatusDisplayLabel(s)||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
   initTaskOverflowTooltips();
@@ -5685,7 +5687,7 @@ function buildOverdueEscalationPreview(task,recipient){
   const reason=(document.getElementById('overdue-escalation-reason')?.value||'تجاوز تاريخ الاستحقاق').trim();
   const notes=(document.getElementById('overdue-escalation-notes')?.value||'-').trim()||'-';
   const when=new Intl.DateTimeFormat('en-CA',{timeZone:RIYADH_TIME_ZONE,dateStyle:'short',timeStyle:'medium',hour12:false}).format(new Date());
-  const lines=[`الأستاذ/ة ${recipient.display_name} المحترم/ة،`,'نفيدكم بأنه تم تصعيد المهمة الموضحة أدناه نظرًا لتجاوز تاريخ الاستحقاق، ونأمل الاطلاع واتخاذ الإجراء المناسب.',`اسم المشروع: ${task.project||task.projectName||'-'}`,`كود المهمة: ${task.code||'-'}`,`اسم المهمة: ${task.name||'-'}`,`المسار: ${task.mainPath||'-'}`,`المسؤول الحالي: ${task.owner||'-'}`,`تاريخ البداية المخطط: ${fmt(task.start)||'-'}`,`تاريخ النهاية المخطط: ${fmt(task.end)||'-'}`,`عدد أيام التأخير: ${getTaskDelayDays(task)||0}`,`الحالة الحالية: ${classifyStatus(task)||'-'}`,`سبب التصعيد: ${reason}`,`الملاحظات: ${notes}`,`تم التصعيد بواسطة: ${currentOverdueEscalationActorName()}`,`تم التصعيد إلى: ${recipient.display_name}`,`تاريخ ووقت التصعيد: ${when}`,...(task.evidence?[`رابط المهمة أو المنصة: ${task.evidence}`]:[]),`تم تنفيذ التصعيد بواسطة: ${currentOverdueEscalationActorName()}`,`تاريخ التصعيد: ${when}`,'هذا إشعار آلي صادر من منصة Mayadeen.'];
+  const lines=[`الأستاذ/ة ${recipient.display_name} المحترم/ة،`,'نفيدكم بأنه تم تصعيد المهمة الموضحة أدناه نظرًا لتجاوز تاريخ الاستحقاق، ونأمل الاطلاع واتخاذ الإجراء المناسب.',`اسم المشروع: ${task.project||task.projectName||'-'}`,`كود المهمة: ${task.code||'-'}`,`اسم المهمة: ${task.name||'-'}`,`المسار: ${task.mainPath||'-'}`,`المسؤول الحالي: ${task.owner||'-'}`,`تاريخ البداية المخطط: ${fmt(task.start)||'-'}`,`تاريخ النهاية المخطط: ${fmt(task.end)||'-'}`,`عدد أيام التأخير: ${getTaskDelayDays(task)||0}`,`الحالة الحالية: ${taskStatusDisplayLabel(classifyStatus(task))||'-'}`,`سبب التصعيد: ${reason}`,`الملاحظات: ${notes}`,`تم التصعيد بواسطة: ${currentOverdueEscalationActorName()}`,`تم التصعيد إلى: ${recipient.display_name}`,`تاريخ ووقت التصعيد: ${when}`,...(task.evidence?[`رابط المهمة أو المنصة: ${task.evidence}`]:[]),`تم تنفيذ التصعيد بواسطة: ${currentOverdueEscalationActorName()}`,`تاريخ التصعيد: ${when}`,'هذا إشعار آلي صادر من منصة Mayadeen.'];
   return {to:recipient.email||'بريد غير متوفر',cc:'فارغ',bcc:overdueEscalationConfig.bcc?.email||'بريد غير متوفر',subject:`تصعيد مهمة متأخرة | ${task.code} | ${task.name}`,html:`<div dir="rtl" style="direction:rtl;text-align:right;white-space:pre-wrap;font-family:Arial,Tahoma,sans-serif;line-height:1.8;color:#222">${escapeHtml(lines.join('\n\n'))}</div>`};
 }
 function refreshOverdueEscalationPreview(){
@@ -5857,16 +5859,16 @@ function renderDailyHome(){
   if(wr) wr.innerHTML=`<div class="dp-h"><h3>إنجاز المهام غير المعلّقة</h3><span>دون المهام المعلّقة</span></div>
     <div class="dp-ready"><div class="dp-ring"><svg viewBox="0 0 190 190" aria-hidden="true"><g transform="rotate(-90 95 95)"><circle cx="95" cy="95" r="80" fill="none" stroke="var(--dp-track,#1c1e45)" stroke-width="14"/><circle cx="95" cy="95" r="80" fill="none" stroke="#4ade80" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(pct/100*C).toFixed(1)} ${C.toFixed(1)}"/></g></svg>
       <div class="dp-ring-c"><b>${pct}%</b><span>نسبة الإنجاز</span></div></div>
-      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>لا تشمل المهام المعلّقة لحين الموعد</p>
+      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>لا تشمل المهام المرتبطة بموعد التدشين</p>
       <div class="dp-split">
         <div style="--c:#4ade80" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('actionable')"><b>${sm.inprog+sm.notStarted}</b><span>متبقية غير معلّقة</span></div>
-        <div style="--c:#a78bfa" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('hold')"><b>${sm.hold}</b><span>معلّقة لحين الموعد</span></div>
+        <div style="--c:#a78bfa" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('hold')"><b>${sm.hold}</b><span>مرتبطة بموعد التدشين</span></div>
         <div style="--c:#60a5fa" role="button" tabindex="0" onclick="goToTasksFiltered('قيد التنفيذ')"><b>${sm.inprog}</b><span>قيد التنفيذ</span></div>
       </div></div></div>
     <div class="dp-mix">
       <div class="dp-mix-h"><span>توزيع كل مهام المشروع</span><b>${sm.total} مهمة</b></div>
       <div class="dp-mix-bar">${[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['معلّقة',sm.hold,'#a78bfa']].filter(x=>x[1]>0).map(x=>`<i style="flex:${x[1]};background:${x[2]}" title="${x[0]}: ${x[1]}"></i>`).join('')}</div>
-      <div class="dp-mix-l">${[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['معلّقة لحين الموعد',sm.hold,'#a78bfa']].map(x=>`<span style="--c:${x[2]}">${x[0]} <b>${x[1]}</b></span>`).join('')}</div>
+      <div class="dp-mix-l">${[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['معلّقة لحين الموعد',sm.hold,'#a78bfa']].map(x=>`<span style="--c:${x[2]}">${taskStatusDisplayLabel(x[0])} <b>${x[1]}</b></span>`).join('')}</div>
     </div>`;
   if(wk){
     // آخر ما تم إنجازه: آخر 5 مهام مكتملة (تاريخ الإكمال الفعلي إن وجد، وإلا تاريخ النهاية).
@@ -5884,7 +5886,7 @@ function renderDailyHome(){
     high.filter(t=>!isApproval(t)).forEach(t=>add(t,'عالية','#f87171'));
     open.filter(t=>!isApproval(t)&&taskStatusFamily(t)==='قيد التنفيذ').forEach(t=>add(t,'متابعة','#60a5fa'));
     pr.innerHTML=`<div class="dp-h"><h3>أولويات اليوم</h3><span>تتولد تلقائياً من المهام المفتوحة</span></div>`+
-      (pick.length?pick.map(p=>`<div class="dp-fl" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(p.t.code)})"><span class="dp-k">${escapeHtml(p.t.code)}</span><div class="dp-t">${escapeHtml(p.t.name)}<small>${escapeHtml(String(ownerOf(p.t)))} · ${escapeHtml(classifyStatus(p.t))}</small></div><span class="dp-tag" style="--c:${p.c}">${p.tag}</span></div>`).join(''):'<div class="dp-empty">لا توجد مهام مفتوحة</div>');
+      (pick.length?pick.map(p=>`<div class="dp-fl" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(p.t.code)})"><span class="dp-k">${escapeHtml(p.t.code)}</span><div class="dp-t">${escapeHtml(p.t.name)}<small>${escapeHtml(String(ownerOf(p.t)))} · ${escapeHtml(taskStatusDisplayLabel(classifyStatus(p.t)))}</small></div><span class="dp-tag" style="--c:${p.c}">${p.tag}</span></div>`).join(''):'<div class="dp-empty">لا توجد مهام مفتوحة</div>');
   }
   if(ap){
     ap.innerHTML=`<div class="dp-h"><h3>اعتمادات في خطة العمل</h3><span>مهام اعتماد وتعميد مفتوحة في WBS</span></div>
@@ -5908,7 +5910,7 @@ function renderHomeReadiness(){
   const donePct=pct(sm.done);
   const parts=[['مكتملة',sm.done,'#4ade80','مكتملة'],['قيد التنفيذ',sm.inprog,'#60a5fa','قيد التنفيذ'],['لم تبدأ',sm.notStarted,'#3b3e78','لم تبدأ'],['معلّقة لحين الموعد',sm.hold,'#a78bfa','معلّقة لحين الموعد']].filter(p=>p[1]>0||p[0]!=='معلّقة لحين الموعد');
   const bar=parts.filter(p=>p[1]>0).map(p=>`<i style="flex:${p[1]};background:${p[2]}"></i>`).join('');
-  const legend=parts.map(p=>`<div class="rd-leg" role="button" tabindex="0" onclick="goToTasksFiltered('${p[3]}')"><b style="color:${p[2]==='#3b3e78'?'#c3c4de':p[2]}">${p[1]}</b><span>${p[0]} · ${pct(p[1])}%</span></div>`).join('');
+  const legend=parts.map(p=>`<div class="rd-leg" role="button" tabindex="0" onclick="goToTasksFiltered('${p[3]}')"><b style="color:${p[2]==='#3b3e78'?'#c3c4de':p[2]}">${p[1]}</b><span>${taskStatusDisplayLabel(p[0])} · ${pct(p[1])}%</span></div>`).join('');
   // gauge: outer = completion, inner = phase segments sized by task count
   const stats=getSharedProjectPhaseStats();
   const R1=150,R2=122,C1=2*Math.PI*R1,C2=2*Math.PI*R2;
@@ -5943,7 +5945,7 @@ function renderHomeReadiness(){
     const items=[
       {n:urgent.length,c:'#f87171',t:'مهام مستعجلة',s:urgent.length?`من سجل المهام المستعجلة${topName?' · أبرزها '+escapeHtml(String(topName).slice(0,40)):''}`:'لا توجد مهام مستعجلة',tg:'P1',go:"showPage('urgentTasksPage')"},
       {n:sm.inprog,c:'#60a5fa',t:'مهام قيد التنفيذ',s:'تحتاج متابعة مع الجهات المسؤولة',tg:'متابعة',go:"goToTasksFiltered('قيد التنفيذ')"},
-      ...(sm.hold?[{n:sm.hold,c:'#a78bfa',t:'معلّقة لحين الموعد',s:'تبدأ بعد الإبلاغ بالموعد',tg:'معلّقة',go:"goToTasksFiltered('معلّقة لحين الموعد')"}]:[]),
+      ...(sm.hold?[{n:sm.hold,c:'#a78bfa',t:'مرتبطة بموعد التدشين',s:'يعتمد توقيتها على موعد التدشين',tg:'مرتبطة بالتدشين',go:"goToTasksFiltered('معلّقة لحين الموعد')"}]:[]),
       {n:noOwner,c:'#fbbf24',t:'إسناد المسؤوليات',s:noOwner?'مهام تحتاج إسناد مسؤول':'جميع المهام مسندة لمسؤولين',tg:'إسناد',go:"showPage('assignments')"},
       {n:topOwner?topOwner.count:0,c:'#c4b5fd',t:'أعلى عبء عمل',s:topOwner?escapeHtml(topOwner.label||topOwner.name||''):'لا توجد مهام مسندة',tg:'عبء',go:"showPage('tasks')"},
     ];
@@ -6165,7 +6167,7 @@ function renderExecutiveAdditions(){
       {label:'قيد التنفيذ',count:inprog,color:'#3b82f6',rgb:'59,130,246',page:'tasks',filterStatus:'قيد التنفيذ',icon:''},
       ...((typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED)?[]:[{label:'متأخرة',count:late,color:'#ff4d6a',rgb:'255,77,106',page:'tasks',filterStatus:'متأخرة',icon:''}]),
       {label:'لم تبدأ',count:notStarted,color:'#6b7a9f',rgb:'107,122,159',page:'tasks',filterStatus:'لم تبدأ',icon:'○'},
-      {label:'معلّقة لحين الموعد',count:tasks.filter(t=>classifyStatus(t)==='معلّقة لحين الموعد').length,color:'#a78bfa',rgb:'167,139,250',page:'tasks',filterStatus:'معلّقة لحين الموعد',icon:''},
+      {label:'مرتبطة بموعد التدشين',count:tasks.filter(t=>classifyStatus(t)==='معلّقة لحين الموعد').length,color:'#a78bfa',rgb:'167,139,250',page:'tasks',filterStatus:'معلّقة لحين الموعد',icon:''},
     ];
     scGrid.innerHTML=statuses.map(s=>{
       const pct=total?Math.round(s.count/total*100):0;
@@ -6232,14 +6234,14 @@ function showOwnerTasks(ownerKey){
 function renderTasksKpis(){
   const el=document.getElementById('kpis2');
   if(!el) return;
-  if(!isOfficialKpiReady()){el.innerHTML=['نسبة الإنجاز',((typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED)?'معلّقة لحين الموعد':'متأخرة'),'لم تبدأ','قيد التنفيذ','مكتملة'].map(x=>noKpiCardHtml(x)).join(''); return;}
+  if(!isOfficialKpiReady()){el.innerHTML=['نسبة الإنجاز',((typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED)?'مرتبطة بموعد التدشين':'متأخرة'),'لم تبدأ','قيد التنفيذ','مكتملة'].map(x=>noKpiCardHtml(x)).join(''); return;}
   const {done,inprog,late,notStarted,hold}=taskStatusSummary(tasks);
   const postponed=typeof IS_PROJECT_POSTPONED!=='undefined'&&IS_PROJECT_POSTPONED;
   const eligibleTotal=tasks.length-(hold||0);
   const pct=eligibleTotal>0?Math.round((done/eligibleTotal)*100):null;
   const k=[
     {label:'نسبة الإنجاز',value:pct===null?'—':pct+'%',hint:eligibleTotal>0?`باستثناء المعلّقة: ${done} من ${eligibleTotal} مهمة`:'لا توجد مهام غير معلّقة',color:'#f5b800',rgb:'245,184,0',page:'tasks'},
-    postponed?{label:'معلّقة لحين الموعد',value:hold||0,hint:'تبدأ بعد الإبلاغ بالموعد',color:'#a78bfa',rgb:'167,139,250',page:'tasks',filterStatus:'معلّقة لحين الموعد'}:{label:'متأخرة',value:late,hint:'تحتاج متابعة عاجلة',color:'#ff4d6a',rgb:'255,77,106',page:'tasks',filterStatus:'متأخرة'},
+    postponed?{label:'مرتبطة بموعد التدشين',value:hold||0,hint:'يعتمد توقيتها على موعد التدشين',color:'#a78bfa',rgb:'167,139,250',page:'tasks',filterStatus:'معلّقة لحين الموعد'}:{label:'متأخرة',value:late,hint:'تحتاج متابعة عاجلة',color:'#ff4d6a',rgb:'255,77,106',page:'tasks',filterStatus:'متأخرة'},
     {label:'لم تبدأ',value:notStarted,hint:postponed?'جاهزة للبدء الآن':'تشمل المهام المتأخرة',color:'#a07dff',rgb:'160,125,255',page:'tasks',filterStatus:'لم تبدأ'},
     {label:'قيد التنفيذ',value:inprog,hint:postponed?'العمل جارٍ عليها':'تشمل المهام المتأخرة',color:'#3b82f6',rgb:'59,130,246',page:'tasks',filterStatus:'قيد التنفيذ'},
     {label:'مكتملة',value:done,hint:tasks.length?Math.round(done/tasks.length*100)+'% من إجمالي المهام':'',color:'#10e87a',rgb:'16,232,122',page:'tasks',filterStatus:'مكتملة'},
@@ -7401,7 +7403,7 @@ function reportSourceMeta(scope){
   };
 }
 function phaseOrderIndex(phase){const i=PROJECT_PHASE_ORDER.indexOf(normalizeProjectPhase(phase));return i<0?PROJECT_PHASE_ORDER.length:i;}
-function reportTaskRow(t){const row={الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:normalizeProjectPhase(t.phase),الحالة:classifyStatus(t),الاستحقاق:t.end||''}; if(canViewCompletionEvidence()) row.الدليل=t.evidence||''; return row;}
+function reportTaskRow(t){const row={الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:normalizeProjectPhase(t.phase),الحالة:taskStatusDisplayLabel(classifyStatus(t)),الاستحقاق:t.end||''}; if(canViewCompletionEvidence()) row.الدليل=t.evidence||''; return row;}
 function buildBatch4ReportSections(type){
   const today=riyadhTodayKey(), tomorrow=addDaysToDateKey(today,1);
   const baseTasks=tasks||[];
