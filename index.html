@@ -1905,7 +1905,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         </div>
         <div class="task-date-filter" id="taskDateFilter" aria-label="فلتر تاريخ استحقاق المهام">
           <button type="button" class="task-date-chip active" data-date-filter="all" onclick="setTaskDateFilter('all')"><span>كل المهام</span><b id="taskDateAllCount">0</b></button>
-          <button type="button" class="task-date-chip chip-actionable" data-date-filter="actionable" onclick="setTaskDateFilter('actionable')"><span>▶ قابلة للتنفيذ الآن</span><b id="taskActionableCount">0</b></button>
+          <button type="button" class="task-date-chip chip-actionable" data-date-filter="actionable" onclick="setTaskDateFilter('actionable')"><span>▶ متبقية غير معلّقة</span><b id="taskActionableCount">0</b></button>
           <button type="button" class="task-date-chip chip-hold" data-date-filter="hold" onclick="setTaskDateFilter('hold')"><span><i class="hold-ico" aria-hidden="true"></i>معلّقة لحين الموعد</span><b id="taskHoldCount">0</b></button>
         </div>
         <div class="card task-table-card">
@@ -4856,20 +4856,20 @@ function renderAll(){
 }
 function renderKpis(){
   const kpiGrid=document.getElementById('kpis'); if(!kpiGrid) return;
-  const labels=['إجمالي المهام','المهام المتبقية','قابلة للتنفيذ الآن','مخاطر حرجة'];
+  const labels=['إجمالي المهام','المهام المتبقية','متبقية غير معلّقة','مخاطر حرجة'];
   if(!isOfficialKpiReady()){
     const failed=typeof homeSyncFailed!=='undefined'&&homeSyncFailed;
     kpiGrid.innerHTML=labels.map(x=>`<div class="rd-kpi${failed?'':' rd-skel'}"><span>${x}</span><b>${failed?'—':''}</b><small>${failed?'لا توجد بيانات':''}</small></div>`).join('');
     return;
   }
   const remaining=tasks.filter(t=>classifyStatus(t)!=='مكتملة').length;
-  // قابلة للتنفيذ الآن = غير مكتملة وغير معلّقة لحين الموعد
+  // متبقية غير معلّقة = غير مكتملة وغير معلّقة لحين الموعد
   const actionable=tasks.filter(t=>{const st=classifyStatus(t);return st!=='مكتملة'&&st!=='معلّقة لحين الموعد';}).length;
   let critical=0; try{critical=getRiskMetrics().critical;}catch(e){}
   const k=[
     {label:'إجمالي المهام',value:tasks.length,hint:'من ملف WBS',color:'#a78bfa',page:"showPage('tasks')"},
     {label:'المهام المتبقية',value:remaining,hint:'غير مكتملة',color:'#60a5fa',page:"showPage('tasks')"},
-    {label:'قابلة للتنفيذ الآن',value:actionable,hint:'غير مكتملة وغير معلّقة',color:'#4ade80',page:"showPage('tasks');setTaskDateFilter('actionable')"},
+    {label:'متبقية غير معلّقة',value:actionable,hint:'غير مكتملة وغير معلّقة',color:'#4ade80',page:"showPage('tasks');setTaskDateFilter('actionable')"},
     {label:'مخاطر حرجة',value:critical,hint:'من سجل المخاطر',color:critical?'#f87171':'#34d399',page:"goToRisksFiltered('حرج')"},
   ];
   kpiGrid.innerHTML=k.map(x=>`<div class="rd-kpi" role="button" tabindex="0" style="--c:${x.color}" onclick="${x.page}"><span>${x.label}</span><b>${x.value}</b><small>${x.hint}</small></div>`).join('');
@@ -5555,7 +5555,7 @@ function addDaysToDateKey(dateKey,days){
 function riyadhTodayKey(){return dateToKey_(refreshRiyadhToday());}
 
 
-// قابلة للتنفيذ الآن = غير مكتملة وغير معلّقة لحين الموعد.
+// متبقية غير معلّقة = غير مكتملة وغير معلّقة لحين الموعد.
 function isTaskActionableNow(task){ const st=classifyStatus(task); return st!=='مكتملة'&&st!=='معلّقة لحين الموعد'&&st!=='ملغاة'; }
 function setTaskDateFilter(value){
   taskDateFilter=['actionable','hold'].includes(value)?value:'all';
@@ -5643,7 +5643,7 @@ function applyFilters(){
   const tbody=document.querySelector('#taskTable tbody');
   if(!tbody) return;
   if(!data.length){
-    const emptyMsg=taskDateFilter==='actionable'?'لا توجد مهام قابلة للتنفيذ ضمن الفلاتر المختارة.':taskDateFilter==='hold'?'لا توجد مهام معلّقة ضمن الفلاتر المختارة.':path?`لا توجد مهام للمسار «${escapeHtml(path)}» ضمن بقية الفلاتر المختارة.`:'لا توجد مهام مطابقة لمعايير البحث الحالية.';
+    const emptyMsg=taskDateFilter==='actionable'?'لا توجد مهام متبقية غير معلّقة ضمن الفلاتر المختارة.':taskDateFilter==='hold'?'لا توجد مهام معلّقة ضمن الفلاتر المختارة.':path?`لا توجد مهام للمسار «${escapeHtml(path)}» ضمن بقية الفلاتر المختارة.`:'لا توجد مهام مطابقة لمعايير البحث الحالية.';
     const visibleColumns=(canViewCompletionEvidence()?13:12)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
     tbody.innerHTML=`<tr><td colspan="${visibleColumns}" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
@@ -5854,12 +5854,12 @@ function renderDailyHome(){
   const actionableTotal=sm.done+sm.inprog+sm.notStarted;
   const pct=actionableTotal?Math.round(sm.done/actionableTotal*100):0;
   const C=2*Math.PI*80;
-  if(wr) wr.innerHTML=`<div class="dp-h"><h3>إنجاز المهام القابلة للتنفيذ</h3><span>دون المهام المعلّقة</span></div>
+  if(wr) wr.innerHTML=`<div class="dp-h"><h3>إنجاز المهام غير المعلّقة</h3><span>دون المهام المعلّقة</span></div>
     <div class="dp-ready"><div class="dp-ring"><svg viewBox="0 0 190 190" aria-hidden="true"><g transform="rotate(-90 95 95)"><circle cx="95" cy="95" r="80" fill="none" stroke="var(--dp-track,#1c1e45)" stroke-width="14"/><circle cx="95" cy="95" r="80" fill="none" stroke="#4ade80" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(pct/100*C).toFixed(1)} ${C.toFixed(1)}"/></g></svg>
       <div class="dp-ring-c"><b>${pct}%</b><span>نسبة الإنجاز</span></div></div>
-      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة قابلة للتنفيذ مكتملة</b><p>لا تشمل المهام المعلّقة لحين الموعد</p>
+      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>لا تشمل المهام المعلّقة لحين الموعد</p>
       <div class="dp-split">
-        <div style="--c:#4ade80" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('actionable')"><b>${sm.inprog+sm.notStarted}</b><span>متبقية قابلة للتنفيذ</span></div>
+        <div style="--c:#4ade80" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('actionable')"><b>${sm.inprog+sm.notStarted}</b><span>متبقية غير معلّقة</span></div>
         <div style="--c:#a78bfa" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('hold')"><b>${sm.hold}</b><span>معلّقة لحين الموعد</span></div>
         <div style="--c:#60a5fa" role="button" tabindex="0" onclick="goToTasksFiltered('قيد التنفيذ')"><b>${sm.inprog}</b><span>قيد التنفيذ</span></div>
       </div></div></div>
