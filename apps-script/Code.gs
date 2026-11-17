@@ -509,10 +509,20 @@ function doPost(e) {
   try {
     const payload = parseBody_(e);
     if (payload.action === 'auth_login') {
+      const startedAt = new Date().getTime();
       const user = authenticateUser_(payload);
+      const authenticatedAt = new Date().getTime();
       const session = createSession_(user);
+      const sessionAt = new Date().getTime();
       appendAuditLog_({ action: 'auth_login', status: 'success', updated_by: user.display_name || user.username });
-      return json_({ ok: true, user: safeUser_(user), session_token: session.token, expires_at: session.expires_at });
+      const finishedAt = new Date().getTime();
+      const authProfile = {
+        authenticate_ms: authenticatedAt - startedAt,
+        session_ms: sessionAt - authenticatedAt,
+        audit_ms: finishedAt - sessionAt,
+        total_ms: finishedAt - startedAt
+      };
+      return json_({ ok: true, user: safeUser_(user), session_token: session.token, expires_at: session.expires_at, auth_meta: authProfile });
     }
 
     // Inquiry module owns its optimized session/profile context and still calls
@@ -1419,10 +1429,11 @@ function getUserAccessHeaders_() {
   ];
 }
 
-function ensureUserAccessSheet_() {
+function ensureUserAccessSheet_(readContext) {
   const sheet = ensureRegisterSheet_(KAG_CONFIG.usersSheetName, getUserAccessHeaders_());
   if (sheet.getLastRow() > 1) {
-    syncTaskEvidencePermissions_(sheet);
+    const values = syncTaskEvidencePermissions_(sheet);
+    if (readContext) readContext.values = values;
     return sheet;
   }
   const now = new Date();
@@ -1453,7 +1464,7 @@ function ensureUserAccessSheet_() {
 
 function syncTaskEvidencePermissions_(sheet) {
   const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return;
+  if (values.length < 2) return values;
   const headers = values[0].map(normalizeHeader_);
   const usernameColumn = headers.indexOf(normalizeHeader_('username'));
   const permissionColumn = headers.indexOf(normalizeHeader_('can_view_completion_evidence'));
@@ -1462,7 +1473,13 @@ function syncTaskEvidencePermissions_(sheet) {
     const username = String(row[usernameColumn] || '').trim().toLowerCase();
     return [TASK_EVIDENCE_ALLOWED_USERNAMES.indexOf(username) !== -1 ? 'TRUE' : 'FALSE'];
   });
-  sheet.getRange(2, permissionColumn + 1, permissions.length, 1).setValues(permissions);
+  const changed = permissions.some(function(permission, index) {
+    return String(values[index + 1][permissionColumn]).trim().toUpperCase() !== permission[0];
+  });
+  // Keep the permission policy authoritative, without rewriting unchanged cells on every login.
+  if (changed) sheet.getRange(2, permissionColumn + 1, permissions.length, 1).setValues(permissions);
+  permissions.forEach(function(permission, index) { values[index + 1][permissionColumn] = permission[0]; });
+  return values;
 }
 
 function getDefaultUsers_() {
@@ -1493,11 +1510,14 @@ function getDefaultUsers_() {
 }
 
 function authenticateUser_(payload) {
-  ensureUserAccessSheet_();
   const username = String(payload.username || '').trim().toLowerCase();
   const password = String(payload.password || '');
   if (!username || !password) throw new Error('Missing credentials');
-  const user = findActiveUser_(username, true);
+  const readContext = {};
+  const sheet = ensureUserAccessSheet_(readContext);
+  const users = readRegisterRowsFromSheet_(sheet, KAG_CONFIG.usersSheetName, readContext.values);
+  // Fresh request-local rows only; password validation never uses the user cache.
+  const user = findActiveUser_(username, true, null, users);
   if (!user) throw new Error('Invalid credentials');
   const hash = String(user.password_hash || '');
   const salt = String(user.salt || '');
@@ -1507,7 +1527,7 @@ function authenticateUser_(payload) {
   return safeUser_(user);
 }
 
-function findActiveUser_(username, bypassCache, profile) {
+function findActiveUser_(username, bypassCache, profile, freshUsers) {
   const wanted = String(username || '').trim().toLowerCase();
   if (!wanted) return null;
   const cache = CacheService.getScriptCache();
@@ -1525,7 +1545,7 @@ function findActiveUser_(username, bypassCache, profile) {
       try { cache.remove(cacheKey); } catch (removeIgnored) {}
     }
   }
-  const users = getRegisterRows_(KAG_CONFIG.usersSheetName, getUserAccessHeaders_());
+  const users = freshUsers || getRegisterRows_(KAG_CONFIG.usersSheetName, getUserAccessHeaders_());
   const user = users.find(function(item) {
     return String(item.username || '').trim().toLowerCase() === wanted && String(item.status || 'active').toLowerCase() === 'active';
   }) || null;
@@ -2417,8 +2437,8 @@ function getExistingEscalationRows_(ss) {
   return [];
 }
 
-function readRegisterRowsFromSheet_(sheet, sheetName) {
-  const values = sheet.getDataRange().getValues();
+function readRegisterRowsFromSheet_(sheet, sheetName, requestValues) {
+  const values = requestValues || sheet.getDataRange().getValues();
   if (values.length < 2) return [];
   const headers = values[0].map(function(h) { return normalizeHeader_(h); });
   return values.slice(1).filter(function(row) {
