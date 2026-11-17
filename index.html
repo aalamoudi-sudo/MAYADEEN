@@ -2983,14 +2983,15 @@ async function login(){
   loginRequestInFlight=(async()=>{
   try{
   try{
-    const res=await withTimeout(fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_login',username,password,include_home:true})}),30000,'auth_login timeout');
+    const res=await withTimeout(fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_login',username,password,include_home:false})}),30000,'auth_login timeout');
     const data=await res.json();
     if(!res.ok||!data.ok) throw new Error(data.error||'login failed');
+    if(data.auth_meta) console.info('[AuthLoginProfile]',data.auth_meta);
     dispatchAuth({type:'CHECK'});
     dispatchAuth({type:'AUTHENTICATED',user:data.user,token:data.session_token,expiresAt:data.expires_at});
     if(authState.phase!==MayadeenAuth.phases.AUTHENTICATED) throw new Error(authState.error||'missing session token');
     authGeneration++; currentUser=authState.user; sessionToken=authState.token;
-    // بيانات الرئيسية تصل مع الدخول نفسه، فلا نحتاج طلباً ثانياً للسيرفر.
+    // Resolve authentication first; load home data after revealing the authenticated shell.
     prefetchedHomeResponse=(data.home&&data.home.ok)?data.home:null;
     MayadeenAuth.write(sessionStorage,authState);
     markPerf('auth_request_end');
