@@ -1622,50 +1622,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 :root[data-theme="light"] #tasks .task-table thead th{background:rgba(248,247,255,.95)!important;color:#5b5f86!important;border-bottom-color:#ddd6fe!important}
 </style>
 <link rel="stylesheet" href="theme.css"/>
-<style id="task-workspace-design">
-#tasks{--tw-surface:#141725;--tw-head:#1d2235;--tw-row:#141725;--tw-alt:#181c2c;--tw-hover:#28213e;--tw-border:#303247;--tw-text:#e7e5f2;--tw-muted:#aaa6bf}
-:root[data-theme="light"] #tasks{--tw-surface:#faf8f4;--tw-head:#e9e0ef;--tw-row:#faf8f4;--tw-alt:#f1ecf5;--tw-hover:#e6daef;--tw-border:#d3c6df;--tw-text:#342c42;--tw-muted:#71647d}
-#tasks .task-workspace{border:1px solid var(--tw-border);border-radius:16px;background:var(--tw-surface);padding:0;overflow:visible}
-#tasks .task-toolbar{display:flex;flex-wrap:wrap;gap:10px;padding:16px;margin:0;background:transparent;border:0;box-shadow:none}
-#tasks .task-toolbar>input{flex:2 1 220px;min-width:160px}
-#tasks .task-toolbar>select{flex:1 1 130px;width:auto;min-width:120px}
-#tasks .task-toolbar :is(input,select),#tasks .task-menu summary{height:44px;min-height:44px;border:1px solid var(--tw-border);border-radius:9px;background:var(--tw-row);color:var(--tw-text);font-size:13px}
-#tasks .task-menu{position:relative;align-self:start}
-#tasks .task-menu summary{padding:11px 14px;cursor:pointer;list-style:none;white-space:nowrap}
-#tasks .task-menu[open] summary{border-color:#a78bfa}
-#tasks .task-menu-content{position:absolute;top:50px;inset-inline-end:0;z-index:30;width:230px;display:grid;gap:12px;padding:16px;background:var(--tw-surface);border:1px solid var(--tw-border);border-radius:12px;box-shadow:0 12px 32px #0003}
-#tasks .task-menu label{display:flex;align-items:center;gap:10px;color:var(--tw-text)}
-#tasks .task-menu label input{width:16px;height:16px;min-height:16px;accent-color:#9673e9}
-#tasks .task-date-filter{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0 16px;border-bottom:1px solid var(--tw-border)}
-#tasks .task-date-chip{background:transparent!important;border:0!important;border-bottom:3px solid transparent!important;border-radius:0;padding:14px 12px;color:var(--tw-muted)!important;box-shadow:none!important}
-#tasks .task-date-chip.active{border-bottom-color:#a78bfa!important;color:var(--tw-text)!important}
-#tasks .task-table-card{height:clamp(280px,52vh,620px);max-height:none;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:var(--tw-surface)!important;overscroll-behavior:contain}
-#tasks .task-table{width:100%!important;min-width:940px!important;border-spacing:0!important;table-layout:fixed}
-#tasks .task-table :is(th,td){border-radius:0!important;border-top:0!important;border-bottom:1px solid var(--tw-border)!important;padding:12px!important;color:var(--tw-text)!important}
-#tasks .task-table thead th{background:var(--tw-head)!important;color:var(--tw-muted)!important;z-index:6;top:0;box-shadow:none;font-size:12px!important}
-#tasks .task-table tbody td{background:var(--tw-row)!important;font-size:13px!important;height:60px}
-#tasks .task-table tbody tr:nth-child(even) td{background:var(--tw-alt)!important}
-#tasks .task-table tbody tr:hover td{background:var(--tw-hover)!important}
-#tasks .task-table .task-col-code{width:90px;position:sticky;right:0;z-index:3}
-#tasks .task-table .task-col-name{width:320px;position:sticky;right:90px;z-index:3;border-inline-end:1px solid var(--tw-border)}
-#tasks .task-table thead :is(.task-col-code,.task-col-name){z-index:8}
-#tasks .task-table .task-col-name [data-task-tooltip]{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.6;max-height:42px;overflow:hidden}
-#tasks .task-table .task-col-status{width:200px}
-#tasks .task-table :is(.task-col-path-owner,.task-col-follow-up){width:165px}
-#tasks .task-results-footer{display:flex;align-items:center;justify-content:space-between;min-height:50px;padding:10px 18px;color:var(--tw-muted);border-top:1px solid var(--tw-border);font-size:13px}
-#tasks #taskLoadMore{background:transparent;border:1px solid var(--tw-border);border-radius:8px;color:var(--tw-text);padding:6px 14px;cursor:pointer}
-#modal.task-detail-panel{padding:0}
-#modal.task-detail-panel.active{display:flex;justify-content:flex-start}
-#modal.task-detail-panel .modal-box{height:100dvh;max-height:100dvh;width:min(620px,100vw);margin:0;border-radius:0;overflow:auto}
-@media(max-width:700px){#tasks .task-table .task-col-name{width:220px;position:static}#tasks .task-toolbar{padding:10px}#tasks .task-date-chip{font-size:11px;padding:12px 6px}#tasks .task-menu-content{inset-inline-end:auto;inset-inline-start:0}}
-#tasks:not(.show-task-date) .task-col-date{display:none!important}
-#tasks:not(.show-task-priority) .task-col-priority{display:none!important}
-#tasks:not(.show-task-path) .task-col-path{display:none!important}
-#tasks:not(.show-task-phase) .task-col-phase{display:none!important}
-#tasks:not(.show-task-type) .task-col-type{display:none!important}
-#tasks:not(.show-task-duration) .task-col-duration{display:none!important}
-#tasks:not(.show-task-evidence) .task-col-evidence{display:none!important}
-</style>
 </head>
 <body>
 
@@ -1939,28 +1895,26 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="page-header"><h1>المهام</h1><p>جميع مهام المشروع — <span id="taskTotalBadge">جاري احتساب المهام من ملف WBS</span></p></div>
         <!-- KPI STATUS BAR -->
         <div class="kpi-grid" id="kpis2" style="margin-bottom:16px"></div>
-        <div class="task-workspace">
-        <div class="filters task-toolbar">
-          <input id="searchTask" placeholder="ابحث باسم المهمة أو الكود..." oninput="applyFilters()" aria-label="البحث في المهام"/>
-<select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="لم تبدأ">لم تبدأ</option><option value="معلّقة لحين الموعد">مرتبطة بموعد التدشين</option></select><select id="filterPhase" onchange="applyFilters()"><option value="">كل المراحل</option></select><select id="filterOwner" onchange="applyFilters()"><option value="">كل المسؤولين</option></select>
-          <details class="task-menu"><summary>فلاتر إضافية</summary><div class="task-menu-content"><select id="filterPath" onchange="applyFilters()"><option value="">كل المسارات الرسمية</option></select><select id="filterType" onchange="applyFilters()"><option value="">كل الأنواع</option><option value="Task">Task</option><option value="Milestone">Milestone</option></select></div></details>
-          <details class="task-menu"><summary>الأعمدة</summary><div class="task-menu-content">
-<label><input type="checkbox" onchange="toggleTaskColumn('date',this.checked)">التواريخ</label><label><input type="checkbox" onchange="toggleTaskColumn('priority',this.checked)">الأولوية</label><label><input type="checkbox" onchange="toggleTaskColumn('path',this.checked)">المسار الرئيسي</label><label><input type="checkbox" onchange="toggleTaskColumn('phase',this.checked)">المرحلة</label><label><input type="checkbox" onchange="toggleTaskColumn('type',this.checked)">نوع المهمة</label><label><input type="checkbox" onchange="toggleTaskColumn('duration',this.checked)">مدة التنفيذ</label><label><input type="checkbox" onchange="toggleTaskColumn('evidence',this.checked)">دليل الإنجاز</label></div></details>
+        <div class="filters">
+          <input id="searchTask" placeholder="ابحث في المهام..." oninput="applyFilters()"/>
+          <select id="filterPhase" onchange="applyFilters()"><option value="">كل المراحل</option></select>
+          <select id="filterPath" onchange="applyFilters()"><option value="">كل المسارات الرسمية</option></select>
+          <select id="filterOwner" onchange="applyFilters()"><option value="">كل المسؤولين</option></select>
+          <select id="filterType" onchange="applyFilters()"><option value="">كل الأنواع</option><option value="Task">Task</option><option value="Milestone">Milestone</option></select>
+          <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="لم تبدأ">لم تبدأ</option><option value="معلّقة لحين الموعد">مرتبطة بموعد التدشين</option></select>
         </div>
         <div class="task-date-filter" id="taskDateFilter" aria-label="فلتر تاريخ استحقاق المهام">
           <button type="button" class="task-date-chip active" data-date-filter="all" onclick="setTaskDateFilter('all')"><span>كل المهام</span><b id="taskDateAllCount">0</b></button>
           <button type="button" class="task-date-chip chip-actionable" data-date-filter="actionable" onclick="setTaskDateFilter('actionable')"><span>▶ متبقية غير معلّقة</span><b id="taskActionableCount">0</b></button>
           <button type="button" class="task-date-chip chip-hold" data-date-filter="hold" onclick="setTaskDateFilter('hold')"><span><i class="hold-ico" aria-hidden="true"></i>مرتبطة بموعد التدشين</span><b id="taskHoldCount">0</b></button>
         </div>
-        <div class="card task-table-card" tabindex="0" aria-label="جدول المهام، مرّر لعرض المزيد" onscroll="queueTaskRows(this)">
+        <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
               <th class="task-col-code">كود المهمة</th><th class="task-col-name">اسم المهمة</th><th class="task-col-status">الحالة</th><th class="task-col-date">تاريخ البداية</th><th class="task-col-date">تاريخ النهاية</th><th class="task-col-path-owner">مسؤول المسار</th><th class="task-col-follow-up">مسؤول المتابعة</th><th class="task-col-priority" id="taskPriorityHeader">الأولوية</th><th class="task-col-path">المسار الرئيسي</th><th class="task-col-phase">المرحلة</th><th class="task-col-type">نوع المهمة</th><th class="task-col-duration">مدة التنفيذ</th><th class="task-col-evidence" id="taskEvidenceHeader">دليل الإنجاز</th><th class="task-col-action" id="taskEscalationHeader" style="display:none">الإجراءات</th>
             </tr></thead>
             <tbody></tbody>
           </table>
-        </div>
-        <div class="task-results-footer"><span id="taskResultsCount" role="status" aria-live="polite"></span><button id="taskLoadMore" type="button" onclick="appendTaskRows()" hidden>عرض المزيد</button></div>
         </div>
       </section>
 
@@ -5204,7 +5158,6 @@ function updateExecSummary(){
 }
 
 function openDetail(code){
-  document.getElementById('modal').classList.remove('task-detail-panel');
   const r=rows.find(x=>x.code===code); if(!r)return;
   const own=ownershipRecord(r,'task');
   // قراءة عمود الاعتماديات من ملف WBS (يدعم: dependency, predecessor, اعتمادية)
@@ -5259,7 +5212,7 @@ function openDetail(code){
 ${ownershipHtml(own)}
 ${depHtml}<button class="ops-primary-btn inquiry-task-btn" onclick="openInquiryComposer(${JSON.stringify(r.code)})">اسأل عن هذه المهمة</button>`; document.getElementById('modal').classList.add('active');}
 
-function closeModal(){document.getElementById('modal').classList.remove('active','task-detail-panel');document.getElementById('modal')?.querySelector('.modal-box')?.classList.remove('escalation-preview-modal');if(typeof closeInquiryComposerState==='function')closeInquiryComposerState()} function closeDrawer(){document.getElementById('drawer').classList.remove('active');if(typeof closeInquiryViewState==='function')closeInquiryViewState()}
+function closeModal(){document.getElementById('modal').classList.remove('active');document.getElementById('modal')?.querySelector('.modal-box')?.classList.remove('escalation-preview-modal');if(typeof closeInquiryComposerState==='function')closeInquiryComposerState()} function closeDrawer(){document.getElementById('drawer').classList.remove('active');if(typeof closeInquiryViewState==='function')closeInquiryViewState()}
 function getConfiguredApiUrl(){
   // Staging uses the configured Google Apps Script URL only; no LocalStorage تعويض عرضي is used for dashboard data.
   const v=(DEFAULT_API_URL||'').trim();
@@ -5651,48 +5604,6 @@ function taskMatchesTaskFilters(r,{query='',phase='',owner='',path='',status=''}
   return true;
 }
 
-let taskViewRows=[],taskRenderedCount=0,taskScrollQueued=false;
-const TASK_ROW_BATCH=50;
-function updateTaskResults(){
-  const count=document.getElementById('taskResultsCount');
-  if(count) count.textContent=`${taskViewRows.length} مهمة`;
-  const more=document.getElementById('taskLoadMore');
-  if(more) more.hidden=taskRenderedCount>=taskViewRows.length;
-}
-function appendTaskRows(){
-  const tbody=document.querySelector('#taskTable tbody');
-  if(!tbody||taskRenderedCount>=taskViewRows.length) return;
-  const batch=taskViewRows.slice(taskRenderedCount,taskRenderedCount+TASK_ROW_BATCH);
-  tbody.insertAdjacentHTML('beforeend',taskRowsHtml(batch));
-  taskRenderedCount+=batch.length;
-  updateTaskResults(); initTaskOverflowTooltips(); refreshTaskOverflowState();
-}
-function queueTaskRows(viewport){
-  if(taskScrollQueued) return;
-  taskScrollQueued=true;
-  requestAnimationFrame(()=>{taskScrollQueued=false;if(viewport.scrollHeight-viewport.scrollTop-viewport.clientHeight<180) appendTaskRows();});
-}
-function toggleTaskColumn(column,visible){
-  document.getElementById('tasks').classList.toggle('show-task-'+column,visible);
-  refreshTaskOverflowState();
-}
-function openTaskWorkspaceDetail(code){
-  openDetail(code);
-  document.getElementById('modal').classList.add('task-detail-panel');
-}
-function taskRowsHtml(data){return data.map(r=>{
-    const s=classifyStatus(r);
-    const onHold=s==='معلّقة لحين الموعد';
-    if(onHold) r={...r,name:stripHoldMark(r.name)}; // إخفاء علامة * من العرض فقط؛ الكود الأصلي يبقى للفتح والتحديث.
-    const sc=s==='مكتملة'?'green':onHold?'hold':isTaskStatusOverdue(r)?'red':taskStatusFamily(r)==='قيد التنفيذ'?'blue':taskStatusFamily(r)==='لم تبدأ'?'gray':'';
-    const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
-    const holdDash='<span class="hold-dash" tabindex="0" aria-label="يُحدد بعد اعتماد موعد التدشين">—</span>';
-    return `<tr tabindex="0" data-task-code="${escapeHtml(r.code)}" onclick="openTaskWorkspaceDetail(this.dataset.taskCode)" onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openTaskWorkspaceDetail(this.dataset.taskCode)}"${onHold?' class="task-hold"':''}>
-      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(taskStatusDisplayLabel(s)||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
-    </tr>`;
-  }).join('');
-}
-
 function applyFilters(){
   closeTaskTooltip();
   const q=(document.getElementById('searchTask')||{value:''}).value.toLowerCase();
@@ -5733,16 +5644,23 @@ function applyFilters(){
 
   const tbody=document.querySelector('#taskTable tbody');
   if(!tbody) return;
-  taskViewRows=data; taskRenderedCount=0; updateTaskResults();
   if(!data.length){
     const emptyMsg=taskDateFilter==='actionable'?'لا توجد مهام متبقية غير معلّقة ضمن الفلاتر المختارة.':taskDateFilter==='hold'?'لا توجد مهام معلّقة ضمن الفلاتر المختارة.':path?`لا توجد مهام للمسار «${escapeHtml(path)}» ضمن بقية الفلاتر المختارة.`:'لا توجد مهام مطابقة لمعايير البحث الحالية.';
     const visibleColumns=(canViewCompletionEvidence()?13:12)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
     tbody.innerHTML=`<tr><td colspan="${visibleColumns}" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
-  taskViewRows=data; taskRenderedCount=0; tbody.innerHTML='';
-  const viewport=tbody.closest('.task-table-card'); if(viewport) viewport.scrollTop=0;
-  appendTaskRows();
+  tbody.innerHTML=data.map(r=>{
+    const s=classifyStatus(r);
+    const onHold=s==='معلّقة لحين الموعد';
+    if(onHold) r={...r,name:stripHoldMark(r.name)}; // إخفاء علامة * من العرض فقط؛ الكود الأصلي يبقى للفتح والتحديث.
+    const sc=s==='مكتملة'?'green':onHold?'hold':isTaskStatusOverdue(r)?'red':taskStatusFamily(r)==='قيد التنفيذ'?'blue':taskStatusFamily(r)==='لم تبدأ'?'gray':'';
+    const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
+    const holdDash='<span class="hold-dash" tabindex="0" aria-label="يُحدد بعد اعتماد موعد التدشين">—</span>';
+    return `<tr onclick="openDetail(${JSON.stringify(r.code)})"${onHold?' class="task-hold"':''}>
+      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(taskStatusDisplayLabel(s)||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+    </tr>`;
+  }).join('');
   initTaskOverflowTooltips();
   refreshTaskOverflowState();
 }
