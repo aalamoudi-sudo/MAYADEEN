@@ -1352,8 +1352,8 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table{
   direction:rtl;
   table-layout:fixed;
-  min-width:1930px;
-  width:1930px;
+  min-width:2150px;
+  width:2150px;
   border-collapse:separate;
   border-spacing:0 4px;
 }
@@ -1408,6 +1408,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table .task-col-status{width:130px}
 #tasks .task-table .task-col-evidence,#tasks .task-table .task-col-priority{width:105px;text-align:center}
 #tasks .task-table .task-col-follow-up{width:190px}
+#tasks .task-table .task-col-amanah-follow-up{width:220px}
 #tasks .task-table .task-col-duration{width:120px}
 #tasks .task-table .task-col-date{width:130px;white-space:nowrap;text-overflow:clip}
 #tasks .task-table .task-col-action{width:110px;text-align:center}
@@ -1422,7 +1423,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
   text-align:right;direction:rtl;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;z-index:10000
 }
 .task-overflow-tooltip.is-visible{display:block}
-@media(max-width:1100px){#tasks .task-table-card{max-height:68vh;padding:10px}#tasks .task-table{min-width:1560px;width:1560px}}
+@media(max-width:1100px){#tasks .task-table-card{max-height:68vh;padding:10px}#tasks .task-table{min-width:1780px;width:1780px}}
 @media(max-width:700px){#tasks .task-table-card{max-height:66vh;padding:8px;margin-inline:-2px}#tasks .task-table th,#tasks .task-table td{font-size:12.5px;padding:9px 8px}#tasks .task-table .escalate-btn{width:80px;height:32px}}
 
 
@@ -1911,7 +1912,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
-              <th class="task-col-code">كود المهمة</th><th class="task-col-name">اسم المهمة</th><th class="task-col-status">الحالة</th><th class="task-col-date">تاريخ البداية</th><th class="task-col-date">تاريخ النهاية</th><th class="task-col-path-owner">مسؤول المسار</th><th class="task-col-follow-up">مسؤول المتابعة</th><th class="task-col-priority" id="taskPriorityHeader">الأولوية</th><th class="task-col-path">المسار الرئيسي</th><th class="task-col-phase">المرحلة</th><th class="task-col-type">نوع المهمة</th><th class="task-col-duration">مدة التنفيذ</th><th class="task-col-evidence" id="taskEvidenceHeader">دليل الإنجاز</th><th class="task-col-action" id="taskEscalationHeader" style="display:none">الإجراءات</th>
+              <th class="task-col-code">كود المهمة</th><th class="task-col-name">اسم المهمة</th><th class="task-col-status">الحالة</th><th class="task-col-date">تاريخ البداية</th><th class="task-col-date">تاريخ النهاية</th><th class="task-col-path-owner">مسؤول المسار</th><th class="task-col-follow-up">مسؤول المتابعة</th><th class="task-col-amanah-follow-up">مسؤول المتابعة من الأمانة</th><th class="task-col-priority" id="taskPriorityHeader">الأولوية</th><th class="task-col-path">المسار الرئيسي</th><th class="task-col-phase">المرحلة</th><th class="task-col-type">نوع المهمة</th><th class="task-col-duration">مدة التنفيذ</th><th class="task-col-evidence" id="taskEvidenceHeader">دليل الإنجاز</th><th class="task-col-action" id="taskEscalationHeader" style="display:none">الإجراءات</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -3291,6 +3292,7 @@ function normalizeRow(raw){
   const operationalDeliverable=valueOf(raw,WBS_FIELD_ALIASES.operationalDeliverable);
   const executionOwner=valueOf(raw,WBS_FIELD_ALIASES.executionOwner);
   const followUpOwner=String(valueOf(raw,WBS_FIELD_ALIASES.followUpOwner)||'').trim();
+  const amanahFollowUpOwner=String(valueOf(raw,WBS_FIELD_ALIASES.amanahFollowUpOwner)||'').trim();
   const taskType=String(valueOf(raw,WBS_FIELD_ALIASES.taskType)||'').trim();
   const originalStatus=String(valueOf(raw,WBS_FIELD_ALIASES.originalStatus)||status).trim();
   const lag=valueOf(raw,WBS_FIELD_ALIASES.lag);
@@ -3307,7 +3309,7 @@ function normalizeRow(raw){
   const record_type=String(valueOf(raw,['record_type'])||'').trim();
   const is_test=String(valueOf(raw,['is_test'])||'').trim();
   const progressDisplay=typeof raw.progress_display==='string'?raw.progress_display:(typeof raw._progress?.display==='string'?raw._progress.display:'');
-  const normalized={type,code,name,phase,rawPhase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,progressDisplay,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,followUpOwner,taskType,originalStatus,lag,lastUpdate,priority,dataSource,evidence,version,notes,sheet_status:originalStatus||status,status:originalStatus||status,source:dataSource||source,record_type,is_test,_source:raw._source||dataSource||source,raw};
+  const normalized={type,code,name,phase,rawPhase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,progressDisplay,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,followUpOwner,amanahFollowUpOwner,taskType,originalStatus,lag,lastUpdate,priority,dataSource,evidence,version,notes,sheet_status:originalStatus||status,status:originalStatus||status,source:dataSource||source,record_type,is_test,_source:raw._source||dataSource||source,raw};
   normalized.computed_status=computeTaskStatus(normalized);
   normalized.delay_days=getTaskDelayDays(normalized);
   return normalized;
@@ -4502,6 +4504,7 @@ const WBS_FIELD_ALIASES={
   risk:['risk','المخاطر','blocker','المعوقات'],
   executionOwner:['مسؤول المسار','path_owner','track_owner','workstream_owner','جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
   followUpOwner:['مسؤول المتابعة','follow_up_owner','متابعة بواسطة'],
+  amanahFollowUpOwner:['مسؤول المتابعة من الأمانة','مسؤول المتابعة من الأمانه','مسؤول المتابعة من الامانة','مسؤول المتابعة من الامانه','amanah_follow_up_owner','amanahFollowUpOwner'],
   taskType:['نوع المهمة','task_type','نوع العمل'],
   originalStatus:['الحالة الأصلية','original_status','sheet_status'],
   computedStatus:['الحالة المحسوبة','computed_status'],
@@ -5596,7 +5599,7 @@ function isOverdueTasksView(){
 }
 
 function taskMatchesTaskFilters(r,{query='',phase='',owner='',path='',status=''}={}){
-  const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
+  const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.amanahFollowUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
   if(query && !haystack.includes(query)) return false;
   if(phase&&r.phase!==phase) return false;
   if(path&&officialPathValue(r.mainPath)!==officialPathValue(path)) return false;
@@ -5647,7 +5650,7 @@ function applyFilters(){
   if(!tbody) return;
   if(!data.length){
     const emptyMsg=taskDateFilter==='actionable'?'لا توجد مهام متبقية غير معلّقة ضمن الفلاتر المختارة.':taskDateFilter==='hold'?'لا توجد مهام معلّقة ضمن الفلاتر المختارة.':path?`لا توجد مهام للمسار «${escapeHtml(path)}» ضمن بقية الفلاتر المختارة.`:'لا توجد مهام مطابقة لمعايير البحث الحالية.';
-    const visibleColumns=(canViewCompletionEvidence()?13:12)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
+    const visibleColumns=(canViewCompletionEvidence()?14:13)+(canEscalateOverdueTask()&&isOverdueTasksView()?1:0);
     tbody.innerHTML=`<tr><td colspan="${visibleColumns}" style="text-align:center;padding:36px 20px;color:var(--muted);font-size:var(--fs-body);background:rgba(255,255,255,.025);border-radius:10px">${emptyMsg}</td></tr>`;
     return;
   }
@@ -5659,7 +5662,7 @@ function applyFilters(){
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
     const holdDash='<span class="hold-dash" tabindex="0" aria-label="يُحدد بعد اعتماد موعد التدشين">—</span>';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})"${onHold?' class="task-hold"':''}>
-      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(taskStatusDisplayLabel(s)||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(taskStatusDisplayLabel(s)||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-amanah-follow-up">${taskOverflowText(r.amanahFollowUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
   initTaskOverflowTooltips();
