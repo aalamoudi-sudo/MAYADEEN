@@ -1352,8 +1352,8 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table{
   direction:rtl;
   table-layout:fixed;
-  min-width:2150px;
-  width:2150px;
+  min-width:2120px;
+  width:2120px;
   border-collapse:separate;
   border-spacing:0 4px;
 }
@@ -1408,7 +1408,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table .task-col-status{width:130px}
 #tasks .task-table .task-col-evidence,#tasks .task-table .task-col-priority{width:105px;text-align:center}
 #tasks .task-table .task-col-follow-up{width:190px}
-#tasks .task-table .task-col-amanah-follow-up{width:220px}
+#tasks .task-table .task-col-amanah-follow-up{width:190px}
 #tasks .task-table .task-col-duration{width:120px}
 #tasks .task-table .task-col-date{width:130px;white-space:nowrap;text-overflow:clip}
 #tasks .task-table .task-col-action{width:110px;text-align:center}
@@ -1623,6 +1623,11 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 :root[data-theme="light"] #tasks .task-table thead th{background:rgba(248,247,255,.95)!important;color:#5b5f86!important;border-bottom-color:#ddd6fe!important}
 </style>
 <link rel="stylesheet" href="theme.css"/>
+<style id="task-owner-column-alignment">
+#tasks .task-table :is(.task-col-path-owner,.task-col-follow-up,.task-col-amanah-follow-up){text-align:center;vertical-align:middle}
+#tasks .task-table :is(.task-col-path-owner,.task-col-follow-up,.task-col-amanah-follow-up) .task-overflow-text{text-align:center}
+#tasks .task-table thead th.task-col-amanah-follow-up{white-space:normal;line-height:1.5;height:56px!important;padding:8px 12px!important}
+</style>
 </head>
 <body>
 
@@ -1912,7 +1917,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         <div class="card task-table-card">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
-              <th class="task-col-code">كود المهمة</th><th class="task-col-name">اسم المهمة</th><th class="task-col-status">الحالة</th><th class="task-col-date">تاريخ البداية</th><th class="task-col-date">تاريخ النهاية</th><th class="task-col-path-owner">مسؤول المسار</th><th class="task-col-follow-up">مسؤول المتابعة</th><th class="task-col-amanah-follow-up">مسؤول المتابعة من الأمانة</th><th class="task-col-priority" id="taskPriorityHeader">الأولوية</th><th class="task-col-path">المسار الرئيسي</th><th class="task-col-phase">المرحلة</th><th class="task-col-type">نوع المهمة</th><th class="task-col-duration">مدة التنفيذ</th><th class="task-col-evidence" id="taskEvidenceHeader">دليل الإنجاز</th><th class="task-col-action" id="taskEscalationHeader" style="display:none">الإجراءات</th>
+              <th class="task-col-code">كود المهمة</th><th class="task-col-name">اسم المهمة</th><th class="task-col-status">الحالة</th><th class="task-col-date">تاريخ البداية</th><th class="task-col-date">تاريخ النهاية</th><th class="task-col-path-owner">مسؤول المسار</th><th class="task-col-follow-up">مسؤول المتابعة</th><th class="task-col-amanah-follow-up">مسؤول المتابعة<br>من الأمانة</th><th class="task-col-priority" id="taskPriorityHeader">الأولوية</th><th class="task-col-path">المسار الرئيسي</th><th class="task-col-phase">المرحلة</th><th class="task-col-type">نوع المهمة</th><th class="task-col-duration">مدة التنفيذ</th><th class="task-col-evidence" id="taskEvidenceHeader">دليل الإنجاز</th><th class="task-col-action" id="taskEscalationHeader" style="display:none">الإجراءات</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -4504,7 +4509,7 @@ const WBS_FIELD_ALIASES={
   risk:['risk','المخاطر','blocker','المعوقات'],
   executionOwner:['مسؤول المسار','path_owner','track_owner','workstream_owner','جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
   followUpOwner:['مسؤول المتابعة','follow_up_owner','متابعة بواسطة'],
-  amanahFollowUpOwner:['مسؤول المتابعة من الأمانة','مسؤول المتابعة من الأمانه','مسؤول المتابعة من الامانة','مسؤول المتابعة من الامانه','amanah_follow_up_owner','amanahFollowUpOwner'],
+  amanahFollowUpOwner:['مسؤول المتابعه من الأمانه','مسؤول المتابعه من الأمانة','مسؤول المتابعه من الامانه','مسؤول المتابعه من الامانة','مسؤول المتابعة من الأمانة','مسؤول المتابعة من الأمانه','مسؤول المتابعة من الامانة','مسؤول المتابعة من الامانه','amanah_follow_up_owner','amanahFollowUpOwner'],
   taskType:['نوع المهمة','task_type','نوع العمل'],
   originalStatus:['الحالة الأصلية','original_status','sheet_status'],
   computedStatus:['الحالة المحسوبة','computed_status'],
