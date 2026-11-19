@@ -2859,6 +2859,23 @@ function withTimeout(promise,ms,label){
   const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label||'request timeout')),ms);});
   return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
 }
+// Bound the complete request, including the response body, and cancel stalled work.
+async function requestStartupJson(request,action,timeoutMs=30000){
+  const controller=new AbortController();
+  let timer;
+  const startedAt=performance.now();
+  try{
+    return await Promise.race([
+      (async()=>{
+        const response=await request(controller.signal);
+        const data=await response.json();
+        console.info('[StartupRequest] '+JSON.stringify({action,duration_ms:Math.round(performance.now()-startedAt),status:response.status}));
+        return {response,data};
+      })(),
+      new Promise((_,reject)=>{timer=setTimeout(()=>{reject(new Error(action+' timeout'));controller.abort();},timeoutMs);})
+    ]);
+  }finally{clearTimeout(timer);}
+}
 function sanitizeUserError(e,fallback){
   const msg=String((e&&e.message)||e||'');
   if(/timeout|مهلة/i.test(msg)) return 'انتهت مهلة الطلب. تحقق من الاتصال ثم حاول مرة أخرى.';
@@ -2989,10 +3006,9 @@ async function login(){
   loginRequestInFlight=(async()=>{
   try{
   try{
-    const res=await withTimeout(fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'auth_login',username,password,include_home:false})}),30000,'auth_login timeout');
-    const data=await res.json();
+    const {response:res,data}=await requestStartupJson(signal=>fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},signal,body:JSON.stringify({action:'auth_login',username,password,include_home:false})}),'auth_login');
     if(!res.ok||!data.ok) throw new Error(data.error||'login failed');
-    if(data.auth_meta) console.info('[AuthLoginProfile]',data.auth_meta);
+    if(data.auth_meta) console.info('[AuthLoginProfile] '+JSON.stringify(data.auth_meta));
     dispatchAuth({type:'CHECK'});
     dispatchAuth({type:'AUTHENTICATED',user:data.user,token:data.session_token,expiresAt:data.expires_at});
     if(authState.phase!==MayadeenAuth.phases.AUTHENTICATED) throw new Error(authState.error||'missing session token');
@@ -3145,9 +3161,8 @@ async function validatePersistedSession(){
   const baseUrl=getConfiguredApiUrl();
   // Do not compete with authentication for the same Apps Script/Sheets resources.
   // Data loading starts only after this authoritative permission check succeeds.
-  const response=await withTimeout(postApi(baseUrl,{action:'auth_session',include_home:true}),30000,'session bootstrap timeout');
-  const data=await parseApiJson(response,'auth_session');
-  if(data.auth_meta) console.info('⏱️ [AuthSessionProfile]',data.auth_meta);
+  const {response,data}=await requestStartupJson(signal=>postApi(baseUrl,{action:'auth_session',include_home:false},{signal}),'auth_session');
+  if(data.auth_meta) console.info('[AuthSessionProfile] '+JSON.stringify(data.auth_meta));
   if(!response.ok||!data.ok||!data.user) throw new Error(data.error||data.message||`HTTP ${response.status}`);
   prefetchedHomeResponse=(data.home&&data.home.ok)?data.home:null;
   return data.user;
@@ -5354,9 +5369,9 @@ async function loadExternal(initial=true){
       data=prefetchedHomeResponse; prefetchedHomeResponse=null;
       console.info('⏱️ [Sync] استخدام بيانات الرئيسية الواصلة مع طلب الدخول');
     }else{
-      const res=await withTimeout(postApi(baseUrl,homeRequest),30000,'dashboard_home timeout');
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      data=await parseApiJson(res,'dashboard_home');
+      const result=await requestStartupJson(signal=>postApi(baseUrl,homeRequest,{signal}),'dashboard_home');
+      if(!result.response.ok) throw new Error('HTTP '+result.response.status);
+      data=result.data;
     }
     const _syncFetchMs=Math.round(performance.now()-_syncStart);
     console.log(`⏱️ [Sync] وصل الرد بعد ${_syncFetchMs} ms`);
@@ -5455,7 +5470,7 @@ async function loadExternal(initial=true){
       const activeSection=getActivePageId();
       if(SECTION_DATA_PAGES.has(activeSection)) ensureSectionData(activeSection,{force:true});
       console.info('⏱️ [ApiTimeline]',{action:'data_sync',event:'state_updated',duration_ms:Math.round(performance.now()-stateUpdateStartedAt)});
-      if(getActivePageId()==='overview') renderLineChart();
+      // initData already renders the active overview and its chart once.
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         markPerf('first_kpi_render');
         measurePerf('first_kpi_duration','data_sync_start','first_kpi_render');
