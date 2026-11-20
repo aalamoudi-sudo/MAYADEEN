@@ -23,7 +23,7 @@ test('deadline includes stalled response body and aborts request', async () => {
   }, 'home', 10), /timeout/);
   assert.equal(aborted, true);
 });
-test('session validation does not request home data', () => {
-  assert.match(source, /action:'auth_session',include_home:false/);
+test('session requests only already prepared home data', () => {
+  assert.match(source, /action:'auth_session',include_home:'cached'/);
   assert.doesNotMatch(source, /action:'auth_session',include_home:true/);
 });

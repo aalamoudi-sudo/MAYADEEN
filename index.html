@@ -3006,7 +3006,7 @@ async function login(){
   loginRequestInFlight=(async()=>{
   try{
   try{
-    const {response:res,data}=await requestStartupJson(signal=>fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},signal,body:JSON.stringify({action:'auth_login',username,password,include_home:false})}),'auth_login');
+    const {response:res,data}=await requestStartupJson(signal=>fetch(baseUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},signal,body:JSON.stringify({action:'auth_login',username,password,include_home:'cached'})}),'auth_login');
     if(!res.ok||!data.ok) throw new Error(data.error||'login failed');
     if(data.auth_meta) console.info('[AuthLoginProfile] '+JSON.stringify(data.auth_meta));
     dispatchAuth({type:'CHECK'});
@@ -3161,7 +3161,7 @@ async function validatePersistedSession(){
   const baseUrl=getConfiguredApiUrl();
   // Do not compete with authentication for the same Apps Script/Sheets resources.
   // Data loading starts only after this authoritative permission check succeeds.
-  const {response,data}=await requestStartupJson(signal=>postApi(baseUrl,{action:'auth_session',include_home:false},{signal}),'auth_session');
+  const {response,data}=await requestStartupJson(signal=>postApi(baseUrl,{action:'auth_session',include_home:'cached'},{signal}),'auth_session');
   if(data.auth_meta) console.info('[AuthSessionProfile] '+JSON.stringify(data.auth_meta));
   if(!response.ok||!data.ok||!data.user) throw new Error(data.error||data.message||`HTTP ${response.status}`);
   prefetchedHomeResponse=(data.home&&data.home.ok)?data.home:null;
