@@ -5194,8 +5194,11 @@ function updateExecSummary(){
 }
 
 function openTodayCompletedTasks(){
-  const completedToday=(tasks||[]).filter(task=>classifyStatus(task)==='مكتملة')
-    .sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'ar',{numeric:true}));
+  const trackingAvailable=window.kagStatusChangeTrackingAvailable===true;
+  const statusChanges=Array.isArray(window.kagCompletedStatusChangesToday)?window.kagCompletedStatusChangesToday:[];
+  const completedCodes=new Set(statusChanges.map(change=>String(change.task_code||change.code||'').trim()).filter(Boolean));
+  const completedToday=trackingAvailable?(tasks||[]).filter(task=>classifyStatus(task)==='مكتملة'&&completedCodes.has(String(task.code||'').trim()))
+    .sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'ar',{numeric:true})):[];
   const modal=document.getElementById('modal');
   const box=modal?.querySelector('.modal-box');
   const content=document.getElementById('modalContent');
@@ -5203,8 +5206,9 @@ function openTodayCompletedTasks(){
   box.classList.add('daily-completion-modal');
   const list=completedToday.length
     ?'<div class="daily-completion-list">'+completedToday.map(task=>'<div class="daily-completion-item"><span class="daily-completion-code">'+escapeHtml(task.code||'—')+'</span><div class="daily-completion-name">'+escapeHtml(task.name||'—')+'</div><small class="daily-completion-meta">المسؤول: '+escapeHtml(task.owner||'—')+' · المسار: '+escapeHtml(task.mainPath||'—')+'</small></div>').join('')+'</div>'
-    :'<div class="daily-completion-empty">لا توجد مهام حالتها مكتملة في الشيت.</div>';
-  content.innerHTML='<h2 class="daily-completion-title">المهام المكتملة في الشيت</h2><p class="daily-completion-subtitle">حسب الحالة المسجلة في الشيت، دون الاعتماد على تاريخ المهمة</p><div class="daily-completion-count">'+completedToday.length+' مهمة مكتملة</div>'+list;
+    :'<div class="daily-completion-empty">'+(trackingAvailable?'ما فيه مهام تغيّرت حالتها إلى مكتملة اليوم.':'سجل تغيير الحالة غير مفعّل بعد. سيتم عرض المهام بعد نشر تحديث Apps Script.')+'</div>';
+  const subtitle=trackingAvailable?'حسب سجل تغيير الحالة في الشيت لهذا اليوم':'يلزم تفعيل سجل تغييرات الحالة بالشيت لتحديد المهام التي اكتملت اليوم';
+  content.innerHTML='<h2 class="daily-completion-title">المهام التي تغيّرت حالتها إلى مكتملة اليوم</h2><p class="daily-completion-subtitle">'+subtitle+'</p><div class="daily-completion-count">'+completedToday.length+' مهمة مكتملة اليوم</div>'+list;
   modal.classList.add('active');
 }
 
@@ -5430,6 +5434,8 @@ async function loadExternal(initial=true){
     const normalizedCommitments=normalizeCommitmentRows(data.commitments||[]);
     const normalizedFiles=normalizeFileRows(data.files||data.file_control||[]);
     if(Object.prototype.hasOwnProperty.call(data,'daily_metrics')) window.kagDailyMetrics=data.daily_metrics||null;
+    window.kagStatusChangeTrackingAvailable=data.status_change_tracking_available===true;
+    window.kagCompletedStatusChangesToday=Array.isArray(data.completed_status_changes_today)?data.completed_status_changes_today:[];
     saveHomeCache(data);
     const normalizedUrgentTasks=normalizeUrgentTaskRows(data.urgent_tasks||data.urgentTasks||[]);
     const normalizedProcurements=normalizeProcurementRows(data.procurements||data.procurement_requests||[]);
@@ -5927,7 +5933,7 @@ function renderDailyHome(){
     {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
   ];
   pulse.innerHTML='<div class="dp-hi"><b>'+greet+'</b></div>'+
-    items.map((x,i)=>{const clickable=!!x.action;const action=clickable?'role="button" tabindex="0" aria-label="عرض المهام المكتملة في الشيت" onclick="'+x.action+'()" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+x.action+'();}"':'';return '<div class="dp-m'+(x.pending?' dp-pending':'')+(clickable?' dp-m-clickable':'')+'" style="--c:'+x.c+'" '+action+'><b>'+x.v+'</b><span>'+x.l+(x.d!=null&&x.d!==0?' <i class="'+(x.d>0?'up':'down')+'">'+(x.d>0?'▲':'▼')+' '+Math.abs(x.d)+'</i>':'')+'</span>'+(x.pending?'<small>يبدأ من الغد</small>':'')+'</div>';}).join('');
+    items.map((x,i)=>{const clickable=!!x.action;const action=clickable?'role="button" tabindex="0" aria-label="عرض المهام التي تغيّرت حالتها إلى مكتملة اليوم" onclick="'+x.action+'()" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+x.action+'();}"':'';return '<div class="dp-m'+(x.pending?' dp-pending':'')+(clickable?' dp-m-clickable':'')+'" style="--c:'+x.c+'" '+action+'><b>'+x.v+'</b><span>'+x.l+(x.d!=null&&x.d!==0?' <i class="'+(x.d>0?'up':'down')+'">'+(x.d>0?'▲':'▼')+' '+Math.abs(x.d)+'</i>':'')+'</span>'+(x.pending?'<small>يبدأ من الغد</small>':'')+'</div>';}).join('');
   if(!ready){[wr,wk,pr,ap].forEach(el=>{if(el) el.innerHTML='<div class="dp-skel"></div>';}); return;}
   const sm=taskStatusSummary(tasks);
   const actionableTotal=sm.done+sm.inprog+sm.notStarted;
