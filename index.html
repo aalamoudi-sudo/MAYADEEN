@@ -1906,6 +1906,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <select id="filterPhase" onchange="applyFilters()"><option value="">كل المراحل</option></select>
           <select id="filterPath" onchange="applyFilters()"><option value="">كل المسارات الرسمية</option></select>
           <select id="filterOwner" onchange="applyFilters()"><option value="">كل المسؤولين</option></select>
+          <select id="filterAmanahFollowUp" onchange="applyFilters()"><option value="">كل مسؤولي المتابعة من الأمانة</option></select>
           <select id="filterType" onchange="applyFilters()"><option value="">كل الأنواع</option><option value="Task">Task</option><option value="Milestone">Milestone</option></select>
           <select id="filterStatus" onchange="applyFilters()"><option value="">كل الحالات</option><option value="مكتملة">مكتملة</option><option value="قيد التنفيذ">قيد التنفيذ</option><option value="لم تبدأ">لم تبدأ</option><option value="معلّقة لحين الموعد">مرتبطة بموعد التدشين</option></select>
         </div>
@@ -5618,12 +5619,13 @@ function isOverdueTasksView(){
   return getActivePageId()==='tasks' && (document.getElementById('filterStatus')?.value||'')==='متأخرة';
 }
 
-function taskMatchesTaskFilters(r,{query='',phase='',owner='',path='',status=''}={}){
+function taskMatchesTaskFilters(r,{query='',phase='',owner='',path='',status='',amanahFollowUp=''}={}){
   const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.amanahFollowUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
   if(query && !haystack.includes(query)) return false;
   if(phase&&r.phase!==phase) return false;
   if(path&&officialPathValue(r.mainPath)!==officialPathValue(path)) return false;
   if(!taskMatchesOwnerFilter(r,owner)) return false;
+  if(amanahFollowUp&&normalizeOwnerIdentityText(r.amanahFollowUpOwner)!==amanahFollowUp) return false;
   if(!taskMatchesStatusFilter(r,status)) return false;
   return true;
 }
@@ -5633,6 +5635,7 @@ function applyFilters(){
   const q=(document.getElementById('searchTask')||{value:''}).value.toLowerCase();
   const ph=(document.getElementById('filterPhase')||{value:''}).value;
   const ow=(document.getElementById('filterOwner')||{value:''}).value;
+  const amanahFollowUp=(document.getElementById('filterAmanahFollowUp')||{value:''}).value;
   const path=(document.getElementById('filterPath')||{value:''}).value;
   const ty=(document.getElementById('filterType')||{value:''}).value;
   const st=(document.getElementById('filterStatus')||{value:''}).value;
@@ -5644,7 +5647,7 @@ function applyFilters(){
 
   const todayKey=riyadhTodayKey();
   const tomorrowKey=addDaysToDateKey(todayKey,1);
-  const dataBeforeDateFilter=base.filter(r=>taskMatchesTaskFilters(r,{query:q,phase:ph,owner:ow,path,status:st}));
+  const dataBeforeDateFilter=base.filter(r=>taskMatchesTaskFilters(r,{query:q,phase:ph,owner:ow,path,status:st,amanahFollowUp}));
   const dateCounts={
     all:dataBeforeDateFilter.length,
     actionable:dataBeforeDateFilter.filter(isTaskActionableNow).length,
@@ -5659,7 +5662,7 @@ function applyFilters(){
   const badge=document.getElementById('taskTotalBadge');
   if(badge){
     const totalTasks=tasks.length;
-    badge.textContent = data.length===totalTasks && !q && !ph && !ow && !path && !st && (!ty || ty==='Task')
+    badge.textContent = data.length===totalTasks && !q && !ph && !ow && !amanahFollowUp && !path && !st && (!ty || ty==='Task')
       ? `${totalTasks} مهمة من ملف WBS`
       : `${data.length} معروضة من أصل ${totalTasks} مهمة`;
     const actionHeader=document.getElementById('taskEscalationHeader');
@@ -5762,6 +5765,7 @@ function fillFilters(){
   const pSel=document.getElementById('filterPhase');
   const pathSel=document.getElementById('filterPath');
   const oSel=document.getElementById('filterOwner');
+  const aSel=document.getElementById('filterAmanahFollowUp');
   if(pSel) pSel.innerHTML='<option value="">جميع المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
   if(pathSel){
     const previous=officialPathValue(pathSel.value);
@@ -5777,6 +5781,18 @@ function fillFilters(){
       const legacy=owners.filter(owner=>owner.name===normalizeOwnerIdentityText(previous));
       oSel.value=legacy.length===1?legacy[0].key:'';
     }
+  }
+  if(aSel){
+    const previous=normalizeOwnerIdentityText(aSel.value);
+    const names=new Map();
+    (rows||[]).forEach(row=>{
+      const label=String(row.amanahFollowUpOwner||'').trim();
+      const key=normalizeOwnerIdentityText(label);
+      if(key&&label&&!names.has(key)) names.set(key,label);
+    });
+    const options=[...names.entries()].sort((a,b)=>a[1].localeCompare(b[1],'ar'));
+    aSel.innerHTML='<option value="">كل مسؤولي المتابعة من الأمانة</option>'+options.map(([key,label])=>`<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`).join('');
+    aSel.value=names.has(previous)?previous:'';
   }
 }
 
