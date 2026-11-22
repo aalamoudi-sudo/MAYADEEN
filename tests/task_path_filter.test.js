@@ -25,7 +25,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(constants, context);
-['normalizeArabic', 'officialPathValue', 'taskMatchesTaskFilters']
+['normalizeArabic', 'officialPathValue', 'taskPathOptions', 'taskMatchesTaskFilters']
   .forEach(name => vm.runInContext(functionSource(name), context));
 
 const tasks = [
@@ -57,4 +57,13 @@ test('all-path reset and path filtering compose with search, phase, owner, and s
 test('path options stay enabled and an empty selected path has an explanatory state', () => {
   assert.doesNotMatch(html, /OFFICIAL_PATHS\.map\([^\n]+disabled/);
   assert.match(html, /لا توجد مهام للمسار «\$\{escapeHtml\(path\)\}» ضمن بقية الفلاتر المختارة/);
+});
+
+ test('path options include new Sheet paths and deduplicate aliases without hardcoded extras', () => {
+  const options=Array.from(context.taskPathOptions([{mainPath:'مسار الضيافة'},{mainPath:'الضيافة'},{mainPath:'الإعلام والعلاقات العامة'},{mainPath:'  الإعلام والعلاقات العامة  '},{mainPath:''},{}]));
+  assert.equal(options.length,2);
+  assert.ok(options.includes('الإعلام والعلاقات العامة'));
+  assert.ok(options.includes('الضيافة'));
+  assert.deepEqual(Array.from(context.taskPathOptions([])),[]);
+  assert.equal(context.taskMatchesTaskFilters({name:'مهمة',mainPath:'الإعلام والعلاقات العامة'},{path:'الإعلام والعلاقات العامة'}),true);
 });

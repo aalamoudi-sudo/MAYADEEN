@@ -5752,6 +5752,10 @@ document.addEventListener('click',event=>{
 document.addEventListener('input',event=>{ if(['overdue-escalation-recipient','overdue-escalation-reason','overdue-escalation-notes'].includes(event.target.id)){ const submit=document.getElementById('overdue-escalation-submit'); if(submit&&event.target.id==='overdue-escalation-recipient') submit.disabled=!event.target.value; refreshOverdueEscalationPreview(); } });
 
 /* ══ FILL FILTERS ══ */
+function taskPathOptions(sourceRows){
+  return [...new Set((sourceRows||[]).map(row=>officialPathValue(row.mainPath)).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'ar'));
+}
 function fillFilters(){
   const phases=[...PROJECT_PHASE_ORDER,PROJECT_PHASE_UNSPECIFIED];
   const owners=projectOwnerGroups(rows).sort((a,b)=>a.label.localeCompare(b.label,'ar'));
@@ -5759,7 +5763,12 @@ function fillFilters(){
   const pathSel=document.getElementById('filterPath');
   const oSel=document.getElementById('filterOwner');
   if(pSel) pSel.innerHTML='<option value="">جميع المراحل</option>'+phases.map(p=>`<option>${p}</option>`).join('');
-  if(pathSel) pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+OFFICIAL_PATHS.map(path=>`<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`).join('');
+  if(pathSel){
+    const previous=officialPathValue(pathSel.value);
+    const paths=taskPathOptions(rows);
+    pathSel.innerHTML='<option value="">كل المسارات الرسمية</option>'+paths.map(path=>`<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`).join('');
+    pathSel.value=paths.includes(previous)?previous:'';
+  }
   if(oSel){
     const previous=oSel.value;
     oSel.innerHTML='<option value="">كل المسؤولين</option>'+owners.map(owner=>`<option value="${escapeHtml(owner.key)}">${escapeHtml(owner.label)}</option>`).join('');
