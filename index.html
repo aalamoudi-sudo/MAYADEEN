@@ -7895,6 +7895,16 @@ function renderBackupManager(){const b=document.getElementById('backup-log-body'
 function auditHtml(e){
   return `<div class="audit-item" style="--audit-color:${e.color||'#7c5cff'}"><span class="audit-dot"></span><div><b>${escapeHtml(e.title)}</b><span>${escapeHtml(e.detail||e.center||'')}</span></div><time>${escapeHtml(e.createdAt||'-')}</time></div>`;
 }
+let inquiryItems=[],inquiryBootstrap=null,inquiryScope='mine',inquiryCurrent=null,inquiryDetailUsers=[],inquiryPollTimer=null,inquiryLoading=false;
+let inquiryViewSeq=0,inquirySelectedId='',inquiryDetailInFlight=new Map(),inquiryBootstrapSeq=0,inquiryWriteInFlight=0;
+let inquiryListPage=1,inquiryFilterFrame=0,inquiryMessageLimit=100;
+let inquiryBootstrapInFlight=null;
+let inquiryRenderedCacheKey='',inquiryRenderedSignature='',inquiryListFailure='';
+let inquiryComposerSeq=0,inquiryComposerState=null;
+const INQUIRY_LIST_PAGE_SIZE=50;
+const INQUIRY_LIST_CACHE_TTL_MS=45000;
+const inquiryListCache=new Map(),inquiryListInFlight=new Map();
+const inquiryReplyDrafts=new Map();
 function inquiryRequestId(){return (crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random()).toString();}
 function inquiryIdentity(){return {token:sessionToken,user:String(currentUser.username||''),phase:authState.phase};}
 function inquiryIdentityMatches(x){return !!x&&x.token===sessionToken&&x.user===String(currentUser.username||'')&&x.phase===MayadeenAuth.phases.AUTHENTICATED&&authState.phase===MayadeenAuth.phases.AUTHENTICATED;}
