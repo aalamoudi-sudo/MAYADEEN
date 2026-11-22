@@ -5865,10 +5865,11 @@ function renderDailyHome(){
   const open=ready?tasks.filter(t=>{const st=classifyStatus(t);return st!=='مكتملة'&&st!=='معلّقة لحين الموعد';}):[];
   const approvals=open.filter(isApproval).sort((a,b)=>(taskStatusFamily(b)==='قيد التنفيذ')-(taskStatusFamily(a)==='قيد التنفيذ'));
   const high=open.filter(t=>/عالي|high|p1/i.test(String(t.priority||'')));
-  const weekDelta=m&&m.completed_this_week!=null&&m.completed_last_week!=null?m.completed_this_week-m.completed_last_week:null;
+  // معطّل بسبب تأجيل المشروع: المقارنة الأسبوعية لا تعكس تعثر التنفيذ.
+  // const weekDelta=m&&m.completed_this_week!=null&&m.completed_last_week!=null?m.completed_this_week-m.completed_last_week:null;
   const items=[
     {v:num(m&&m.completed_yesterday),l:'أُنجزت أمس',c:'#4ade80',pending:!(m&&m.completed_yesterday!=null)},
-    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',d:weekDelta,pending:!(m&&m.completed_this_week!=null)},
+    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',pending:!(m&&m.completed_this_week!=null)},
     {v:num(m&&m.moved_this_week),l:'بدأ العمل عليها هذا الأسبوع',c:'#60a5fa',pending:!(m&&m.moved_this_week!=null)},
     {v:ready?approvals.length:'—',l:'اعتمادات في الخطة',c:'#fbbf24'},
     {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
