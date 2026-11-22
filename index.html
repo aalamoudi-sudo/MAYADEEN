@@ -756,6 +756,16 @@ select option{background:#0f1220}
   border:1px solid rgba(124,92,255,.22);border-radius:22px;
   padding:24px;box-shadow:var(--shadow);
 }
+.daily-completion-modal{max-height:calc(100vh - 48px);overflow-y:auto}
+.daily-completion-title{margin:4px 0 6px;color:#eef1ff;font-size:21px;font-weight:900}
+.daily-completion-subtitle{margin:0;color:#a9aad0;font-size:13px;line-height:1.7}
+.daily-completion-count{display:inline-flex;align-items:center;gap:7px;margin-top:12px;padding:7px 12px;border:1px solid rgba(167,139,250,.25);border-radius:999px;color:#d8ccff;background:rgba(167,139,250,.08);font-size:12px;font-weight:800}
+.daily-completion-list{display:grid;gap:8px;margin-top:16px}
+.daily-completion-item{display:grid;grid-template-columns:auto 1fr;align-items:start;gap:12px;padding:12px;border:1px solid rgba(124,92,255,.16);border-radius:12px;background:rgba(255,255,255,.025)}
+.daily-completion-code{min-width:54px;color:#c4b5fd;font-size:12px;font-weight:800;direction:ltr;text-align:left}
+.daily-completion-name{color:#eef1ff;font-size:13px;font-weight:700;line-height:1.6}
+.daily-completion-meta{grid-column:2;color:#9294ba;font-size:11px;line-height:1.5}
+.daily-completion-empty{margin-top:16px;padding:22px 14px;text-align:center;border:1px dashed rgba(124,92,255,.22);border-radius:12px;color:#a9aad0}
 .drawer-box{
   position:absolute;top:0;left:0;height:100%;width:min(660px,94vw);
   overflow:auto;
@@ -1537,6 +1547,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 .dp-track{color:#a78bfa!important;margin-top:3px}
 .dp-m{flex:1;min-width:110px;text-align:center;border-right:1px solid #2a2c5c;padding:2px 10px}
 .dp-m b{display:block;font-size:24px;font-weight:800;color:var(--c)}.dp-m span{font-size:11.5px;color:#a9aad0}
+.dp-m-clickable{cursor:pointer;border-radius:10px;transition:background .18s ease,transform .18s ease}.dp-m-clickable:hover{background:rgba(167,139,250,.08);transform:translateY(-2px)}.dp-m-clickable:focus-visible{outline:2px solid #a78bfa;outline-offset:3px}
 .dp-m i{font-style:normal;font-size:11px;margin-right:3px}.dp-m i.up,.dp-mom b.up{color:#4ade80}.dp-m i.down,.dp-mom b.down{color:#f87171}
 .dp-row{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-bottom:14px}
 .dp-card{background:linear-gradient(180deg,rgba(20,22,52,.95),rgba(13,15,36,.95));border:1px solid #25285a;border-radius:18px;padding:18px 20px;min-width:0}
@@ -5182,7 +5193,25 @@ function updateExecSummary(){
   }
 }
 
+function openTodayCompletedTasks(){
+  const today=riyadhTodayKey();
+  const completedToday=(tasks||[]).filter(task=>classifyStatus(task)==='مكتملة'&&getTaskActualEndDate(task)===today)
+    .sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'ar',{numeric:true}));
+  const modal=document.getElementById('modal');
+  const box=modal?.querySelector('.modal-box');
+  const content=document.getElementById('modalContent');
+  if(!modal||!box||!content) return;
+  box.classList.add('daily-completion-modal');
+  const dateLabel=new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-arab',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Riyadh'}).format(new Date());
+  const list=completedToday.length
+    ?'<div class="daily-completion-list">'+completedToday.map(task=>'<div class="daily-completion-item"><span class="daily-completion-code">'+escapeHtml(task.code||'—')+'</span><div class="daily-completion-name">'+escapeHtml(task.name||'—')+'</div><small class="daily-completion-meta">المسؤول: '+escapeHtml(task.owner||'—')+' · المسار: '+escapeHtml(task.mainPath||'—')+'</small></div>').join('')+'</div>'
+    :'<div class="daily-completion-empty">لا توجد مهام مسجل لها تاريخ إكمال اليوم.</div>';
+  content.innerHTML='<h2 class="daily-completion-title">المهام المنجزة اليوم</h2><p class="daily-completion-subtitle">'+escapeHtml(dateLabel)+' · وفق تاريخ الإكمال الفعلي المسجل في الشيت</p><div class="daily-completion-count">'+completedToday.length+' مهمة مكتملة</div>'+list;
+  modal.classList.add('active');
+}
+
 function openDetail(code){
+  document.getElementById('modal')?.querySelector('.modal-box')?.classList.remove('daily-completion-modal');
   const r=rows.find(x=>x.code===code); if(!r)return;
   const own=ownershipRecord(r,'task');
   // قراءة عمود الاعتماديات من ملف WBS (يدعم: dependency, predecessor, اعتمادية)
@@ -5237,7 +5266,7 @@ function openDetail(code){
 ${ownershipHtml(own)}
 ${depHtml}<button class="ops-primary-btn inquiry-task-btn" onclick="openInquiryComposer(${JSON.stringify(r.code)})">اسأل عن هذه المهمة</button>`; document.getElementById('modal').classList.add('active');}
 
-function closeModal(){document.getElementById('modal').classList.remove('active');document.getElementById('modal')?.querySelector('.modal-box')?.classList.remove('escalation-preview-modal');if(typeof closeInquiryComposerState==='function')closeInquiryComposerState()} function closeDrawer(){document.getElementById('drawer').classList.remove('active');if(typeof closeInquiryViewState==='function')closeInquiryViewState()}
+function closeModal(){document.getElementById('modal').classList.remove('active');document.getElementById('modal')?.querySelector('.modal-box')?.classList.remove('escalation-preview-modal','daily-completion-modal');if(typeof closeInquiryComposerState==='function')closeInquiryComposerState()} function closeDrawer(){document.getElementById('drawer').classList.remove('active');if(typeof closeInquiryViewState==='function')closeInquiryViewState()}
 function getConfiguredApiUrl(){
   // Staging uses the configured Google Apps Script URL only; no LocalStorage تعويض عرضي is used for dashboard data.
   const v=(DEFAULT_API_URL||'').trim();
@@ -5894,13 +5923,13 @@ function renderDailyHome(){
   // const weekDelta=m&&m.completed_this_week!=null&&m.completed_last_week!=null?m.completed_this_week-m.completed_last_week:null;
   const items=[
     {v:num(m&&m.completed_yesterday),l:'أُنجزت أمس',c:'#4ade80',pending:!(m&&m.completed_yesterday!=null)},
-    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',pending:!(m&&m.completed_this_week!=null)},
+    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',pending:!(m&&m.completed_this_week!=null),action:'openTodayCompletedTasks'},
     {v:num(m&&m.moved_this_week),l:'بدأ العمل عليها هذا الأسبوع',c:'#60a5fa',pending:!(m&&m.moved_this_week!=null)},
     {v:ready?approvals.length:'—',l:'اعتمادات في الخطة',c:'#fbbf24'},
     {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
   ];
-  pulse.innerHTML=`<div class="dp-hi"><b>${greet}</b></div>`+
-    items.map((x,i)=>`<div class="dp-m${x.pending?' dp-pending':''}" style="--c:${x.c}"><b>${x.v}</b><span>${x.l}${x.d!=null&&x.d!==0?` <i class="${x.d>0?'up':'down'}">${x.d>0?'▲':'▼'} ${Math.abs(x.d)}</i>`:''}</span>${x.pending?'<small>يبدأ من الغد</small>':''}</div>`).join('');
+  pulse.innerHTML='<div class="dp-hi"><b>'+greet+'</b></div>'+
+    items.map((x,i)=>{const clickable=!!x.action;const action=clickable?'role="button" tabindex="0" aria-label="عرض المهام المنجزة اليوم" onclick="'+x.action+'()" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+x.action+'();}"':'';return '<div class="dp-m'+(x.pending?' dp-pending':'')+(clickable?' dp-m-clickable':'')+'" style="--c:'+x.c+'" '+action+'><b>'+x.v+'</b><span>'+x.l+(x.d!=null&&x.d!==0?' <i class="'+(x.d>0?'up':'down')+'">'+(x.d>0?'▲':'▼')+' '+Math.abs(x.d)+'</i>':'')+'</span>'+(x.pending?'<small>يبدأ من الغد</small>':'')+'</div>';}).join('');
   if(!ready){[wr,wk,pr,ap].forEach(el=>{if(el) el.innerHTML='<div class="dp-skel"></div>';}); return;}
   const sm=taskStatusSummary(tasks);
   const actionableTotal=sm.done+sm.inprog+sm.notStarted;
