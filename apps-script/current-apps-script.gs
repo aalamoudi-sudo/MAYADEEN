@@ -145,6 +145,7 @@ function buildDashboardData_(session) {
   profile.spreadsheet_open_ms = new Date().getTime() - spreadsheetOpenStartedAt;
   const taskRead = timedDashboardOperation_(profile, 'wbs', function() { return readOfficialWbsTasks_(spreadsheet); });
   const allRows = taskRead.rows;
+  const statusChanges = getWbsStatusChangesToday_(spreadsheet, allRows);
   const approvalsAll = timedDashboardOperation_(profile, 'approvals', function() { return getApprovalRows_(spreadsheet); });
   const approvalChainAll = timedDashboardOperation_(profile, 'approval_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.approvalChainSheetName); });
   const escalationChainAll = timedDashboardOperation_(profile, 'escalation_chain', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.escalationChainSheetName); });
@@ -190,6 +191,8 @@ function buildDashboardData_(session) {
     user: session ? safeUser_(session) : null,
     rows: clientRows,
     task_headers: taskHeaders,
+    status_change_tracking_available: statusChanges.available,
+    completed_status_changes_today: statusChanges.events,
     task_progress_contract: {
       field: 'progress',
       unit: 'percent',
@@ -263,6 +266,7 @@ function buildDashboardHomeData_(session) {
   profile.spreadsheet_open_ms = new Date().getTime() - openStartedAt;
   const taskRead = timedDashboardOperation_(profile, 'wbs', function() { return readOfficialWbsTasks_(spreadsheet); });
   const rows = projectVisibleRows_(taskRead.rows);
+  const statusChanges = getWbsStatusChangesToday_(spreadsheet, taskRead.rows);
   const response = {
     ok: true,
     api_version: '2026-09-lazy-dashboard-v1',
@@ -270,6 +274,8 @@ function buildDashboardHomeData_(session) {
     user: safeUser_(session),
     rows: filterTaskEvidenceForSession_(rows, session),
     task_headers: filterTaskEvidenceHeadersForSession_(taskRead.headers, session),
+    status_change_tracking_available: statusChanges.available,
+    completed_status_changes_today: statusChanges.events,
     approvals: projectVisibleRows_(timedDashboardOperation_(profile, 'approvals', function() { return getApprovalRows_(spreadsheet); })),
     assignments: projectVisibleRows_(timedDashboardOperation_(profile, 'assignments', function() { return getAssignmentRows_(spreadsheet); })),
     urgent_tasks: projectVisibleRows_(timedDashboardOperation_(profile, 'urgent_tasks', function() { return getUrgentTaskRows_(spreadsheet); })),
@@ -1237,6 +1243,120 @@ function getDataQualityHeaders_() { return ['issue_key','issue_type','data_sourc
 
 function getEmployeeMasterRows_(ss) { return getExistingRegisterRows_(ss || SpreadsheetApp.openById(SPREADSHEET_ID), KAG_CONFIG.employeeMasterSheetName); }
 function normKey_(value) { return String(value || '').trim().toLowerCase(); }
+
+const WBS_STATUS_CHANGE_LOG_SHEET = 'WBS Status Change Log';
+
+function isCompletedStatusValue_(value) {
+  const text = String(value || '').trim();
+  return /مكتمل|(^|[^a-z])(completed|complete|done)([^a-z]|$)/i.test(text);
+}
+
+// Simple onEdit trigger: records every single-cell status transition in WBS.
+function onEdit(e) {
+  if (!e || !e.range) return;
+  const range = e.range;
+  const sheet = range.getSheet();
+  if (range.getNumRows() !== 1 || range.getNumColumns() !== 1 || range.getRow() < 2) return;
+  const spreadsheet = e.source || sheet.getParent();
+  const officialSheet = findTaskSheet_(spreadsheet);
+  if (sheet.getSheetId() !== officialSheet.getSheetId()) return;
+
+  const lastColumn = sheet.getLastColumn();
+  if (!lastColumn) return;
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(normalizeHeader_);
+  const statusAliases = WBS_FIELD_ALIASES.status.map(normalizeHeader_);
+  const statusColumn = headers.findIndex(function(header) { return statusAliases.indexOf(header) !== -1; }) + 1;
+  if (!statusColumn || range.getColumn() !== statusColumn) return;
+
+  const oldStatus = String(e.oldValue || '').trim();
+  const newStatus = String(range.getDisplayValue() || '').trim();
+  if (normalizeHeader_(oldStatus) === normalizeHeader_(newStatus)) return;
+
+  const rowValues = sheet.getRange(range.getRow(), 1, 1, lastColumn).getValues()[0];
+  const rowObject = {};
+  headers.forEach(function(header, index) {
+    if (header) rowObject[header] = normalizeCell_(rowValues[index]);
+  });
+  const code = taskCode_(rowObject);
+  if (!code) return;
+
+  const logSheet = spreadsheet.getSheetByName(WBS_STATUS_CHANGE_LOG_SHEET) ||
+    spreadsheet.insertSheet(WBS_STATUS_CHANGE_LOG_SHEET);
+  const logHeaders = ['changed_at', 'date', 'task_code', 'task_name', 'previous_status', 'new_status', 'editor', 'wbs_row'];
+  if (logSheet.getLastRow() === 0) {
+    logSheet.appendRow(logHeaders);
+    logSheet.setFrozenRows(1);
+  }
+  const now = new Date();
+  let editor = '';
+  try { editor = Session.getActiveUser().getEmail() || ''; } catch (err) {}
+  logSheet.appendRow([
+    now,
+    Utilities.formatDate(now, KAG_CONFIG.timezone, 'yyyy-MM-dd'),
+    code,
+    taskName_(rowObject),
+    oldStatus,
+    newStatus,
+    editor,
+    range.getRow()
+  ]);
+}
+
+function getWbsStatusChangesToday_(spreadsheet, taskRows) {
+  const logSheet = spreadsheet.getSheetByName(WBS_STATUS_CHANGE_LOG_SHEET);
+  if (!logSheet) return { available: false, events: [] };
+  const values = logSheet.getDataRange().getValues();
+  if (values.length < 2) return { available: true, events: [] };
+
+  const today = Utilities.formatDate(new Date(), KAG_CONFIG.timezone, 'yyyy-MM-dd');
+  const latestTodayByCode = {};
+  values.slice(1).forEach(function(row) {
+    const changedAt = row[0];
+    const dateValue = row[1] instanceof Date
+      ? Utilities.formatDate(row[1], KAG_CONFIG.timezone, 'yyyy-MM-dd')
+      : String(row[1] || '').trim();
+    const code = String(row[2] || '').trim();
+    if (!code || dateValue !== today) return;
+    const changedAtValue = changedAt instanceof Date ? changedAt.getTime() : new Date(changedAt).getTime();
+    const previous = latestTodayByCode[code];
+    if (!previous || changedAtValue >= previous._timestamp) {
+      latestTodayByCode[code] = {
+        task_code: code,
+        task_name: String(row[3] || ''),
+        previous_status: String(row[4] || ''),
+        new_status: String(row[5] || ''),
+        changed_at: changedAt instanceof Date
+          ? Utilities.formatDate(changedAt, KAG_CONFIG.timezone, 'HH:mm')
+          : String(changedAt || ''),
+        _timestamp: isNaN(changedAtValue) ? 0 : changedAtValue
+      };
+    }
+  });
+
+  const currentStatusByCode = {};
+  (taskRows || []).forEach(function(task) {
+    const code = taskCode_(task);
+    if (code) currentStatusByCode[code] = isCompletedStatusValue_(taskField_(task, 'status'));
+  });
+
+  const events = Object.keys(latestTodayByCode)
+    .map(function(code) { return latestTodayByCode[code]; })
+    .filter(function(event) {
+      return isCompletedStatusValue_(event.new_status) && currentStatusByCode[event.task_code] === true;
+    })
+    .sort(function(a, b) { return b._timestamp - a._timestamp; })
+    .map(function(event) {
+      return {
+        task_code: event.task_code,
+        task_name: event.task_name,
+        changed_at: event.changed_at,
+        previous_status: event.previous_status,
+        new_status: event.new_status
+      };
+    });
+  return { available: true, events: events };
+}
+
 function taskField_(row, field) { return getField_(row, WBS_FIELD_ALIASES[field] || []); }
 function taskCode_(row) { return String(taskField_(row, 'taskId') || '').trim(); }
 function taskName_(row) { return String(taskField_(row, 'taskName') || '').trim(); }
