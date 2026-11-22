@@ -4621,7 +4621,14 @@ function taskMatchesStatusFilter(task,filter){
 }
 function taskStatusSummary(taskList){
   const list=Array.isArray(taskList)?taskList:[];
-  return {total:list.length,done:list.filter(t=>classifyStatus(t)==='مكتملة').length,inprog:list.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length,notStarted:list.filter(t=>taskStatusFamily(t)==='لم تبدأ').length,hold:list.filter(t=>classifyStatus(t)==='معلّقة لحين الموعد').length,late:list.filter(isTaskStatusOverdue).length};
+  const done=list.filter(t=>classifyStatus(t)==='مكتملة').length;
+  const inprog=list.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length;
+  const notStarted=list.filter(t=>taskStatusFamily(t)==='لم تبدأ').length;
+  const hold=list.filter(t=>classifyStatus(t)==='معلّقة لحين الموعد').length;
+  const standardStatuses=new Set(['مكتملة','قيد التنفيذ','لم تبدأ','معلّقة لحين الموعد']);
+  const otherTasks=list.filter(t=>!standardStatuses.has(taskStatusFamily(t)));
+  const amanahFollowUpTasks=otherTasks.filter(t=>String(t.amanahFollowUpOwner||'').trim());
+  return {total:list.length,done,inprog,notStarted,hold,amanahFollowUp:amanahFollowUpTasks.length,amanahFollowUpOwners:[...new Set(amanahFollowUpTasks.map(t=>String(t.amanahFollowUpOwner||'').trim()).filter(Boolean))],otherStatus:otherTasks.length-amanahFollowUpTasks.length,late:list.filter(isTaskStatusOverdue).length};
 }
 function enrichComputedTaskStatuses(){[rows,tasks,milestones].forEach(list=>(list||[]).forEach(t=>{t.computed_status=computeTaskStatus(t);t.delay_days=getTaskDelayDays(t);t.status_reason=getTaskStatusReason(t);}));}
 function logTaskStatusDiagnostics(){
@@ -5845,10 +5852,13 @@ function renderDailyHome(){
   const actionableTotal=sm.done+sm.inprog+sm.notStarted;
   const pct=actionableTotal?Math.round(sm.done/actionableTotal*100):0;
   const C=2*Math.PI*80;
+  const amanahLabel=sm.amanahFollowUpOwners.length===1?`مسؤول متابعة الأمانة · ${sm.amanahFollowUpOwners[0]}`:'مسؤولو المتابعة من الأمانة';
+  const distribution=[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['مرتبطة بموعد التدشين',sm.hold,'#a78bfa',`المهام المؤجلة حتى موعد التدشين: ${sm.hold}`],[amanahLabel,sm.amanahFollowUp,'#f59e0b','مهام معلّق أو بانتظار الاعتماد، مصنفة حسب مسؤول المتابعة من الأمانة']];
+  if(sm.otherStatus>0) distribution.push(['حالات أخرى',sm.otherStatus,'#94a3b8']);
   if(wr) wr.innerHTML=`<div class="dp-h"><h3>إنجاز المهام غير المعلّقة</h3><span>دون المهام المعلّقة</span></div>
     <div class="dp-ready"><div class="dp-ring"><svg viewBox="0 0 190 190" aria-hidden="true"><g transform="rotate(-90 95 95)"><circle cx="95" cy="95" r="80" fill="none" stroke="var(--dp-track,#1c1e45)" stroke-width="14"/><circle cx="95" cy="95" r="80" fill="none" stroke="#4ade80" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(pct/100*C).toFixed(1)} ${C.toFixed(1)}"/></g></svg>
       <div class="dp-ring-c"><b>${pct}%</b><span>نسبة الإنجاز</span></div></div>
-      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>لا تشمل المهام المرتبطة بموعد التدشين</p>
+      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>تُعرض مهام متابعة الأمانة والمهام المرتبطة بموعد التدشين ضمن توزيع مستقل أدناه</p>
       <div class="dp-split">
         <div style="--c:#4ade80" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('actionable')"><b>${sm.inprog+sm.notStarted}</b><span>متبقية غير معلّقة</span></div>
         <div style="--c:#a78bfa" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('hold')"><b>${sm.hold}</b><span>مرتبطة بموعد التدشين</span></div>
@@ -5856,8 +5866,8 @@ function renderDailyHome(){
       </div></div></div>
     <div class="dp-mix">
       <div class="dp-mix-h"><span>توزيع كل مهام المشروع</span><b>${sm.total} مهمة</b></div>
-      <div class="dp-mix-bar">${[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['معلّقة',sm.hold,'#a78bfa']].filter(x=>x[1]>0).map(x=>`<i style="flex:${x[1]};background:${x[2]}" title="${x[0]}: ${x[1]}"></i>`).join('')}</div>
-      <div class="dp-mix-l">${[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['معلّقة لحين الموعد',sm.hold,'#a78bfa']].map(x=>`<span style="--c:${x[2]}">${taskStatusDisplayLabel(x[0])} <b>${x[1]}</b></span>`).join('')}</div>
+      <div class="dp-mix-bar">${distribution.filter(x=>x[1]>0).map(x=>`<i style="flex:${x[1]};background:${x[2]}" title="${x[3]||x[0]}: ${x[1]}"></i>`).join('')}</div>
+      <div class="dp-mix-l">${distribution.map(x=>`<span style="--c:${x[2]}" title="${x[3]||x[0]}: ${x[1]}">${escapeHtml(x[0])} <b>${x[1]}</b></span>`).join('')}</div>
     </div>`;
   if(wk){
     // آخر ما تم إنجازه: آخر 5 مهام مكتملة (تاريخ الإكمال الفعلي إن وجد، وإلا تاريخ النهاية).
