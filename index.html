@@ -1713,7 +1713,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <button class="nav-item" data-page="dataQualityCenter" title="مركز جودة البيانات" aria-label="فتح صفحة مركز جودة البيانات"><span class="nav-icon" aria-hidden="true">▧</span><span class="nav-text">مركز جودة البيانات</span></button>
       <button class="nav-item" data-page="fileControl" title="مركز الملفات" aria-label="فتح صفحة مركز الملفات"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-text">مركز الملفات</span></button>
       <button class="nav-item" data-page="reportsGenerator" title="مولّد التقارير" aria-label="فتح صفحة مولّد التقارير"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-text">مولّد التقارير</span></button>
-      <button class="nav-item" data-page="importExportCenter" title="الاستيراد والتصدير" aria-label="فتح صفحة الاستيراد والتصدير"><span class="nav-icon" aria-hidden="true">✓</span><span class="nav-text">الاستيراد والتصدير</span></button>
 
       </div></div><div class="nav-group" data-nav-group="system"><button class="nav-group-toggle" type="button" onclick="toggleNavGroup(this)"><span>النظام</span><span class="chev">⌄</span></button><div class="nav-group-items">
       <button class="nav-item" data-page="setup" title="الإعدادات" aria-label="فتح صفحة الإعدادات"><span class="nav-icon" aria-hidden="true">⚠</span><span class="nav-text">الإعدادات</span></button>
@@ -2276,44 +2275,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         </div>
       </section>
 
-      <!-- IMPORT / EXPORT CENTER -->
-      <section class="page" id="importExportCenter">
-        <div class="page-header">
-          <h1>مركز الاستيراد والتصدير</h1>
-          <p>رفع CSV من Excel وتصدير سجلات المنصة بصيغ تشغيلية بدون تغيير التكاملات الحالية</p>
-        </div>
-        <div class="dec-kpi-grid" id="import-export-kpis"></div>
-        <div class="ops-layout">
-          <div class="card">
-            <div class="sec-title"><h2>استيراد CSV</h2><span>Evidence / Issues / Violations</span></div>
-            <div class="ops-form">
-              <select id="import-type"><option value="evidence">Evidence Center</option><option value="issues">Issues / Incidents</option><option value="violations">Vendor Violations</option></select>
-              <textarea id="import-input" rows="12" placeholder="الصق CSV هنا من Excel"></textarea>
-              <button class="ops-primary-btn" onclick="importAdvancedCsv()">استيراد البيانات</button>
-              <div id="import-status" style="font-size:12px;color:var(--muted);min-height:18px"></div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="sec-title"><h2>تصدير السجلات</h2><span>CSV / JSON / تقارير</span></div>
-            <div class="ops-link-grid" id="export-actions"></div>
-            <div id="export-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-top:10px"></div>
-          </div>
-          <div class="card">
-            <div class="sec-title"><h2>إدارة النسخ الاحتياطية</h2><span>Backup / Restore / Rollback</span></div>
-            <div class="status-toolbar">
-              <button class="ops-primary-btn" onclick="createBackupSnapshot()">إنشاء Backup</button>
-              <button class="ops-mini-btn" onclick="restoreLatestBackup()">Restore آخر نسخة</button>
-              <button class="ops-mini-btn" onclick="rollbackLatestRestore()">Rollback آخر استعادة</button>
-            </div>
-            <input id="backup-restore-reason" placeholder="سبب الاستعادة" style="width:100%;margin:8px 0;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--text);font-family:inherit"/>
-            <div id="backup-status" style="font-size:12px;color:var(--muted);min-height:18px;margin-top:8px"></div>
-            <div style="overflow:auto;max-height:220px;margin-top:10px"><table class="data-table"><thead><tr><th>النوع</th><th>تاريخ الإنشاء</th><th>المنفذ</th><th>السبب</th><th>نسخة البيانات</th></tr></thead><tbody id="backup-log-body"></tbody></table></div>
-          </div>
-        </div>
-      </section>
-
-      
-
       <!-- PMO ASSIGNMENTS PAGE -->
       <section class="page" id="assignments">
         <div class="page-header">
@@ -2657,7 +2618,6 @@ const PAGE_RENDERERS={
   dataQualityCenter:['renderDataQualityCenter'],
   fileControl:['renderFileControl'],
   reportsGenerator:['renderReportsGenerator'],
-  importExportCenter:['renderImportExportCenter'],
   setup:[],
   urgentTasksPage:['renderUrgentTasksPage']
 };
@@ -7333,7 +7293,6 @@ function renderAdvancedOperationalExtensions(){
   renderRiskTriggers();
   renderSmartReadinessBox();
   renderReportsGenerator();
-  renderImportExportCenter();
   
 }
 
@@ -7776,121 +7735,6 @@ function downloadGeneratedReport(format){
   if(format==='csv'){ const r=buildReportData(type); return downloadTextFile(`mayadeen-report-${type}.csv`,csvFromObjects((r.detailRows&&r.detailRows.length)?r.detailRows:[{الحالة:'لا توجد بيانات كافية'}]),'text/csv;charset=utf-8'); }
   return downloadTextFile(`mayadeen-report-${type}.txt`,buildReportText(type));
 }
-function parseCsvRows(text){
-  const rows=[]; let row=[]; let cell=''; let q=false;
-  for(let i=0;i<String(text||'').length;i++){
-    const ch=text[i], next=text[i+1];
-    if(ch==='"'&&q&&next==='"'){cell+='"';i++;continue;}
-    if(ch==='"'){q=!q;continue;}
-    if(ch===','&&!q){row.push(cell);cell='';continue;}
-    if((ch==='\n'||ch==='\r')&&!q){if(ch==='\r'&&next==='\n') i++; row.push(cell); if(row.some(x=>String(x).trim())) rows.push(row); row=[]; cell=''; continue;}
-    cell+=ch;
-  }
-  row.push(cell); if(row.some(x=>String(x).trim())) rows.push(row);
-  if(rows.length<2) return [];
-  const headers=rows[0].map(h=>h.trim());
-  return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]||''])));
-}
-function importAdvancedCsv(){
-  if(!guardAdvancedAction('importExportCenter','إنشاء')) return;
-  const type=document.getElementById('import-type')?.value||'evidence';
-  const rows=parseCsvRows(document.getElementById('import-input')?.value||'');
-  const st=document.getElementById('import-status');
-  if(!rows.length){if(st) st.textContent='لم يتم العثور على صفوف CSV صالحة.';return;}
-  if(type==='evidence') evidenceRecords=normalizeEvidenceRows(rows);
-  if(type==='issues') issuesIncidents=normalizeIssueRows(rows);
-  if(type==='violations') vendorViolations=normalizeViolationRows(rows);
-  addAuditEvent('مركز الاستيراد والتصدير','IMPORT','استيراد CSV',`${type}: ${rows.length} صف`,'#3b82f6',`import-${type}-${Date.now()}`);
-  persistOperationalData();
-  if(st) st.textContent=`تم استيراد ${rows.length} صف.`;
-  renderAdvancedOperationalExtensions();
-}
-async function exportAdvancedDataset(type){
-  const st=document.getElementById('export-status');
-  if(st){ st.style.color='var(--muted)'; st.textContent='جارٍ تجهيز الملف...'; }
-  try{
-    const map={vendors:vendorNames().map(vendorStats),evidence:evidenceRecords,issues:issuesIncidents,violations:vendorViolations,decisions:decisionLogRecords,versions:versionHistoryRecords};
-    const labelMap={vendors:'Vendor Scorecard',evidence:'Evidence',issues:'Issues',violations:'Violations',decisions:'Decision Log',versions:'Version History'};
-    const sheetNameMap={vendors:'الموردون',evidence:'أدلة الإثبات',issues:'البلاغات',violations:'المخالفات',decisions:'القرارات',versions:'سجل الإصدارات'};
-    if(!(type in map)){ throw new Error(`نوع تصدير غير معروف: ${type}`); }
-    const rows=map[type]||[];
-    if(!rows.length){
-      if(st){ st.style.color='#f5b800'; st.textContent=`لا توجد بيانات حالياً في "${labelMap[type]||type}" لتصديرها.`; }
-      return;
-    }
-    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-    if(!window.XLSX) throw new Error('تعذر تحميل مكتبة Excel (XLSX) — تحقق من الاتصال بالإنترنت.');
-    const wb=window.XLSX.utils.book_new();
-    const sheet=window.XLSX.utils.json_to_sheet(rows);
-    sheet['!cols']=Object.keys(rows[0]||{}).map(()=>({wch:22}));
-    window.XLSX.utils.book_append_sheet(wb,sheet,sheetNameMap[type]||type);
-    window.XLSX.writeFile(wb,`mayadeen-${type}.xlsx`);
-    if(st){ st.style.color='#10e87a'; st.textContent=`تم تنزيل "${labelMap[type]||type}" بنجاح (${rows.length} سجل).`; }
-  }catch(e){
-    console.warn('Excel export failed, attempting CSV تعويض عرضي:',e);
-    try{
-      const map={vendors:vendorNames().map(vendorStats),evidence:evidenceRecords,issues:issuesIncidents,violations:vendorViolations,decisions:decisionLogRecords,versions:versionHistoryRecords};
-      const rows=map[type]||[];
-      if(!rows.length) throw new Error('لا توجد بيانات لتصديرها.');
-      downloadTextFile(`mayadeen-${type}.csv`,csvFromObjects(rows),'text/csv;charset=utf-8');
-      if(st){ st.style.color='#f5b800'; st.textContent=`تعذر توليد Excel، تم التصدير كـ CSV بدلاً منه (${rows.length} سجل).`; }
-    }catch(e2){
-      console.warn('CSV تعويض عرضي also failed:',e2);
-      if(st){ st.style.color='#ff4d6a'; st.textContent='تعذر تنفيذ هذا التصدير حالياً: '+(e.message||e2.message||'خطأ غير معروف')+'. جرّب مرة أخرى أو تواصل مع الدعم الفني.'; }
-    }
-  }
-}
-function renderImportExportCenter(){
-  const k=document.getElementById('import-export-kpis');
-  if(k) k.innerHTML=[
-    {label:'أدلة',val:evidenceRecords.length,color:'#3b82f6'},
-    {label:'بلاغات',val:issuesIncidents.length,color:'#f5b800'},
-    {label:'مخالفات',val:vendorViolations.length,color:'#ff4d6a'},
-    {label:'قرارات',val:decisionLogRecords.length,color:'#a07dff'}
-  ].map(x=>`<div class="dec-kpi" style="--dk-color:${x.color}"><div class="dk-val">${escapeHtml(x.val)}</div><div class="dk-label">${escapeHtml(x.label)}</div></div>`).join('');
-  const actions=document.getElementById('export-actions');
-  renderBackupManager();
-  if(actions) actions.innerHTML=[
-    ['vendors','Vendor Scorecard','تصدير أداء الموردين'],
-    ['evidence','Evidence','تصدير الأدلة والمرفقات'],
-    ['issues','Issues','تصدير البلاغات والمشكلات'],
-    ['violations','Violations','تصدير مخالفات الموردين'],
-    ['decisions','Decision Log','تصدير سجل القرارات'],
-    ['versions','Version History','تصدير سجل التعديلات']
-  ].map(x=>`<div class="ops-link-card" onclick="exportAdvancedDataset('${x[0]}')"><b>${escapeHtml(x[1])}</b><span>Excel</span><span>${escapeHtml(x[2])}</span></div>`).join('');
-}
-
-const BACKUP_STORAGE_KEY='mayadeen_backup_manager_v1';
-let lastRollbackSnapshot=null;
-// لا تحفظ بيانات Google Sheets في المتصفح. يحتفظ السجل ببيانات وصفية فقط ولا يمكنه أن يصبح مصدر عرض بديل.
-function backupPayload(){return {dashboardDataVersion,createdAt:new Date().toISOString(),source:'google_sheets_metadata_only'};}
-function readBackupLog(){
-  try{
-    const parsed=JSON.parse(localStorage.getItem(BACKUP_STORAGE_KEY)||'[]');
-    const metadata=(Array.isArray(parsed)?parsed:[]).map(x=>({type:x.type,createdAt:x.createdAt,createdAtText:x.createdAtText,actor:x.actor,reason:x.reason,dataVersion:x.dataVersion}));
-    localStorage.setItem(BACKUP_STORAGE_KEY,JSON.stringify(metadata.slice(0,25)));
-    return metadata;
-  }catch(e){return [];}
-}
-function writeBackupLog(log){localStorage.setItem(BACKUP_STORAGE_KEY,JSON.stringify(log.slice(0,25).map(({payload,...metadata})=>metadata)));}
-function createBackupSnapshot(reason='نسخة يدوية'){
-  const actor=currentUser.display_name||currentUser.username||'مستخدم غير معروف';
-  const item={type:'Backup',createdAt:new Date().toISOString(),createdAtText:new Date().toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),actor,reason,dataVersion:'DV-'+dashboardDataVersion,payload:backupPayload()};
-  const log=readBackupLog(); log.unshift(item); writeBackupLog(log); renderBackupManager();
-  const st=document.getElementById('backup-status'); if(st) st.textContent='تم إنشاء نسخة احتياطية للقراءة فقط من بيانات Google Sheets الحالية.';
-}
-function restoreLatestBackup(){
-  const st=document.getElementById('backup-status');
-  if(st) st.textContent='الاستعادة المحلية معطلة: Google Sheets هو مصدر الحقيقة الوحيد. استخدم تحديث البيانات.';
-}
-function rollbackLatestRestore(){
-  const st=document.getElementById('backup-status');
-  if(st) st.textContent='لا يوجد Rollback محلي لبيانات الداشبورد. أعد المزامنة من Google Sheets.';
-}
-function renderBackupManager(){const b=document.getElementById('backup-log-body'); if(!b) return; const log=readBackupLog(); b.innerHTML=log.length?log.map(x=>`<tr><td>${escapeHtml(x.type)}</td><td>${escapeHtml(x.createdAtText||x.createdAt)}</td><td>${escapeHtml(x.actor)}</td><td>${escapeHtml(x.reason)}</td><td>${escapeHtml(x.dataVersion)}</td></tr>`).join(''):`<tr><td colspan="5">لا توجد بيانات كافية</td></tr>`;}
-
-
-
 function auditHtml(e){
   return `<div class="audit-item" style="--audit-color:${e.color||'#7c5cff'}"><span class="audit-dot"></span><div><b>${escapeHtml(e.title)}</b><span>${escapeHtml(e.detail||e.center||'')}</span></div><time>${escapeHtml(e.createdAt||'-')}</time></div>`;
 }
