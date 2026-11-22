@@ -1704,7 +1704,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <button class="nav-item" data-page="risksMgmt" title="المخاطر" aria-label="فتح صفحة المخاطر"><span class="nav-icon" aria-hidden="true">⚠</span><span class="nav-text">المخاطر</span></button>
       <button class="nav-item" data-page="approvals" title="مركز الاعتمادات" aria-label="فتح صفحة مركز الاعتمادات"><span class="nav-icon" aria-hidden="true">◉</span><span class="nav-text">مركز الاعتمادات</span></button>
       <button class="nav-item" data-page="changeOrdersCenter" title="أوامر التغيير" aria-label="فتح صفحة أوامر التغيير"><span class="nav-icon" aria-hidden="true">↻</span><span class="nav-text">أوامر التغيير</span></button>
-      <button class="nav-item" data-page="automationCenter" title="الأتمتة والسجل" aria-label="فتح صفحة الأتمتة والسجل"><span class="nav-icon" aria-hidden="true">⇧</span><span class="nav-text">الأتمتة والسجل</span></button>
       <button class="nav-item" data-page="assignments" title="توزيع المهام" aria-label="فتح صفحة توزيع المهام"><span class="nav-icon" aria-hidden="true">✉</span><span class="nav-text">توزيع المهام</span></button>
       <button class="nav-item" data-page="meetingsHub" title="الاجتماعات والمحاضر" aria-label="فتح صفحة الاجتماعات والمحاضر"><span class="nav-icon" aria-hidden="true">▥</span><span class="nav-text">الاجتماعات والمحاضر</span></button>
       <button class="nav-item" data-page="pmoAssistant" title="مساعد PMO" aria-label="فتح صفحة مساعد PMO"><span class="nav-icon" aria-hidden="true">☀</span><span class="nav-text">مساعد PMO</span></button>
@@ -2241,57 +2240,6 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
         </div>
       </section>
 
-      <!-- AUTOMATION CENTER -->
-
-
-      <section class="page" id="automationCenter">
-        <div class="page-header">
-          <h1>الأتمتة والسجل</h1>
-          <p>تنبيهات وتصعيدات آلية مسجلة في Audit Log دون تغيير تكاملات Slack أو الإيميل الحالية</p>
-        </div>
-        <div class="dec-kpi-grid" id="auto-kpis"></div>
-        <div class="ops-layout">
-          <div class="card">
-            <div class="sec-title"><h2>قواعد الأتمتة النشطة</h2><span>منطق محلي غير مكرر</span></div>
-            <div id="automation-rules"></div>
-          </div>
-          <div class="card">
-            <div class="sec-title"><h2>سجل النشاطات Audit Log</h2><span id="audit-count"></span></div>
-            <div class="audit-list" id="audit-log"></div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <div class="card">
-            <div class="sec-title"><h2>Workflow التصعيد والتنبيهات</h2><span>مرحلة، مسؤول، مدة متبقية</span></div>
-            <div id="automation-workflow"></div>
-            <div id="automation-workflowMeta"></div>
-          </div>
-          <div class="card">
-            <div class="sec-title"><h2>خريطة الربط بين المراكز</h2><span>مورد، تصريح، مشتريات، تغيير</span></div>
-            <div class="ops-link-grid" id="ops-linkage"></div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <div class="card">
-            <div class="sec-title"><h2>Field-Level Permissions</h2><span>تحكم أدق مبني على الصلاحيات الحالية</span></div>
-            <div id="field-permission-matrix"></div>
-          </div>
-          <div class="card">
-            <div class="sec-title"><h2>Notification Preferences</h2><span>منع التكرار واختيار القناة المناسبة</span></div>
-            <div id="notification-preferences"></div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <div class="card">
-            <div class="sec-title"><h2>Risk Trigger Automation</h2><span>تأخير أو مخالفة متكررة تتحول إلى مقترح خطر</span></div>
-            <div id="risk-trigger-list"></div>
-          </div>
-          <div class="card">
-            <div class="sec-title"><h2>Smart Readiness Score</h2><span>قراءة فورية لحالة السيطرة التشغيلية</span></div>
-            <div id="smart-readiness-box"></div>
-          </div>
-        </div>
-      </section>
 
       
 
@@ -2701,7 +2649,6 @@ const PAGE_RENDERERS={
   risksMgmt:['renderRisksMgmt'],
   approvals:['renderApprovals'],
   changeOrdersCenter:['renderChangeOrdersCenter'],
-  automationCenter:['renderAutomationCenter'],
   assignments:['renderAssignments'],
   meetingsHub:['renderMeetingsHub'],
   pmoAssistant:['renderPmoAssistant'],
@@ -7114,7 +7061,6 @@ function renderOperationalCenters(){
   
   
   renderChangeOrdersCenter();
-  renderAutomationCenter();
   
   
   
@@ -7134,7 +7080,6 @@ function renderOpsSnapshot(){
     {label:'تغييرات عالية الخطورة',val:m.highRiskCo,hint:'حرج أو مرتفع',color:'#ff8c42',page:'changeOrdersCenter'},
     {label:'تصعيدات نشطة',val:m.activeEscalations,hint:'مسجلة في مركز التصعيدات',color:'#ff4d6a',page:'escalationsCenter'},
     {label:'موردون High Risk',val:highRiskVendors,hint:'حسب Supplier Scorecard',color:highRiskVendors?'#ff4d6a':'#10e87a',page:'vendorControlCenter'},
-    {label:'Smart Readiness',val:readiness.score+'%',hint:readiness.label,color:readiness.color,page:'automationCenter'}
   ];
   el.innerHTML=cards.map(c=>`<div class="ops-snapshot-card" style="--ops-color:${c.color}" onclick="showPage('${c.page}')"><b>${escapeHtml(c.val)}</b><span>${escapeHtml(c.label)}</span><small>${escapeHtml(c.hint)}</small></div>`).join('');
 }
@@ -7950,46 +7895,6 @@ function renderBackupManager(){const b=document.getElementById('backup-log-body'
 function auditHtml(e){
   return `<div class="audit-item" style="--audit-color:${e.color||'#7c5cff'}"><span class="audit-dot"></span><div><b>${escapeHtml(e.title)}</b><span>${escapeHtml(e.detail||e.center||'')}</span></div><time>${escapeHtml(e.createdAt||'-')}</time></div>`;
 }
-function renderAutomationCenter(){
-  const m=operationalMetrics();
-  const k=document.getElementById('auto-kpis');
-  if(k) k.innerHTML=[
-    {label:'إجراءات آلية مسجلة',val:auditLog.length,color:'#3b82f6'},
-    {label:'تنبيهات تأخير',val:auditLog.filter(a=>a.title.includes('تأخر')).length,color:'#ff4d6a'},
-    {label:'تنبيهات انتهاء',val:auditLog.filter(a=>a.title.includes('انتهاء')).length,color:'#f5b800'},
-    {label:'نسبة الالتزام',val:m.compliance+'%',color:m.compliance>=80?'#10e87a':'#f5b800'}
-  ].map(x=>`<div class="dec-kpi" style="--dk-color:${x.color}"><div class="dk-val">${escapeHtml(x.val)}</div><div class="dk-label">${escapeHtml(x.label)}</div></div>`).join('');
-  const rules=document.getElementById('automation-rules');
-  if(rules) rules.innerHTML=[
-    ['#ff4d6a','تنبيه تلقائي عند تأخر طلب شراء','يفحص تاريخ المرحلة الحالية ويسجل تنبيهاً واحداً لكل مرحلة.'],
-    ['#f5b800','تنبيه قبل انتهاء تصريح','يرصد التصاريح النشطة التي تنتهي خلال 14 يوم.'],
-    ['#ff8c42','تنبيه أمر تغيير عالي الخطورة','يفعّل تنبيهاً لأي أمر تغيير حرج أو مرتفع قبل الإغلاق.'],
-    ['#a07dff','تصعيد تجاوز مدة المرحلة','يسجل التصعيد عند تجاوز SLA دون تكرار الإشعار.'],
-    ['#3b82f6','تغيير حالة عند اكتمال البيانات','ينقل السجل المحلي من مرحلة الإنشاء إلى المراجعة عند اكتمال الحقول المطلوبة.']
-  ].map(r=>`<div class="automation-rule" style="--rule-color:${r[0]}"><span class="bar"></span><div><b>${r[1]}</b><span>${r[2]}</span></div></div>`).join('');
-  const count=document.getElementById('audit-count'); if(count) count.textContent=`${auditLog.length} إجراء`;
-  const log=document.getElementById('audit-log'); if(log) log.innerHTML=auditLog.length?auditLog.map(a=>auditHtml(a)).join(''):'<div style="color:var(--muted);padding:18px;text-align:center">لا توجد إجراءات آلية مسجلة</div>';
-  renderWorkflowBox('automation-workflow','automation-workflowMeta',AUTOMATION_WORKFLOW,'تسجيل Audit Log','Automation Engine',futureDate(0));
-  const links=document.getElementById('ops-linkage');
-  if(links){
-    links.innerHTML=[
-      ['المشتريات ← المورد',`${procurementRequests.length} طلب`,`أكثر مورد مرتبط: ${topEntries(countBy(procurementRequests,'supplier'),1)[0]?.[0]||'-'}`],
-      ['المورد ← التصاريح',`${permitsRegister.length} تصريح`,`تربط التصاريح بالمورد أو الجهة والمنطقة`],
-      ['التغيير ← المشتريات/التصاريح',`${changeOrders.filter(c=>c.linkedItems).length} ربط`,`أوامر التغيير تغذي الأثر على الوقت والتكلفة`]
-    ].map(x=>`<div class="ops-link-card"><b>${escapeHtml(x[0])}</b><span>${escapeHtml(x[1])}</span><span>${escapeHtml(x[2])}</span></div>`).join('');
-  }
-}
-
-let inquiryItems=[],inquiryBootstrap=null,inquiryScope='mine',inquiryCurrent=null,inquiryDetailUsers=[],inquiryPollTimer=null,inquiryLoading=false;
-let inquiryViewSeq=0,inquirySelectedId='',inquiryDetailInFlight=new Map(),inquiryBootstrapSeq=0,inquiryWriteInFlight=0;
-let inquiryListPage=1,inquiryFilterFrame=0,inquiryMessageLimit=100;
-let inquiryBootstrapInFlight=null;
-let inquiryRenderedCacheKey='',inquiryRenderedSignature='',inquiryListFailure='';
-let inquiryComposerSeq=0,inquiryComposerState=null;
-const INQUIRY_LIST_PAGE_SIZE=50;
-const INQUIRY_LIST_CACHE_TTL_MS=45000;
-const inquiryListCache=new Map(),inquiryListInFlight=new Map();
-const inquiryReplyDrafts=new Map();
 function inquiryRequestId(){return (crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random()).toString();}
 function inquiryIdentity(){return {token:sessionToken,user:String(currentUser.username||''),phase:authState.phase};}
 function inquiryIdentityMatches(x){return !!x&&x.token===sessionToken&&x.user===String(currentUser.username||'')&&x.phase===MayadeenAuth.phases.AUTHENTICATED&&authState.phase===MayadeenAuth.phases.AUTHENTICATED;}
