@@ -1640,6 +1640,24 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table :is(.task-col-path-owner,.task-col-follow-up,.task-col-amanah-follow-up){text-align:center;vertical-align:middle}
 #tasks .task-table :is(.task-col-path-owner,.task-col-follow-up,.task-col-amanah-follow-up) .task-overflow-text{text-align:center}
 #tasks .task-table thead th.task-col-amanah-follow-up{white-space:normal;line-height:1.5;height:56px!important;padding:8px 12px!important}
+#tasks .task-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 8px;color:#9eacd0;font-size:13px}
+#tasks .task-table-toolbar button{min-height:36px;padding:6px 12px;border:1px solid rgba(167,139,250,.34);border-radius:10px;background:rgba(124,92,255,.10);color:#d8ccff;font:inherit;font-weight:800;cursor:pointer}
+#tasks .task-table-toolbar button:hover{background:rgba(124,92,255,.18)}
+#tasks .task-table-toolbar button:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+#tasks .task-table-card:not(.is-expanded) .task-table{width:100%;min-width:100%;table-layout:fixed}
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(7),
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(n+9){display:none}
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(1){width:90px}
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(2){width:280px}
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(3){width:120px}
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(4),
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(5){width:110px}
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(6){width:140px}
+#tasks .task-table-card:not(.is-expanded) .task-table :is(th,td):nth-child(8){width:165px}
+@media(max-width:1100px){
+  #tasks .task-table-toolbar{align-items:flex-start;flex-direction:column}
+  #tasks .task-table-card:not(.is-expanded) .task-table{min-width:1015px}
+}
 </style>
 </head>
 <body>
@@ -1926,7 +1944,11 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
           <button type="button" class="task-date-chip chip-actionable" data-date-filter="actionable" onclick="setTaskDateFilter('actionable')"><span>▶ متبقية غير معلّقة</span><b id="taskActionableCount">0</b></button>
           <button type="button" class="task-date-chip chip-hold" data-date-filter="hold" onclick="setTaskDateFilter('hold')"><span><i class="hold-ico" aria-hidden="true"></i>مرتبطة بموعد التدشين</span><b id="taskHoldCount">0</b></button>
         </div>
-        <div class="card task-table-card">
+        <div class="task-table-toolbar" role="group" aria-label="طريقة عرض جدول المهام">
+          <span id="taskTableViewHint">عرض مختصر للأعمدة الأساسية؛ افتح المهمة لعرض تفاصيلها.</span>
+          <button type="button" id="taskTableViewToggle" aria-expanded="false" onclick="toggleTaskTableDetails()">إظهار بقية الأعمدة</button>
+        </div>
+        <div class="card task-table-card" id="taskTableCard">
           <table class="data-table task-table" id="taskTable">
             <thead><tr>
               <th class="task-col-code">كود المهمة</th><th class="task-col-name">اسم المهمة</th><th class="task-col-status">الحالة</th><th class="task-col-date">تاريخ البداية</th><th class="task-col-date">تاريخ النهاية</th><th class="task-col-path-owner">مسؤول المسار</th><th class="task-col-follow-up">مسؤول المتابعة</th><th class="task-col-amanah-follow-up">مسؤول المتابعة<br>من الأمانة</th><th class="task-col-priority" id="taskPriorityHeader">الأولوية</th><th class="task-col-path">المسار الرئيسي</th><th class="task-col-phase">المرحلة</th><th class="task-col-type">نوع المهمة</th><th class="task-col-duration">مدة التنفيذ</th><th class="task-col-evidence" id="taskEvidenceHeader">دليل الإنجاز</th><th class="task-col-action" id="taskEscalationHeader" style="display:none">الإجراءات</th>
@@ -5577,6 +5599,19 @@ function taskMatchesTaskFilters(r,{query='',phase='',owner='',path='',status='',
   if(amanahFollowUp&&normalizeOwnerIdentityText(r.amanahFollowUpOwner)!==amanahFollowUp) return false;
   if(!taskMatchesStatusFilter(r,status)) return false;
   return true;
+}
+
+function toggleTaskTableDetails(forceExpanded){
+  const card=document.getElementById('taskTableCard');
+  const button=document.getElementById('taskTableViewToggle');
+  const hint=document.getElementById('taskTableViewHint');
+  if(!card||!button) return false;
+  const expanded=typeof forceExpanded==='boolean'?forceExpanded:!card.classList.contains('is-expanded');
+  card.classList.toggle('is-expanded',expanded);
+  button.setAttribute('aria-expanded',String(expanded));
+  button.textContent=expanded?'عرض مختصر':'إظهار بقية الأعمدة';
+  if(hint) hint.textContent=expanded?'تظهر جميع أعمدة المهمة.':'عرض مختصر للأعمدة الأساسية؛ افتح المهمة لعرض تفاصيلها.';
+  return expanded;
 }
 
 function applyFilters(){
