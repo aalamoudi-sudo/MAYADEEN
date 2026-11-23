@@ -2267,7 +2267,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
             <select id="report-type" onchange="renderReportsGenerator()"><option value="pmoDaily">التقرير اليومي لـ PMO</option><option value="tomorrowTasks">تقرير مهام الغد</option><option value="overdueTasks">تقرير المهام المتأخرة</option><option value="criticalPath">تقرير المسار الحرج</option><option value="decisionsApprovals">تقرير القرارات والاعتمادات</option><option value="risks">تقرير المخاطر</option><option value="escalations">تقرير التصعيدات</option><option value="weeklyAchievement">تقرير الإنجاز الأسبوعي</option><option value="deliverablesEvidence">تقرير المخرجات والأدلة</option><option value="baselineChanges">تقرير تغييرات Baseline</option><option value="daily">تقرير يومي عام</option><option value="weekly">التقرير الأسبوعي لـ PMO</option><option value="executive">تقرير تنفيذي عام</option></select>
             <button class="ops-primary-btn" onclick="renderReportsGenerator()">توليد</button>
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('txt')">تصدير TXT</button>
-            <button class="ops-mini-btn" onclick="downloadGeneratedReport('xlsx')">تصدير Excel</button>
+            
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('csv')">تصدير CSV</button>
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('pdf')">تصدير PDF</button>
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('ppt-outline')">تصدير PowerPoint</button>
@@ -7647,33 +7647,6 @@ async function generatePptxReport(type='daily'){
     if(st)st.textContent='تم تنزيل عرض PowerPoint بنجاح.';
   }catch(e){console.warn('PPTX export failed:',e);if(st)st.textContent='تعذر توليد PowerPoint: '+(e.message||'خطأ غير معروف');}
 }
-async function generateXlsxReport(type='daily'){
-  const st=document.getElementById('report-submitStatus');
-  if(st)st.textContent='جارٍ تجهيز ملف Excel...';
-  try{
-    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-    const r=buildReportData(type),wb=window.XLSX.utils.book_new();
-    const summary=window.XLSX.utils.aoa_to_sheet([
-      [r.brand.platform],[r.title],[r.brand.project],['الفترة: '+(r.weekly.range||r.meta.scope)],
-      ['معد التقرير: '+r.meta.preparedBy],['تاريخ الإصدار: '+r.meta.issuedAtText],
-      ['مصدر البيانات: '+r.meta.source],['آخر مزامنة: '+r.meta.lastSync],
-      ['نسخة البيانات: '+r.meta.dataVersion],['الإصدار: '+r.version],[],
-      ['المؤشر','القيمة'],...r.kpis.map(k=>[k.label,k.value])
-    ]);
-    summary['!cols']=[{wch:34},{wch:28}];summary['!views']=[{rightToLeft:true}];
-    window.XLSX.utils.book_append_sheet(wb,summary,'الملخص التنفيذي');
-    r.sections.forEach((section,index)=>{
-      const rows=section.rows||[];
-      const ws=window.XLSX.utils.json_to_sheet(rows.length?rows:[{البيانات:'لا توجد بيانات خلال الفترة المحددة'}]);
-      const keys=rows.length?Object.keys(rows[0]):['البيانات'];
-      ws['!cols']=keys.map(k=>({wch:Math.min(36,Math.max(16,String(k).length+8))}));
-      ws['!views']=[{rightToLeft:true}];
-      window.XLSX.utils.book_append_sheet(wb,ws,('0'+(index+1)).slice(-2)+' '+section.title.slice(0,23));
-    });
-    window.XLSX.writeFile(wb,'mayadeen-report-'+type+'.xlsx');
-    if(st)st.textContent='تم تنزيل ملف Excel بنجاح.';
-  }catch(e){console.warn('XLSX export failed:',e);if(st)st.textContent='تعذر توليد Excel: '+(e.message||'خطأ غير معروف');}
-}
 function csvFromReportSections(sections){
   const rows=[];
   (sections||[]).forEach(section=>(section.rows||[]).forEach(row=>rows.push(Object.assign({القسم:section.title},row))));
@@ -7683,7 +7656,6 @@ function downloadGeneratedReport(format){
   const type=document.getElementById('report-type')?.value||'daily',r=buildReportData(type);
   if(format==='pdf')return generatePdfReport(type);
   if(format==='ppt-outline')return generatePptxReport(type);
-  if(format==='xlsx')return generateXlsxReport(type);
   if(format==='csv')return downloadTextFile('mayadeen-report-'+type+'.csv',csvFromReportSections(r.sections),'text/csv;charset=utf-8');
   return downloadTextFile('mayadeen-report-'+type+'.txt',buildReportText(type));
 }
