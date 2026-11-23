@@ -2584,8 +2584,9 @@ let loginRequestInFlight=null;
 let syncRequestInFlight=null;
 let syncRequestSequence=0;
 const sectionLoadState=new Map();
-const SECTION_DATA_PAGES=new Set(['approvals','risksMgmt','assignments','meetingsHub','fileControl','urgentTasksPage','dataQualityCenter','executiveBoard','reportsGenerator']);
+const SECTION_DATA_PAGES=new Set(['overview','approvals','risksMgmt','assignments','meetingsHub','fileControl','urgentTasksPage','dataQualityCenter','executiveBoard','reportsGenerator']);
 const SECTION_DATASETS={
+  overview:['approvals','assignments','urgent_tasks','decisions','risk_governance'],
   approvals:['approvals','approval_chain'],risksMgmt:['risk_governance'],assignments:['assignments'],meetingsHub:['meetings'],fileControl:['files'],urgentTasksPage:['urgent_tasks'],
   
   dataQualityCenter:['data_quality'],
@@ -2688,15 +2689,14 @@ async function ensureSectionData(pageId,{force=false}={}){
   if(!force&&existing?.status==='loaded')return true;
   const sequence=syncRequestSequence, token=sessionToken, generation=authGeneration;
   const required=SECTION_DATASETS[pageId]||[];
-  // A home refresh has just replaced its five datasets with a current snapshot;
-  // even a forced active-page refresh should fetch only the remaining delta.
+  // Use any datasets included in the initial home response, and request only the missing ones.
   const missing=required.filter(name=>!loadedDashboardDatasets.has(name));
   if(!missing.length){
     sectionLoadState.set(pageId,{status:'loaded',loadedAt:Date.now()});
     renderPageIfNeeded(pageId);
     return true;
   }
-  const page=document.getElementById(pageId); if(!existing?.loadedAt)sectionLoadingNotice(page,'جارٍ تحميل بيانات هذا القسم من Google Sheets…');
+  const page=document.getElementById(pageId); if(pageId!=='overview'&&!existing?.loadedAt)sectionLoadingNotice(page,'جارٍ تحميل بيانات هذا القسم من Google Sheets…');
   page?.setAttribute('aria-busy','true');
   const promise=(async()=>{
     const sectionStartedAt=performance.now();
@@ -5410,7 +5410,8 @@ async function loadExternal(initial=true){
       // Mutations and explicit refreshes invalidate lazy datasets. Only the
       // active section is fetched again; opening the home page never fans out.
       resetSectionLoads();
-      ['approvals','assignments','urgent_tasks','decisions','risk_governance'].forEach(name=>loadedDashboardDatasets.add(name));
+      const homeDatasetFields={approvals:'approvals',assignments:'assignments',urgent_tasks:'urgent_tasks',decisions:'decision_log',risk_governance:'risk_governance'};
+      Object.entries(homeDatasetFields).forEach(([name,field])=>{if(Object.prototype.hasOwnProperty.call(data,field))loadedDashboardDatasets.add(name);});
       markPerf('normalize_end');
       measurePerf('normalize_duration','data_sync_start','normalize_end');
       const stateUpdateStartedAt=performance.now();
