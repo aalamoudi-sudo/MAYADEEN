@@ -3031,7 +3031,7 @@ function revealAuthenticatedApp(){
 }
 async function bootstrapSession(){
   const saved=MayadeenAuth.read(sessionStorage);
-  if(!saved){dispatchAuth({type:'NO_SESSION'});returnToAnonymousLogin('');return;}
+  if(!saved){dispatchAuth({type:'NO_SESSION'});returnToAnonymousLogin('',true);return;}
   authState=Object.assign(MayadeenAuth.initialState(),saved); dispatchAuth({type:'CHECK'});
   authGeneration++; sessionToken=saved.token;
   const cachedHome=saved.user&&(!saved.expiresAt||Date.parse(saved.expiresAt)>Date.now())?readHomeCache(saved.user.username):null;
@@ -3057,7 +3057,7 @@ async function bootstrapSession(){
     }catch(e){
       console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage); clearHomeCache();
       dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
-      returnToAnonymousLogin(authState.error);
+      returnToAnonymousLogin(authState.error,true);
     }
     return;
   }
@@ -3069,7 +3069,7 @@ async function bootstrapSession(){
   }catch(e){
     console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage);
     dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
-    returnToAnonymousLogin(authState.error);
+    returnToAnonymousLogin(authState.error,true);
   }
 }
 async function parseApiJson(response,action){
@@ -3088,10 +3088,10 @@ async function validatePersistedSession(){
   prefetchedHomeResponse=(data.home&&data.home.ok)?data.home:null;
   return data.user;
 }
-function returnToAnonymousLogin(error){
+function returnToAnonymousLogin(error,preserveHomeCache){
   clearCompletionEvidenceState();
   prefetchedHomeResponse=null;
-  clearHomeCache();
+  if(!preserveHomeCache) clearHomeCache();
   authGeneration++; syncRequestSequence++; sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const app=document.getElementById('app'); app?.classList.remove('visible'); if(app) app.style.cssText='display:none!important';
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
