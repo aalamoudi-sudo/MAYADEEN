@@ -516,11 +516,12 @@ function doPost(e) {
     const payload = parseBody_(e);
     if (payload.action === 'auth_login') {
       const startedAt = new Date().getTime();
-      const user = authenticateUser_(payload);
+      const authSpreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+      const user = authenticateUser_(payload, authSpreadsheet);
       const authenticatedAt = new Date().getTime();
       const session = createSession_(user);
       const sessionAt = new Date().getTime();
-      appendAuditLog_({ action: 'auth_login', status: 'success', updated_by: user.display_name || user.username });
+      appendAuditLog_({ action: 'auth_login', status: 'success', updated_by: user.display_name || user.username }, authSpreadsheet);
       const finishedAt = new Date().getTime();
       const authProfile = {
         authenticate_ms: authenticatedAt - startedAt,
@@ -1549,8 +1550,8 @@ function getUserAccessHeaders_() {
   ];
 }
 
-function ensureUserAccessSheet_(readContext) {
-  const sheet = ensureRegisterSheet_(KAG_CONFIG.usersSheetName, getUserAccessHeaders_());
+function ensureUserAccessSheet_(readContext, spreadsheet) {
+  const sheet = ensureRegisterSheet_(KAG_CONFIG.usersSheetName, getUserAccessHeaders_(), spreadsheet);
   if (sheet.getLastRow() > 1) {
     const values = syncTaskEvidencePermissions_(sheet);
     if (readContext) readContext.values = values;
@@ -1629,12 +1630,12 @@ function getDefaultUsers_() {
   ];
 }
 
-function authenticateUser_(payload) {
+function authenticateUser_(payload, spreadsheet) {
   const username = String(payload.username || '').trim().toLowerCase();
   const password = String(payload.password || '');
   if (!username || !password) throw new Error('Missing credentials');
   const readContext = {};
-  const sheet = ensureUserAccessSheet_(readContext);
+  const sheet = ensureUserAccessSheet_(readContext, spreadsheet);
   const users = readRegisterRowsFromSheet_(sheet, KAG_CONFIG.usersSheetName, readContext.values);
   // Fresh request-local rows only; password validation never uses the user cache.
   const user = findActiveUser_(username, true, null, users);
@@ -2524,9 +2525,9 @@ function getTaskEscalationRows_(ss) {
   return readRegisterRowsFromSheet_(sheet, KAG_CONFIG.taskEscalationsSheetName).map(function(r) { return { id:r.escalation_id, itemId:r.task_id, itemTitle:r.task_name, itemType:'تصعيد مهمة متأخرة', from:r.escalated_by_name, to:r.escalated_to_name, toUsername:r.escalated_to_username, createdAt:r.escalation_date, reason:r.reason, level:'تصعيد مهمة متأخرة', status:r.status, center:'مركز التصعيد', emailStatus:r.email_status }; });
 }
 
-function ensureRegisterSheet_(sheetName, headers) {
-  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
+function ensureRegisterSheet_(sheetName, headers, spreadsheet) {
+  const ss = spreadsheet || SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
     sheet.setFrozenRows(1);
@@ -3352,9 +3353,9 @@ function valueOf_(obj, names) {
   return '';
 }
 
-function appendAuditLog_(payload) {
-  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = spreadsheet.getSheetByName(KAG_CONFIG.auditSheetName) || spreadsheet.insertSheet(KAG_CONFIG.auditSheetName);
+function appendAuditLog_(payload, spreadsheet) {
+  const ss = spreadsheet || SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(KAG_CONFIG.auditSheetName) || ss.insertSheet(KAG_CONFIG.auditSheetName);
   const headers = ['timestamp', 'date', 'time', 'user', 'operation', 'record', 'previous_value', 'new_value', 'result', 'reference', 'action', 'status', 'raw_json'];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
