@@ -2584,9 +2584,8 @@ let loginRequestInFlight=null;
 let syncRequestInFlight=null;
 let syncRequestSequence=0;
 const sectionLoadState=new Map();
-const SECTION_DATA_PAGES=new Set(['overview','approvals','risksMgmt','assignments','meetingsHub','fileControl','urgentTasksPage','dataQualityCenter','executiveBoard','reportsGenerator']);
+const SECTION_DATA_PAGES=new Set(['approvals','risksMgmt','assignments','meetingsHub','fileControl','urgentTasksPage','dataQualityCenter','executiveBoard','reportsGenerator']);
 const SECTION_DATASETS={
-  overview:['approvals','assignments','urgent_tasks','decisions','risk_governance'],
   approvals:['approvals','approval_chain'],risksMgmt:['risk_governance'],assignments:['assignments'],meetingsHub:['meetings'],fileControl:['files'],urgentTasksPage:['urgent_tasks'],
   
   dataQualityCenter:['data_quality'],
@@ -2697,7 +2696,7 @@ async function ensureSectionData(pageId,{force=false}={}){
     renderPageIfNeeded(pageId);
     return true;
   }
-  const page=document.getElementById(pageId); if(pageId!=='overview'&&!existing?.loadedAt)sectionLoadingNotice(page,'جارٍ تحميل بيانات هذا القسم من Google Sheets…');
+  const page=document.getElementById(pageId); if(!existing?.loadedAt)sectionLoadingNotice(page,'جارٍ تحميل بيانات هذا القسم من Google Sheets…');
   page?.setAttribute('aria-busy','true');
   const promise=(async()=>{
     const sectionStartedAt=performance.now();
@@ -5411,8 +5410,7 @@ async function loadExternal(initial=true){
       // Mutations and explicit refreshes invalidate lazy datasets. Only the
       // active section is fetched again; opening the home page never fans out.
       resetSectionLoads();
-      const homeDatasetFields={approvals:'approvals',assignments:'assignments',urgent_tasks:'urgent_tasks',decisions:'decision_log',risk_governance:'risk_governance'};
-      Object.entries(homeDatasetFields).forEach(([name,field])=>{if(Object.prototype.hasOwnProperty.call(data,field))loadedDashboardDatasets.add(name);});
+      ['approvals','assignments','urgent_tasks','decisions','risk_governance'].forEach(name=>loadedDashboardDatasets.add(name));
       markPerf('normalize_end');
       measurePerf('normalize_duration','data_sync_start','normalize_end');
       const stateUpdateStartedAt=performance.now();
