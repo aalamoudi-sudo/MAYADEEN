@@ -7190,7 +7190,6 @@ function buildCommandCriticalItems(){
   const today=futureDate(0);
   const items=[];
   tasks.filter(t=>isTaskStatusOverdue(t)).slice(0,6).forEach(t=>items.push({type:'مهمة',title:t.name,owner:t.owner||'-',detail:`استحقاق: ${t.end||'-'}`,page:'tasks',severity:'مرتفع'}));
-  procurementRequests.filter(p=>p.stageDue&&daysBetween(today,p.stageDue)<0&&!['أرشفة','مغلق'].includes(p.status)).slice(0,5).forEach(p=>items.push({type:'مشتريات',title:p.title,owner:p.owner||'-',detail:`المورد: ${p.supplier||'-'}`,page:'procurementCenter',severity:'مرتفع'}));
   permitsRegister.filter(p=>p.status==='نشط'&&p.end&&daysBetween(today,p.end)<=3).slice(0,5).forEach(p=>items.push({type:'تصريح',title:p.subject||p.party,owner:p.approver||'-',detail:`ينتهي: ${p.end||'-'}`,page:'permitsCenter',severity:daysBetween(today,p.end)<0?'حرج':'مرتفع'}));
   changeOrders.filter(c=>['حرج','مرتفع'].includes(c.risk)&&!['مرفوض','مغلق'].includes(c.status)).slice(0,5).forEach(c=>items.push({type:'أمر تغيير',title:c.title,owner:`${changeOrderCurrentResponsible(c)} ← ${changeOrderEscalationTarget(changeOrderCurrentResponsible(c))}`,detail:`الأثر: ${c.timeImpact} يوم / ${money(c.costImpact)}`,page:'changeOrdersCenter',severity:c.risk}));
   return items.slice(0,18);
@@ -7201,9 +7200,8 @@ function buildCommandCriticalItems(){
 function buildDailyCommandBrief(){
   const critical=buildCommandCriticalItems();
   const people=allCommandPeople().map(personPerformance).sort((a,b)=>(b.pressure+b.delayed)-(a.pressure+a.delayed)).slice(0,5);
-  const active=activeEscalations();
+  const active=activeEscalations().filter(e=>e.itemType!=='مشتريات');
   const permits=permitsRegister.filter(p=>p.status==='نشط'&&p.end&&daysBetween(futureDate(0),p.end)<=3).slice(0,5);
-  const proc=procurementRequests.filter(p=>p.stageDue&&daysBetween(futureDate(0),p.stageDue)<0&&!['أرشفة','مغلق'].includes(p.status)).slice(0,5);
   const co=changeOrders.filter(c=>['حرج','مرتفع'].includes(c.risk)&&!['مرفوض','مغلق'].includes(c.status)).slice(0,5);
   const risks=(window._rmRisks||[]).filter(r=>r.status!=='مغلق').slice(0,5);
   return [
@@ -7214,12 +7212,10 @@ function buildDailyCommandBrief(){
     `الأشخاص الأكثر ضغطاً: ${people.map(p=>`${p.name} (${p.pressure})`).join(' | ')||'لا يوجد'}`,
     `القرارات المطلوبة: ${(window._approvalsData||[]).filter(a=>!['معتمد','مرفوض'].includes(a.status)).slice(0,3).map(a=>a.title).join(' | ')||'لا يوجد'}`,
     `التصاريح الحرجة: ${permits.map(p=>`${p.subject||p.party} - ${p.end}`).join(' | ')||'لا يوجد'}`,
-    `المشتريات المتأخرة: ${proc.map(p=>`${p.id} - ${p.supplier}`).join(' | ')||'لا يوجد'}`,
     `أوامر التغيير عالية الأثر: ${co.map(c=>`${c.id} - ${c.risk} - ${changeOrderCurrentResponsible(c)} إلى ${changeOrderEscalationTarget(changeOrderCurrentResponsible(c))}`).join(' | ')||'لا يوجد'}`,
     `المخاطر النشطة: ${risks.map(r=>r.name).join(' | ')||'لا يوجد'}`,
     '',
     'توصيات اليوم:',
-    proc.length?'- إغلاق أو تصعيد طلبات المشتريات المتأخرة قبل نهاية اليوم.':'- المحافظة على مسار المشتريات الحالي.',
     permits.length?'- مراجعة التصاريح التي تنتهي خلال 72 ساعة.':'- لا توجد تصاريح حرجة خلال 72 ساعة.',
     co.length?'- أوامر التغيير تحتاج قراراً من مالك المشروع/المشرف العام فقط.':'- لا توجد أوامر تغيير عالية الأثر مفتوحة.',
     active.some(e=>e.level==='Level 4')?'- متابعة التصعيدات الحرجة فوراً وتوثيق القرار في Audit Log.':'- لا توجد تصعيدات حرجة مفتوحة حالياً.'
@@ -7424,8 +7420,7 @@ function buildReportData(type='daily'){
   const noData=!isOfficialKpiReady();
   const readiness=noData?{score:null,label:NO_KPI_DATA_TEXT,color:'#7c5cff'}:smartReadinessScore();
   const critical=buildCommandCriticalItems();
-  const vendors=vendorNames().map(vendorStats).sort((a,b)=>a.score-b.score).slice(0,5);
-  const active=activeEscalations();
+  const active=activeEscalations().filter(e=>e.itemType!=='مشتريات');
   const m=operationalMetrics();
   const totalTasks=tasks.length;
   const doneTasks=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
@@ -7433,7 +7428,6 @@ function buildReportData(type='daily'){
   const inProgressTasks=tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length;
   const completionPct=totalTasks?Math.round((doneTasks/totalTasks)*100):null;
   const openIssues=issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length;
-  const openViolations=vendorViolations.filter(v=>!['مغلق','مغلقة'].includes(v.status)).length;
   const openApprovals=(window._approvalsData||approvals||[]).filter(a=>!['معتمد','مرفوض'].includes(a.status)).length;
   const batch4=buildBatch4ReportSections(type);
   const phaseRows=PROJECT_PHASE_ORDER.map(phase=>{
@@ -7465,19 +7459,15 @@ function buildReportData(type='daily'){
     ],
     readiness,
     criticalItems:critical.slice(0,10).map(c=>({title:c.title||c.name||'-',type:c.type||'-',detail:c.detail||c.owner||'-'})),
-    vendors:vendors.map(v=>({name:v.name,score:v.score+'%',status:v.status,violations:v.violations,issues:v.issues})),
     escalations:active.slice(0,10).map(e=>({id:e.id,title:e.itemTitle,level:e.level,to:e.to,status:e.status})),
     metrics:[
       {label:'الاعتمادات المفتوحة',value:noData?NO_KPI_DATA_TEXT:openApprovals},
       {label:'التصاريح التي تنتهي قريباً',value:noData?NO_KPI_DATA_TEXT:m.expiringPermits},
-      {label:'المشتريات المتأخرة',value:noData?NO_KPI_DATA_TEXT:m.delayedProc},
       {label:'أوامر تغيير عالية الخطورة',value:noData?NO_KPI_DATA_TEXT:m.highRiskCo},
-      {label:'مخالفات موردين مفتوحة',value:noData?NO_KPI_DATA_TEXT:openViolations}
     ],
     recommendations:[
       noData?NO_KPI_DATA_TEXT:(readiness.score<70?'فتح جلسة متابعة تشغيلية عاجلة للمتأخرات والتصعيدات.':'الاستمرار في المتابعة الدورية الحالية، الأداء ضمن النطاق المقبول.'),
       active.some(e=>e.level==='Level 4')?'حسم التصعيدات الحرجة (Level 4) فوراً وتوثيق القرار التنفيذي.':'لا توجد تصعيدات حرجة (Level 4) مفتوحة حالياً.',
-      vendors.some(v=>v.status==='High Risk')?'طلب خطة تصحيح رسمية من الموردين عاليي الخطورة خلال 48 ساعة.':'أداء الموردين عموماً تحت السيطرة.'
     ]
   };
 }
@@ -7486,7 +7476,6 @@ function buildReportText(type='daily'){
   const line=(ch='─',n=56)=>ch.repeat(n);
   const kpiLines=r.kpis.map(k=>`  • ${k.label}: ${k.value}`).join('\n');
   const critLines=r.criticalItems.length?r.criticalItems.map((c,i)=>`  ${i+1}. [${c.type}] ${c.title} — ${c.detail}`).join('\n'):'  لا توجد بنود حرجة حالياً.';
-  const vendorLines=r.vendors.length?r.vendors.map((v,i)=>`  ${i+1}. ${v.name} — ${v.score} — ${v.status}`).join('\n'):'  لا يوجد بيانات موردين كافية.';
   const escLines=r.escalations.length?r.escalations.map((e,i)=>`  ${i+1}. [${e.level}] ${e.title} → ${e.to} (${e.status})`).join('\n'):'  لا توجد تصعيدات نشطة.';
   const metricLines=r.metrics.map(m=>`  • ${m.label}: ${m.value}`).join('\n');
   const recLines=r.recommendations.map((x,i)=>`  ${i+1}. ${x}`).join('\n');
@@ -7524,11 +7513,6 @@ function buildReportText(type='daily'){
     'التصعيدات النشطة',
     line(),
     escLines,
-    '',
-    line(),
-    'أعلى الموردين خطورة',
-    line(),
-    vendorLines,
     '',
     line(),
     'مؤشرات تشغيلية إضافية',
@@ -7579,10 +7563,6 @@ function generatePdfReport(type='daily'){
     <div class="rpt-section">
       <h2>التصعيدات النشطة</h2>
       ${r.escalations.length?`<table class="rpt-table"><thead><tr><th>المستوى</th><th>البند</th><th>إلى</th><th>الحالة</th></tr></thead><tbody>${r.escalations.map(e=>`<tr><td><span class="rpt-badge" style="background:${riskColorFor(e.level)}22;color:${riskColorFor(e.level)}">${escapeHtml(e.level)}</span></td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.to)}</td><td>${escapeHtml(e.status)}</td></tr>`).join('')}</tbody></table>`:'<p>لا توجد تصعيدات نشطة.</p>'}
-    </div>
-    <div class="rpt-section">
-      <h2>أعلى الموردين خطورة</h2>
-      ${r.vendors.length?`<table class="rpt-table"><thead><tr><th>المورد</th><th>التقييم</th><th>الحالة</th><th>مخالفات</th><th>بلاغات</th></tr></thead><tbody>${r.vendors.map(v=>`<tr><td>${escapeHtml(v.name)}</td><td>${escapeHtml(v.score)}</td><td><span class="rpt-badge" style="background:${riskColorFor(v.status)}22;color:${riskColorFor(v.status)}">${escapeHtml(v.status)}</span></td><td>${escapeHtml(v.violations)}</td><td>${escapeHtml(v.issues)}</td></tr>`).join('')}</tbody></table>`:'<p>لا توجد بيانات موردين كافية.</p>'}
     </div>
     <div class="rpt-section">
       <h2>مؤشرات تشغيلية إضافية</h2>
@@ -7648,12 +7628,6 @@ async function generatePptxReport(type='daily'){
     if(r.escalations.length){
       s.addTable([['المستوى','البند','إلى','الحالة'],...r.escalations.map(e=>[e.level,e.title,e.to,e.status])],{x:0.4,y:0.9,w:9.2,fontSize:10,border:{type:'solid',color:'E2E2EF'},color:dark,autoPage:false});
     }else{ s.addText('لا توجد تصعيدات نشطة.',{x:0.4,y:1,w:9,h:0.5,fontSize:12,color:'555555'}); }
-    // شريحة الموردين
-    s=P.addSlide();
-    s.addText('أعلى الموردين خطورة',{x:0.4,y:0.25,w:9,h:0.5,fontSize:20,bold:true,color:dark});
-    if(r.vendors.length){
-      s.addTable([['المورد','التقييم','الحالة'],...r.vendors.map(v=>[v.name,v.score,v.status])],{x:0.4,y:0.9,w:9.2,fontSize:10,border:{type:'solid',color:'E2E2EF'},color:dark,autoPage:false});
-    }else{ s.addText('لا توجد بيانات موردين كافية.',{x:0.4,y:1,w:9,h:0.5,fontSize:12,color:'555555'}); }
     // شريحة التوصيات
     s=P.addSlide();
     s.background={color:'1A1A2E'};
@@ -7696,9 +7670,6 @@ async function generateXlsxReport(type='daily'){
     const escSheet=window.XLSX.utils.json_to_sheet(r.escalations.map(e=>({المستوى:e.level,البند:e.title,'إلى':e.to,الحالة:e.status})));
     escSheet['!cols']=[{wch:10},{wch:36},{wch:20},{wch:14}];
     window.XLSX.utils.book_append_sheet(wb,escSheet,'التصعيدات');
-    const vendorSheet=window.XLSX.utils.json_to_sheet(r.vendors.map(v=>({المورد:v.name,التقييم:v.score,الحالة:v.status,مخالفات:v.violations,بلاغات:v.issues})));
-    vendorSheet['!cols']=[{wch:28},{wch:12},{wch:14},{wch:10},{wch:10}];
-    window.XLSX.utils.book_append_sheet(wb,vendorSheet,'الموردون');
     const recSheet=window.XLSX.utils.aoa_to_sheet([['التوصيات التنفيذية'],...r.recommendations.map(x=>[x])]);
     recSheet['!cols']=[{wch:70}];
     window.XLSX.utils.book_append_sheet(wb,recSheet,'التوصيات');
