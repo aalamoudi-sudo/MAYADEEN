@@ -7498,6 +7498,8 @@ function reportPendingTrendValue(count,weekStart){
 }
 function buildWeeklyReportSections(type,scope){
   const allApprovals=(window._approvalsData||approvals||[]);
+  const eligibleTotal=(tasks||[]).filter(t=>classifyStatus(t)!=='معلّقة لحين الموعد').length;
+  const completedTotal=(tasks||[]).filter(t=>classifyStatus(t)==='مكتملة').length;
   const inWeekDone=(tasks||[]).filter(t=>classifyStatus(t)==='مكتملة'&&reportDateInRange(reportTaskCompletionDate(t),scope.start,scope.end));
   const dayRows=[],daySummary=[];
   for(let offset=0;offset<5;offset++){
@@ -7526,7 +7528,7 @@ function buildWeeklyReportSections(type,scope){
     {المؤشر:'قيد التنفيذ',القيمة:tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length},
     {المؤشر:'عدد المهام المعلقة',القيمة:reportPendingTrendValue(pending.length,scope.start)},
     {المؤشر:'المهام المتأخرة',القيمة:tasks.filter(t=>isTaskStatusOverdue(t)).length},
-    {المؤشر:'نسبة الإنجاز',القيمة:tasks.length?Math.round(tasks.filter(t=>classifyStatus(t)==='مكتملة').length/tasks.length*100)+'%':NO_KPI_DATA_TEXT}
+    {المؤشر:'نسبة إنجاز المهام غير المعلّقة',القيمة:eligibleTotal?Math.round(completedTotal/eligibleTotal*100)+'%':NO_KPI_DATA_TEXT}
   ];
   return {
     range:scope.start+' — '+scope.end,
@@ -7555,17 +7557,19 @@ function buildReportData(type='daily'){
   const m=operationalMetrics();
   const totalTasks=tasks.length;
   const doneTasks=tasks.filter(t=>classifyStatus(t)==='مكتملة').length;
+  const eligibleTotalTasks=tasks.filter(t=>classifyStatus(t)!=='معلّقة لحين الموعد').length;
   const pendingTasks=tasks.filter(t=>!['مكتملة','ملغاة'].includes(classifyStatus(t))).length;
   const lateTasks=tasks.filter(t=>isTaskStatusOverdue(t)).length;
   const inProgressTasks=tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length;
-  const completionPct=totalTasks?Math.round((doneTasks/totalTasks)*100):null;
+  const completionPct=eligibleTotalTasks?Math.round((doneTasks/eligibleTotalTasks)*100):null;
   const openIssues=issuesIncidents.filter(i=>!['مغلق','مغلقة'].includes(i.status)).length;
   const openApprovals=(window._approvalsData||approvals||[]).filter(a=>!reportApprovalIsClosed(a)).length;
   const batch4=buildBatch4ReportSections(type);
   const phaseRows=PROJECT_PHASE_ORDER.map(phase=>{
     const phaseTasks=tasks.filter(t=>t.phase===phase);
+    const eligiblePhaseTasks=phaseTasks.filter(t=>classifyStatus(t)!=='معلّقة لحين الموعد').length;
     const done=phaseTasks.filter(t=>classifyStatus(t)==='مكتملة').length;
-    return {المرحلة:phase,'إجمالي المهام':phaseTasks.length,'المهام المكتملة':done,'نسبة الإنجاز':phaseTasks.length?Math.round(done/phaseTasks.length*100)+'%':NO_KPI_DATA_TEXT};
+    return {المرحلة:phase,'إجمالي المهام':phaseTasks.length,'المهام المكتملة':done,'نسبة الإنجاز':eligiblePhaseTasks?Math.round(done/eligiblePhaseTasks*100)+'%':NO_KPI_DATA_TEXT};
   });
   const isWeekly=['weekly','weeklyAchievement'].includes(type);
   const title=batch4?batch4.title:(type==='weekly'?'التقرير الأسبوعي لـ PMO':type==='weeklyAchievement'?'تقرير الإنجاز الأسبوعي':type==='executive'?'التقرير التنفيذي':'التقرير اليومي');
