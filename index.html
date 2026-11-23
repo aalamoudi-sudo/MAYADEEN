@@ -2638,18 +2638,19 @@ function renderOverview(){
   loginPerfCounters.mainRenders++;
   console.info(`⏱️ [LoginPerf] renderOverview count: ${loginPerfCounters.mainRenders}`);
   markPerf('overview_render_start');
-  renderKpis();
-  renderHealth();
-  renderBars();
-  updateExecSummary();
-  renderLineChart();
-  renderInsights();
-  renderDataHealth();
-  renderUrgentTasksCard();
+  const visible=id=>{const el=document.getElementById(id);return !!el&&el.getClientRects().length>0;};
+  // Render the active dashboard content first; skip legacy panels that are hidden in this layout.
   renderHomeReadiness();
   renderDailyHome();
-  renderExecutiveAdditions();
-  
+  if(visible('kpis'))renderKpis();
+  if(visible('health'))renderHealth();
+  if(visible('ownerBars'))renderBars();
+  if(visible('es-completion'))updateExecSummary();
+  if(visible('phaseProgressSummary'))renderLineChart();
+  if(visible('insights'))renderInsights();
+  if(visible('dataHealth'))renderDataHealth();
+  if(visible('urgentTasksCardList'))renderUrgentTasksCard();
+  if(visible('execStatusBar')||visible('latestAchievements'))renderExecutiveAdditions();
   markPerf('overview_render_end');
   measurePerf('overview_render_duration','overview_render_start','overview_render_end');
 }
