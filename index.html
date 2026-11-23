@@ -5855,13 +5855,12 @@ function renderDailyHome(){
   const actionableTotal=sm.done+sm.inprog+sm.notStarted;
   const pct=actionableTotal?Math.round(sm.done/actionableTotal*100):0;
   const C=2*Math.PI*80;
-  const amanahLabel=sm.amanahFollowUpOwners.length===1?`مسؤول متابعة الأمانة · ${sm.amanahFollowUpOwners[0]}`:'مسؤولو المتابعة من الأمانة';
-  const distribution=[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['مرتبطة بموعد التدشين',sm.hold,'#a78bfa',`المهام المؤجلة حتى موعد التدشين: ${sm.hold}`],[amanahLabel,sm.amanahFollowUp,'#f59e0b','مهام معلّق أو بانتظار الاعتماد، مصنفة حسب مسؤول المتابعة من الأمانة']];
+  const distribution=[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['مرتبطة بموعد التدشين',sm.hold,'#a78bfa',`المهام المؤجلة حتى موعد التدشين: ${sm.hold}`]];
   if(sm.otherStatus>0) distribution.push(['حالات أخرى',sm.otherStatus,'#94a3b8']);
   if(wr) wr.innerHTML=`<div class="dp-h"><h3>إنجاز المهام غير المعلّقة</h3><span>دون المهام المعلّقة</span></div>
     <div class="dp-ready"><div class="dp-ring"><svg viewBox="0 0 190 190" aria-hidden="true"><g transform="rotate(-90 95 95)"><circle cx="95" cy="95" r="80" fill="none" stroke="var(--dp-track,#1c1e45)" stroke-width="14"/><circle cx="95" cy="95" r="80" fill="none" stroke="#4ade80" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(pct/100*C).toFixed(1)} ${C.toFixed(1)}"/></g></svg>
       <div class="dp-ring-c"><b>${pct}%</b><span>نسبة الإنجاز</span></div></div>
-      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>تُعرض مهام متابعة الأمانة والمهام المرتبطة بموعد التدشين ضمن توزيع مستقل أدناه</p>
+      <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>تُعرض المهام المرتبطة بموعد التدشين ضمن توزيع مستقل أدناه، وتبقى الحالات غير المحددة خارج التصنيف</p>
       <div class="dp-split">
         <div style="--c:#4ade80" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('actionable')"><b>${sm.inprog+sm.notStarted}</b><span>متبقية غير معلّقة</span></div>
         <div style="--c:#a78bfa" role="button" tabindex="0" onclick="showPage('tasks');setTaskDateFilter('hold')"><b>${sm.hold}</b><span>مرتبطة بموعد التدشين</span></div>
