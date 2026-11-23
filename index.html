@@ -2934,8 +2934,7 @@ async function login(){
     if(authState.phase!==MayadeenAuth.phases.AUTHENTICATED) throw new Error(authState.error||'missing session token');
     authGeneration++; currentUser=authState.user; sessionToken=authState.token;
     // Resolve authentication first; load home data after revealing the authenticated shell.
-    const recentHomeCache=readHomeCache(username,5*60*1000);
-    prefetchedHomeResponse=(data.home&&data.home.ok)?data.home:recentHomeCache;
+    prefetchedHomeResponse=(data.home&&data.home.ok)?data.home:null;
     MayadeenAuth.write(sessionStorage,authState);
     markPerf('auth_request_end');
     measurePerf('auth_request_duration','auth_request_start','auth_request_end');
@@ -3031,7 +3030,7 @@ function revealAuthenticatedApp(){
 }
 async function bootstrapSession(){
   const saved=MayadeenAuth.read(sessionStorage);
-  if(!saved){dispatchAuth({type:'NO_SESSION'});returnToAnonymousLogin('',true);return;}
+  if(!saved){dispatchAuth({type:'NO_SESSION'});returnToAnonymousLogin('');return;}
   authState=Object.assign(MayadeenAuth.initialState(),saved); dispatchAuth({type:'CHECK'});
   authGeneration++; sessionToken=saved.token;
   const cachedHome=saved.user&&(!saved.expiresAt||Date.parse(saved.expiresAt)>Date.now())?readHomeCache(saved.user.username):null;
@@ -3057,7 +3056,7 @@ async function bootstrapSession(){
     }catch(e){
       console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage); clearHomeCache();
       dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
-      returnToAnonymousLogin(authState.error,true);
+      returnToAnonymousLogin(authState.error);
     }
     return;
   }
@@ -3069,7 +3068,7 @@ async function bootstrapSession(){
   }catch(e){
     console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage);
     dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
-    returnToAnonymousLogin(authState.error,true);
+    returnToAnonymousLogin(authState.error);
   }
 }
 async function parseApiJson(response,action){
@@ -3088,10 +3087,10 @@ async function validatePersistedSession(){
   prefetchedHomeResponse=(data.home&&data.home.ok)?data.home:null;
   return data.user;
 }
-function returnToAnonymousLogin(error,preserveHomeCache){
+function returnToAnonymousLogin(error){
   clearCompletionEvidenceState();
   prefetchedHomeResponse=null;
-  if(!preserveHomeCache) clearHomeCache();
+  clearHomeCache();
   authGeneration++; syncRequestSequence++; sessionToken=''; currentUser={username:'',display_name:'',role:'',access_level:'none',allowed_pages:[]};
   const app=document.getElementById('app'); app?.classList.remove('visible'); if(app) app.style.cssText='display:none!important';
   const loginDiv=document.getElementById('login'); if(loginDiv) loginDiv.style.cssText='display:flex!important';
@@ -5235,13 +5234,12 @@ function saveHomeCache(data){
     sessionStorage.setItem(HOME_CACHE_KEY,JSON.stringify({u:String(currentUser.username),t:Date.now(),d:data}));
   }catch(e){try{sessionStorage.removeItem(HOME_CACHE_KEY);}catch(_){}}
 }
-function readHomeCache(username,maxAgeMs){
+function readHomeCache(username){
   try{
     const raw=sessionStorage.getItem(HOME_CACHE_KEY); if(!raw) return null;
     const c=JSON.parse(raw);
-    const maxAge=Number(maxAgeMs)>0?Number(maxAgeMs):HOME_CACHE_MAX_AGE;
-    if(!c||c.u!==String(username||'')||!c.d||Date.now()-Number(c.t||0)>maxAge) return null;
-    c.d.__fromCache=true; c.d.__cacheSavedAt=Number(c.t||0); return c.d;
+    if(!c||c.u!==String(username||'')||!c.d||Date.now()-Number(c.t||0)>HOME_CACHE_MAX_AGE) return null;
+    c.d.__fromCache=true; return c.d;
   }catch(e){return null;}
 }
 async function loadExternalFromCache(payload){
@@ -5282,7 +5280,6 @@ async function loadExternal(initial=true){
   const requestSequence=++syncRequestSequence;
   const requestToken=sessionToken;
   const requestAuthGeneration=authGeneration;
-  let renderedFromCache=false;
   syncRequestInFlight=(async()=>{
   // يضمن أن finally يعمل بعد إسناد syncRequestInFlight حتى لو كانت البيانات جاهزة دون انتظار شبكة.
   await null;
@@ -5324,7 +5321,6 @@ async function loadExternal(initial=true){
     }
     const _syncFetchMs=Math.round(performance.now()-_syncStart);
     console.log(`⏱️ [Sync] وصل الرد بعد ${_syncFetchMs} ms`);
-    renderedFromCache=data.__fromCache===true;
     if(!data.ok) throw new Error(data.error||'sync failed');
     if(data.sync_meta?.performance){
       console.info('⏱️ [DataSyncProfile]',{duration_ms:data.sync_meta.duration_ms,response_bytes:data.sync_meta.response_bytes,spreadsheet_open_ms:data.sync_meta.performance.spreadsheet_open_ms,rows_read:data.sync_meta.rows_read,cells_read:data.sync_meta.cells_read});
@@ -5432,18 +5428,11 @@ async function loadExternal(initial=true){
       const now=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const stEl=document.getElementById('sheetStatus');
       const stTx=document.getElementById('sheetStatusText');
-      if(renderedFromCache){
-        if(stTx) stTx.textContent='بيانات محفوظة — جارٍ تحديثها من Google Sheets...';
-        if(stEl){stEl.classList.remove('connected');stEl.classList.add('loading');}
-        setLastUpdate('آخر بيانات محفوظة',new Date(data.__cacheSavedAt||Date.now()));
-        nextSyncAllowedAt=0;
-      }else{
-        if(stTx) stTx.textContent=`متصل — ${now} · آخر مزامنة · ${tasks.length} مهمة WBS · ${riskGovernanceRegister.length} سجل مخاطر`;
-        if(stEl){stEl.classList.remove('loading');stEl.classList.add('connected');};
-        setLastUpdate('قاعدة البيانات / Google Sheet', new Date());
-        syncBackoffMs=30000;
-        nextSyncAllowedAt=Date.now()+30000;
-      }
+      if(stTx) stTx.textContent=`متصل — ${now} · آخر مزامنة · ${tasks.length} مهمة WBS · ${riskGovernanceRegister.length} سجل مخاطر`;
+      if(stEl){stEl.classList.remove('loading');stEl.classList.add('connected');};
+      setLastUpdate('قاعدة البيانات / Google Sheet', new Date());
+      syncBackoffMs=30000;
+      nextSyncAllowedAt=Date.now()+30000;
       hasCompletedInitialSync=true;
       markPerf('data_sync_end');
       measurePerf('data_sync_duration','data_sync_start','data_sync_end');
@@ -5451,14 +5440,6 @@ async function loadExternal(initial=true){
       markPerf('full_page_ready');
       const _syncTotalMs=Math.round(performance.now()-_syncStart);
       console.log(`⏱️ [Sync] اكتملت المعالجة الكاملة خلال ${_syncTotalMs} ms (طلب+معالجة). آخر تحديث ظاهر بالداشبورد: ${new Date().toLocaleTimeString('ar-SA')}`);
-      if(renderedFromCache){
-        const cachedToken=requestToken,cachedGeneration=requestAuthGeneration;
-        setTimeout(()=>{
-          if(sessionToken!==cachedToken||authGeneration!==cachedGeneration)return;
-          nextSyncAllowedAt=0;
-          loadExternal(false).catch(e=>console.warn('Background refresh after cached render failed',e));
-        },80);
-      }
       return true;
     }
     rows=[]; officialDataReady=false; initData();
