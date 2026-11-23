@@ -511,6 +511,42 @@ function timedDashboardOperation_(profile, name, operation) {
   return result;
 }
 
+function saveWeeklyPendingSnapshot_(payload) {
+  const weekStart = String(payload.week_start || '').trim();
+  const pendingCount = Number(payload.pending_count);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart) || !isFinite(pendingCount) || pendingCount < 0 || Math.floor(pendingCount) !== pendingCount) {
+    throw new Error('Invalid weekly pending snapshot');
+  }
+  const weekDate = new Date(weekStart + 'T12:00:00Z');
+  if (isNaN(weekDate.getTime()) || Utilities.formatDate(weekDate, 'UTC', 'yyyy-MM-dd') !== weekStart) {
+    throw new Error('Invalid week start date');
+  }
+  const previousDate = new Date(weekDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const previousWeekStart = Utilities.formatDate(previousDate, 'UTC', 'yyyy-MM-dd');
+  const prefix = 'PMO_PENDING_COUNT_WEEK_';
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const trackingStart = props.getProperty('PMO_PENDING_TRACKING_START');
+    if (!trackingStart) props.setProperty('PMO_PENDING_TRACKING_START', weekStart);
+    const previousRaw = props.getProperty(prefix + previousWeekStart);
+    const previousCount = previousRaw === null ? null : Number(previousRaw);
+    const canCompare = weekStart > String(trackingStart || weekStart) && Number.isFinite(previousCount);
+    props.setProperty(prefix + weekStart, String(pendingCount));
+    return {
+      ok: true,
+      week_start: weekStart,
+      pending_count: pendingCount,
+      previous_week_start: previousWeekStart,
+      previous_count: canCompare ? previousCount : null,
+      delta: canCompare ? pendingCount - previousCount : null
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function doPost(e) {
   try {
     const payload = parseBody_(e);
@@ -547,6 +583,10 @@ function doPost(e) {
     // matrix without loading dashboard data or exposing it before auth resolves.
     if (payload.action === 'auth_session') {
       return json_({ ok: true, api_version: '2026-09-auth-session-v2', user: safeUser_(session), auth_meta: authProfile });
+    }
+
+    if (payload.action === 'weekly_pending_snapshot') {
+      return json_(saveWeeklyPendingSnapshot_(payload));
     }
 
     if (payload.action === 'data_sync') {
