@@ -264,20 +264,23 @@ function buildDashboardHomeData_(session) {
   const openStartedAt = new Date().getTime();
   const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
   profile.spreadsheet_open_ms = new Date().getTime() - openStartedAt;
-  // Keep the first response small so WBS tasks paint quickly. Overview registers
-  // are loaded asynchronously through dashboard_section after the first render.
   const taskRead = timedDashboardOperation_(profile, 'wbs', function() { return readOfficialWbsTasks_(spreadsheet); });
   const rows = projectVisibleRows_(taskRead.rows);
   const statusChanges = getWbsStatusChangesToday_(spreadsheet, taskRead.rows);
   const response = {
     ok: true,
-    api_version: '2026-11-progressive-dashboard-v1',
+    api_version: '2026-09-lazy-dashboard-v1',
     generated_at: new Date().toISOString(),
     user: safeUser_(session),
     rows: filterTaskEvidenceForSession_(rows, session),
     task_headers: filterTaskEvidenceHeadersForSession_(taskRead.headers, session),
     status_change_tracking_available: statusChanges.available,
-    completed_status_changes_today: statusChanges.events
+    completed_status_changes_today: statusChanges.events,
+    approvals: projectVisibleRows_(timedDashboardOperation_(profile, 'approvals', function() { return getApprovalRows_(spreadsheet); })),
+    assignments: projectVisibleRows_(timedDashboardOperation_(profile, 'assignments', function() { return getAssignmentRows_(spreadsheet); })),
+    urgent_tasks: projectVisibleRows_(timedDashboardOperation_(profile, 'urgent_tasks', function() { return getUrgentTaskRows_(spreadsheet); })),
+    decision_log: projectVisibleRows_(timedDashboardOperation_(profile, 'decisions', function() { return getDecisionRows_(spreadsheet); })),
+    risk_governance: projectVisibleRows_(timedDashboardOperation_(profile, 'risk_governance', function() { return getExistingRegisterRows_(spreadsheet, KAG_CONFIG.riskGovernanceSheetName); }))
   };
   response.sync_meta = Object.assign({}, taskRead.diagnostics, {
     sync_version: Utilities.getUuid(), sync_started_at: startedAt.toISOString(),
@@ -290,10 +293,10 @@ function buildDashboardHomeData_(session) {
   response.sync_meta.response_bytes = Utilities.newBlob(JSON.stringify(response)).getBytes().length;
   return response;
 }
+
 function buildDashboardSectionData_(session, pageId, requestedDatasets) {
   const sectionStartedAt = new Date().getTime();
   const plans = {
-    overview: ['approvals', 'assignments', 'urgent_tasks', 'decisions', 'risk_governance'],
     approvals: ['approvals', 'approval_chain'], decisions: ['decisions'], risksMgmt: ['risk_governance'],
     assignments: ['assignments'], meetingsHub: ['meetings'], commitmentsHub: ['commitments'], fileControl: ['files'],
     urgentTasksPage: ['urgent_tasks'], escalationHub: ['escalations', 'task_escalations', 'escalation_chain', 'approvals', 'assignments', 'decisions', 'risk_governance'],
