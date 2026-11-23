@@ -2258,14 +2258,14 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
       <section class="page" id="reportsGenerator">
         <div class="page-header">
           <h1>مولّد التقارير</h1>
-          <p>تقارير يومية وأسبوعية وتنفيذية تشمل المهام والتصعيدات والتأخيرات والاعتمادات والمخاطر والموردين</p>
+          <p>تقارير PMO تركز على إنجاز المهام والاعتمادات ومهام الأسبوع القادم والمهام المعلقة</p>
         </div>
         <div class="dec-kpi-grid" id="report-kpis"></div>
         <div class="card">
           <div class="sec-title"><h2>إعداد التقرير</h2><span>تصدير محلي آمن</span></div>
           <div class="status-toolbar">
             <select id="report-type" onchange="renderReportsGenerator()"><option value="pmoDaily">التقرير اليومي لـ PMO</option><option value="tomorrowTasks">تقرير مهام الغد</option><option value="overdueTasks">تقرير المهام المتأخرة</option><option value="criticalPath">تقرير المسار الحرج</option><option value="decisionsApprovals">تقرير القرارات والاعتمادات</option><option value="risks">تقرير المخاطر</option><option value="escalations">تقرير التصعيدات</option><option value="weeklyAchievement">تقرير الإنجاز الأسبوعي</option><option value="deliverablesEvidence">تقرير المخرجات والأدلة</option><option value="baselineChanges">تقرير تغييرات Baseline</option><option value="daily">تقرير يومي عام</option><option value="weekly">التقرير الأسبوعي لـ PMO</option><option value="executive">تقرير تنفيذي عام</option></select>
-            <button class="ops-primary-btn" onclick="renderReportsGenerator()">توليد</button>
+            <button class="ops-primary-btn" onclick="renderReportsGenerator(false,true)">توليد</button>
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('txt')">تصدير TXT</button>
             
             <button class="ops-mini-btn" onclick="downloadGeneratedReport('csv')">تصدير CSV</button>
@@ -7372,6 +7372,7 @@ function renderSmartReadinessBox(){
 // vendorStats, activeEscalations, operationalMetrics, classifyStatus...) دون أي منطق جديد،
 // فقط يهيكلها بشكل موحّد تستخدمه كل صيغ التصدير (PDF/PPTX/Excel/TXT) بنفس المصدر الواحد.
 const REPORT_BRAND={name:'MAYADEEN EVENTS',platform:'MAYADEEN Command Center',project:'مركز قيادة مشروع حدائق الملك عبدالله',color:'#7c5cff',colorRgb:[124,92,255]};
+let weeklyPendingTrend=null,weeklyPendingSnapshotPromise=null,weeklyPendingSnapshotWeek='',weeklyPendingSnapshotRequestedAt=0;
 function loadScriptOnce(url){
   return new Promise((resolve,reject)=>{
     const existing=document.querySelector(`script[data-src="${url}"]`);
@@ -7452,6 +7453,14 @@ function reportApprovalIsClosed(item){
   return ['معتمد','معتمدة','مرفوض','مرفوضة','مغلق','مغلقة','مكتمل','مكتملة','تم الإغلاق','مُعتمد'].includes(String(item.status||'').trim());
 }
 function reportEmptyMessage(rows){return rows&&rows.length?rows:[{البيانات:'لا توجد بيانات خلال الفترة المحددة'}];}
+function reportPendingTrendValue(count,weekStart){
+  const trend=weeklyPendingTrend;
+  if(!trend||trend.week_start!==weekStart||trend.delta===null||trend.delta===undefined) return String(count);
+  const delta=Number(trend.delta)||0;
+  if(delta>0) return String(count)+' (+'+delta+')';
+  if(delta<0) return String(count)+' (-'+Math.abs(delta)+')';
+  return String(count);
+}
 function buildWeeklyReportSections(type,scope){
   const allApprovals=(window._approvalsData||approvals||[]);
   const inWeekDone=(tasks||[]).filter(t=>classifyStatus(t)==='مكتملة'&&reportDateInRange(reportTaskCompletionDate(t),scope.start,scope.end));
@@ -7480,13 +7489,17 @@ function buildWeeklyReportSections(type,scope){
     {المؤشر:'إجمالي المهام',القيمة:tasks.length},
     {المؤشر:'المهام المكتملة',القيمة:tasks.filter(t=>classifyStatus(t)==='مكتملة').length},
     {المؤشر:'قيد التنفيذ',القيمة:tasks.filter(t=>taskStatusFamily(t)==='قيد التنفيذ').length},
-    {المؤشر:'المهام المتبقية',القيمة:pending.length},
+    {المؤشر:'عدد المهام المعلقة',القيمة:reportPendingTrendValue(pending.length,scope.start)},
     {المؤشر:'المهام المتأخرة',القيمة:tasks.filter(t=>isTaskStatusOverdue(t)).length},
     {المؤشر:'نسبة الإنجاز',القيمة:tasks.length?Math.round(tasks.filter(t=>classifyStatus(t)==='مكتملة').length/tasks.length*100)+'%':NO_KPI_DATA_TEXT}
   ];
   return {
     range:scope.start+' — '+scope.end,
     nextRange:scope.nextStart+' — '+scope.nextEnd,
+    weekStart:scope.start,
+    pendingCount:pending.length,
+    closedApprovalsCount:closedApprovals.length,
+    openApprovalsCount:openApprovals.length,
     weeklyCompleted:inWeekDone.length,
     sections:[
       {title:'ملخص الإنجاز الأسبوعي',rows:summary},
@@ -7530,7 +7543,7 @@ function buildReportData(type='daily'){
     {label:'إجمالي المهام',value:noData?NO_KPI_DATA_TEXT:totalTasks,color:'#7c5cff'},
     {label:'المهام المكتملة',value:noData?NO_KPI_DATA_TEXT:doneTasks,color:'#3b82f6'},
     {label:'قيد التنفيذ',value:noData?NO_KPI_DATA_TEXT:inProgressTasks,color:'#f5b800'},
-    {label:'المهام المتبقية',value:noData?NO_KPI_DATA_TEXT:pendingTasks,color:'#f59e0b'},
+    {label:'المهام المعلقة',value:noData?NO_KPI_DATA_TEXT:(isWeekly?reportPendingTrendValue(pendingTasks,weekly.weekStart):pendingTasks),color:'#f59e0b'},
     {label:'المهام المتأخرة',value:noData?NO_KPI_DATA_TEXT:lateTasks,color:'#ff4d6a'}
   ];
   const r={
@@ -7652,8 +7665,61 @@ function csvFromReportSections(sections){
   (sections||[]).forEach(section=>(section.rows||[]).forEach(row=>rows.push(Object.assign({القسم:section.title},row))));
   return csvFromObjects(rows);
 }
-function downloadGeneratedReport(format){
-  const type=document.getElementById('report-type')?.value||'daily',r=buildReportData(type);
+function syncWeeklyPendingSnapshot(report,force=false){
+  if(!report||!['weekly','weeklyAchievement'].includes(report.type)||!report.weekly||!sessionToken) return Promise.resolve(null);
+  const weekStart=report.weekly.weekStart;
+  if(weeklyPendingSnapshotPromise) return weeklyPendingSnapshotPromise;
+  if(!force&&weeklyPendingSnapshotWeek===weekStart&&Date.now()-weeklyPendingSnapshotRequestedAt<60000) return Promise.resolve(weeklyPendingTrend);
+  const baseUrl=getConfiguredApiUrl();
+  if(!baseUrl) return Promise.resolve(null);
+  weeklyPendingSnapshotWeek=weekStart;
+  weeklyPendingSnapshotRequestedAt=Date.now();
+  weeklyPendingSnapshotPromise=postApi(baseUrl,{action:'weekly_pending_snapshot',week_start:weekStart,pending_count:report.weekly.pendingCount})
+    .then(response=>response.json())
+    .then(data=>{
+      if(!data||data.ok!==true) throw new Error((data&&data.error)||'تعذر حفظ عدد المهام المعلقة');
+      weeklyPendingTrend=data;
+      const status=document.getElementById('report-submitStatus');
+      if(status){
+        status.textContent=data.delta===null
+          ?'تم حفظ عدد المهام المعلقة لهذا الأسبوع. ستظهر المقارنة في تقرير الأسبوع القادم.'
+          :'تم تحديث مقارنة عدد المهام المعلقة مع الأسبوع السابق.';
+      }
+      if(getActivePageId()==='reportsGenerator'&&['weekly','weeklyAchievement'].includes(document.getElementById('report-type')?.value||'')) renderReportsGenerator(true,false);
+      return data;
+    })
+    .catch(error=>{
+      console.warn('Weekly pending snapshot unavailable:',error);
+      const status=document.getElementById('report-submitStatus');
+      if(status) status.textContent='تعذر حفظ مقارنة الأسبوع؛ تحقق من نشر Apps Script المحدّث.';
+      return null;
+    })
+    .finally(()=>{weeklyPendingSnapshotPromise=null;});
+  return weeklyPendingSnapshotPromise;
+}
+function renderReportsGenerator(skipSnapshotSync=false,forceSnapshotSync=false){
+  const out=document.getElementById('report-output'); if(!out) return;
+  const type=document.getElementById('report-type')?.value||'daily';
+  const report=buildReportData(type);
+  out.value=buildReportText(type);
+  const k=document.getElementById('report-kpis');
+  if(k){
+    const noData=!isOfficialKpiReady();
+    const weekly=['weekly','weeklyAchievement'].includes(type);
+    const tiles=weekly?[
+      {label:'المهام المكتملة هذا الأسبوع',val:noData?NO_KPI_DATA_TEXT:report.weekly.weeklyCompleted,color:'#10e87a'},
+      {label:'الاعتمادات المغلقة',val:noData?NO_KPI_DATA_TEXT:report.weekly.closedApprovalsCount,color:'#3b82f6'},
+      {label:'الاعتمادات المفتوحة',val:noData?NO_KPI_DATA_TEXT:report.weekly.openApprovalsCount,color:'#f5b800'},
+      {label:'المهام المعلقة',val:noData?NO_KPI_DATA_TEXT:reportPendingTrendValue(report.weekly.pendingCount,report.weekly.weekStart),color:'#ff8c42'}
+    ]:report.kpis.slice(0,4).map(x=>({label:x.label,val:x.value,color:x.color}));
+    k.innerHTML=tiles.map(x=>'<div class="dec-kpi" style="--dk-color:'+x.color+'"><div class="dk-val">'+escapeHtml(x.val)+'</div><div class="dk-label">'+escapeHtml(x.label)+'</div></div>').join('');
+  }
+  if(!skipSnapshotSync&&['weekly','weeklyAchievement'].includes(type)&&getActivePageId()==='reportsGenerator'&&isOfficialKpiReady()) syncWeeklyPendingSnapshot(report,forceSnapshotSync);
+}
+async function downloadGeneratedReport(format){
+  const type=document.getElementById('report-type')?.value||'daily';
+  if(['weekly','weeklyAchievement'].includes(type)&&weeklyPendingSnapshotPromise) await weeklyPendingSnapshotPromise;
+  const r=buildReportData(type);
   if(format==='pdf')return generatePdfReport(type);
   if(format==='ppt-outline')return generatePptxReport(type);
   if(format==='csv')return downloadTextFile('mayadeen-report-'+type+'.csv',csvFromReportSections(r.sections),'text/csv;charset=utf-8');
