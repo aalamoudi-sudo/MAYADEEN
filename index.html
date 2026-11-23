@@ -1641,7 +1641,7 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
 #tasks .task-table :is(.task-col-path-owner,.task-col-follow-up,.task-col-amanah-follow-up) .task-overflow-text{text-align:center}
 #tasks .task-table thead th.task-col-amanah-follow-up{white-space:normal;line-height:1.5;height:56px!important;padding:8px 12px!important}
 #tasks .task-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 8px;color:#9eacd0;font-size:13px}
-#tasks .task-table-toolbar button{min-height:36px;padding:6px 12px;border:1px solid rgba(167,139,250,.34);border-radius:10px;background:rgba(124,92,255,.10);color:#d8ccff;font:inherit;font-weight:800;cursor:pointer}
+#tasks .task-table-toolbar button{box-sizing:border-box;width:auto;min-width:0;min-height:30px;height:32px;padding:4px 10px;border:1px solid rgba(167,139,250,.34);border-radius:9px;background:rgba(124,92,255,.10);color:#d8ccff;font-family:inherit;font-size:13px;line-height:1.2;font-weight:800;cursor:pointer}
 #tasks .task-table-toolbar button:hover{background:rgba(124,92,255,.18)}
 #tasks .task-table-toolbar button:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
 #tasks .task-table-card:not(.is-expanded) .task-table{width:100%;min-width:100%;table-layout:fixed}
