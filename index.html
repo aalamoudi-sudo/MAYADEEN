@@ -7454,8 +7454,6 @@ function reportApprovalIsClosed(item){
 }
 function reportEmptyMessage(rows){return rows&&rows.length?rows:[{البيانات:'لا توجد بيانات خلال الفترة المحددة'}];}
 function buildWeeklyReportSections(type,scope){
-  const window=reportWeekWindow(riyadhTodayKey());
-  const approvalsData=(window._approvalsData||window.approvals||[]);
   const allApprovals=(window._approvalsData||approvals||[]);
   const inWeekDone=(tasks||[]).filter(t=>classifyStatus(t)==='مكتملة'&&reportDateInRange(reportTaskCompletionDate(t),scope.start,scope.end));
   const dayRows=[];
