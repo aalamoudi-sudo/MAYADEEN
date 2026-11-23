@@ -7632,7 +7632,7 @@ async function generatePptxReport(type='daily'){
     s.addText('الفترة: '+(r.weekly.range||r.meta.scope)+'\nمعد التقرير: '+r.meta.preparedBy+'\nتاريخ الإصدار: '+r.meta.issuedAtText,{x:.6,y:3.15,w:8.8,h:1.2,fontFace:'Arial',fontSize:12,color:white,align:'right',rtlMode:true,breakLine:false});
     s=P.addSlide();s.background={color:white};
     s.addText('الملخص التنفيذي',{x:.45,y:.25,w:9.1,h:.45,fontFace:'Arial',fontSize:22,bold:true,color:navy,align:'right',rtlMode:true});
-    r.kpis.forEach((k,i)=>{const x=.45+(i%3)*3.05,y=.9+Math.floor(i/3)*1.45;s.addShape(P.ShapeType.roundRect,{x,y,w:2.8,h:1.2,rectRadius:.08,fill:{color:pale},line:{color:'D6E2F0'}});s.addText(String(k.value),{x:x+.08,y:y+.1,w:2.64,h:.48,fontFace:'Arial',fontSize:22,bold:true,color:blue,align:'center'});s.addText(k.label,{x:x+.08,y:y+.65,w:2.64,h:.32,fontFace:'Arial',fontSize:11,color:ink,align:'center',rtlMode:true});});
+    r.kpis.forEach((k,i)=>{const x=.45+(i%3)*3.05,y=.9+Math.floor(i/3)*1.45;s.addShape('roundRect',{x,y,w:2.8,h:1.2,rectRadius:.08,fill:{color:pale},line:{color:'D6E2F0'}});s.addText(String(k.value),{x:x+.08,y:y+.1,w:2.64,h:.48,fontFace:'Arial',fontSize:22,bold:true,color:blue,align:'center'});s.addText(k.label,{x:x+.08,y:y+.65,w:2.64,h:.32,fontFace:'Arial',fontSize:11,color:ink,align:'center',rtlMode:true});});
     r.sections.forEach(section=>{
       const rows=section.rows||[],keys=rows.length?Object.keys(rows[0]):['البيانات'];
       const body=rows.length?rows.map(row=>keys.map(k=>String(row[k]==null?'':row[k]))):[['لا توجد بيانات خلال الفترة المحددة']];
