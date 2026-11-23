@@ -7456,13 +7456,15 @@ function reportEmptyMessage(rows){return rows&&rows.length?rows:[{البيانا
 function buildWeeklyReportSections(type,scope){
   const allApprovals=(window._approvalsData||approvals||[]);
   const inWeekDone=(tasks||[]).filter(t=>classifyStatus(t)==='مكتملة'&&reportDateInRange(reportTaskCompletionDate(t),scope.start,scope.end));
-  const dayRows=[];
+  const dayRows=[],daySummary=[];
   for(let offset=0;offset<5;offset++){
     const date=addDaysToDateKey(scope.start,offset);
     const dayName=new Intl.DateTimeFormat('ar-SA',{weekday:'long',timeZone:'UTC'}).format(new Date(date+'T12:00:00Z'));
     const matches=inWeekDone.filter(t=>reportTaskCompletionDate(t)===date);
+    daySummary.push({اليوم:dayName,التاريخ:date,'عدد المهام المكتملة':matches.length});
     matches.forEach(t=>dayRows.push({اليوم:dayName,التاريخ:date,الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||''}));
   }
+  daySummary.push({اليوم:'إجمالي الأسبوع',التاريخ:scope.start+' — '+scope.end,'عدد المهام المكتملة':inWeekDone.length});
   const closedApprovals=allApprovals.filter(a=>reportApprovalIsClosed(a)&&reportDateInRange(reportApprovalDate(a),scope.start,scope.end)).map(a=>({الاعتماد:a.title||a.name||a.subject||a.reference||a.id||'',الجهة:a.owner||a.requester||a.approver||'',الحالة:a.status||'', 'تاريخ الإغلاق':reportApprovalDate(a)}));
   const openApprovals=allApprovals.filter(a=>!reportApprovalIsClosed(a)).map(a=>({الاعتماد:a.title||a.name||a.subject||a.reference||a.id||'',الجهة:a.owner||a.requester||a.approver||'',الحالة:a.status||'', 'تاريخ الاستحقاق':reportDateKey(a.due_date||a.dueDate||a.end||a.deadline)}));
   const nextTasks=(tasks||[]).filter(t=>classifyStatus(t)!=='مكتملة'&&reportDateInRange(t.end||t.due_date||t.deadline,scope.nextStart,scope.nextEnd)).map(t=>({ 'تاريخ الاستحقاق':reportDateKey(t.end||t.due_date||t.deadline),اليوم:new Intl.DateTimeFormat('ar-SA',{weekday:'long',timeZone:'UTC'}).format(new Date(reportDateKey(t.end||t.due_date||t.deadline)+'T12:00:00Z')),الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',الحالة:taskStatusDisplayLabel(classifyStatus(t))}));
@@ -7489,7 +7491,8 @@ function buildWeeklyReportSections(type,scope){
     weeklyCompleted:inWeekDone.length,
     sections:[
       {title:'ملخص الإنجاز الأسبوعي',rows:summary},
-      {title:'المهام المنجزة خلال الأسبوع',rows:reportEmptyMessage(dayRows)},
+      {title:'ملخص الإنجاز اليومي',rows:daySummary},
+      {title:'تفاصيل المهام المنجزة خلال الأسبوع',rows:reportEmptyMessage(dayRows)},
       {title:'الاعتمادات المغلقة خلال الأسبوع',rows:reportEmptyMessage(closedApprovals)},
       {title:'الاعتمادات المفتوحة',rows:reportEmptyMessage(openApprovals)},
       {title:'مهام الأسبوع القادم',rows:reportEmptyMessage(nextTasks)},
@@ -7597,7 +7600,7 @@ function generatePdfReport(type='daily'){
   const r=buildReportData(type);
   const el=document.getElementById('report-print-view'); if(!el) return;
   const metaRows=[
-    ['نوع التقرير',r.title],['الفترة',r.weekly.range||r.meta.scope],
+    ['نوع التقرير',r.title],['الفترة',r.weekly.range||r.meta.scope],['الأسبوع القادم',r.weekly.nextRange||'—'],
     ['معد التقرير',r.meta.preparedBy],['تاريخ الإصدار',r.meta.issuedAtText],
     ['مصدر البيانات',r.meta.source],['آخر مزامنة',r.meta.lastSync],
     ['نسخة البيانات',r.meta.dataVersion],['الإصدار',r.version]
