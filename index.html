@@ -5859,6 +5859,47 @@ function renderLineChart(){
 /* ══ INSIGHTS ══ */
 
 
+function animateDashboardSummary(pulse,readiness){
+  const user=String(currentUser?.username||'');
+  if(!pulse||pulse.dataset.animatedUser===user)return;
+  pulse.dataset.animatedUser=user;
+  const roots=[pulse,readiness].filter(Boolean);
+  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const digitMap={'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+  const parse=value=>{const normalized=String(value||'').replace(/[٠-٩۰-۹]/g,d=>digitMap[d]).replace(/[٬,\s]/g,'');const match=normalized.match(/-?\d+(?:\.\d+)?/);return match?Number(match[0]):NaN;};
+  const format=value=>Math.round(value).toLocaleString('ar-SA-u-nu-arab');
+  const animate=(element,target,suffix,duration=850)=>{
+    if(!Number.isFinite(target)||target<0)return;
+    const start=performance.now();
+    const frame=now=>{
+      const p=Math.min(1,(now-start)/duration), eased=1-Math.pow(1-p,3);
+      element.textContent=format(target*eased)+suffix;
+      if(p<1)requestAnimationFrame(frame);
+    };
+    element.textContent='٠'+suffix;
+    requestAnimationFrame(frame);
+  };
+  roots.forEach(root=>{
+    root.querySelectorAll('.dp-m:not(.dp-pending)>b,.dp-ring-c>b,.dp-split b,.dp-big>b').forEach(el=>{
+      const final=el.textContent.trim(),target=parse(final);
+      if(!Number.isFinite(target))return;
+      const suffix=final.replace(/[٠-٩۰-۹\d٬,\s.\-]/g,'');
+      if(!reduced)animate(el,target,suffix);
+    });
+    root.querySelectorAll('circle[data-count-target][data-count-circumference]').forEach(circle=>{
+      const target=Number(circle.dataset.countTarget),total=Number(circle.dataset.countCircumference);
+      if(!Number.isFinite(target)||!Number.isFinite(total)||reduced)return;
+      circle.style.strokeDasharray='0 '+total;
+      const start=performance.now();
+      const frame=now=>{
+        const p=Math.min(1,(now-start)/1100),eased=1-Math.pow(1-p,3);
+        circle.style.strokeDasharray=(target*eased).toFixed(1)+' '+total.toFixed(1);
+        if(p<1)requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+  });
+}
 function renderDailyHome(){
   const pulse=document.getElementById('dailyPulse'); if(!pulse) return;
   const wr=document.getElementById('workReadiness'), wk=document.getElementById('weeklyDone');
@@ -5893,7 +5934,7 @@ function renderDailyHome(){
   const distribution=[['مكتملة',sm.done,'#4ade80'],['قيد التنفيذ',sm.inprog,'#60a5fa'],['لم تبدأ',sm.notStarted,'#8c8db5'],['مرتبطة بموعد التدشين',sm.hold,'#a78bfa',`المهام المؤجلة حتى موعد التدشين: ${sm.hold}`]];
   if(sm.otherStatus>0) distribution.push(['حالات أخرى',sm.otherStatus,'#94a3b8']);
   if(wr) wr.innerHTML=`<div class="dp-h"><h3>إنجاز المهام غير المعلّقة</h3><span>دون المهام المعلّقة</span></div>
-    <div class="dp-ready"><div class="dp-ring"><svg viewBox="0 0 190 190" aria-hidden="true"><g transform="rotate(-90 95 95)"><circle cx="95" cy="95" r="80" fill="none" stroke="var(--dp-track,#1c1e45)" stroke-width="14"/><circle cx="95" cy="95" r="80" fill="none" stroke="#4ade80" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(pct/100*C).toFixed(1)} ${C.toFixed(1)}"/></g></svg>
+    <div class="dp-ready"><div class="dp-ring"><svg viewBox="0 0 190 190" aria-hidden="true"><g transform="rotate(-90 95 95)"><circle cx="95" cy="95" r="80" fill="none" stroke="var(--dp-track,#1c1e45)" stroke-width="14"/><circle cx="95" cy="95" r="80" fill="none" stroke="#4ade80" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 ${C.toFixed(1)}" data-count-target="${(pct/100*C).toFixed(1)}" data-count-circumference="${C.toFixed(1)}"/></g></svg>
       <div class="dp-ring-c"><b>${pct}%</b><span>نسبة الإنجاز</span></div></div>
       <div class="dp-ready-t"><b>${sm.done} من ${actionableTotal} مهمة غير معلّقة مكتملة</b><p>تُعرض المهام المرتبطة بموعد التدشين ضمن توزيع مستقل أدناه، وتبقى الحالات غير المحددة خارج التصنيف</p>
       <div class="dp-split">
@@ -5930,6 +5971,7 @@ function renderDailyHome(){
       approvals.slice(0,3).map(t=>`<div class="dp-fl" role="button" tabindex="0" onclick="openDetail(${JSON.stringify(t.code)})"><span class="dp-k">${escapeHtml(t.code)}</span><div class="dp-t">${escapeHtml(t.name)}<small>${escapeHtml(String(ownerOf(t)))}</small></div></div>`).join('')+
       (approvals.length>3?`<button type="button" class="dp-more" onclick="showPage('tasks');document.getElementById('searchTask').value='اعتماد';applyFilters()">عرض كل الاعتمادات ←</button>`:'');
   }
+  animateDashboardSummary(pulse,wr);
 }
 function renderHomeReadiness(){
   const hero=document.getElementById('readinessHero');
