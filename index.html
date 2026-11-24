@@ -5861,7 +5861,8 @@ function renderLineChart(){
 
 function animateDashboardSummary(pulse,readiness){
   const user=String(currentUser?.username||'');
-  if(!pulse||pulse.dataset.animatedUser===user)return;
+  if(!pulse)return;
+  const shouldAnimate=pulse.dataset.animatedUser!==user;
   pulse.dataset.animatedUser=user;
   const roots=[pulse,readiness].filter(Boolean);
   const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -5884,11 +5885,12 @@ function animateDashboardSummary(pulse,readiness){
       const final=el.textContent.trim(),target=parse(final);
       if(!Number.isFinite(target))return;
       const suffix=final.replace(/[٠-٩۰-۹\d٬,\s.\-]/g,'');
-      if(!reduced)animate(el,target,suffix);
+      if(shouldAnimate&&!reduced)animate(el,target,suffix);
     });
     root.querySelectorAll('circle[data-count-target][data-count-circumference]').forEach(circle=>{
       const target=Number(circle.dataset.countTarget),total=Number(circle.dataset.countCircumference);
-      if(!Number.isFinite(target)||!Number.isFinite(total)||reduced)return;
+      if(!Number.isFinite(target)||!Number.isFinite(total))return;
+      if(!shouldAnimate||reduced){circle.style.strokeDasharray=target+' '+total;return;}
       circle.style.strokeDasharray='0 '+total;
       const start=performance.now();
       const frame=now=>{
