@@ -3116,22 +3116,11 @@ function closeSidebarDrawer(){document.getElementById('app')?.classList.remove('
 function toggleSidebarCollapse(){const app=document.getElementById('app'); if(!app||isMobileShell()) return; const on=!app.classList.contains('sidebar-collapsed'); app.classList.toggle('sidebar-collapsed',on); safeLocalSet('mayadeen.sidebarCollapsed',on?'1':'0');}
 function toggleNavGroup(btn){const group=btn.closest('.nav-group'); if(!group) return; group.classList.toggle('collapsed'); safeLocalSet('mayadeen.navGroup.'+group.dataset.navGroup,group.classList.contains('collapsed')?'1':'0');}
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeSidebarDrawer();});
-function setDashboardTheme(mode){
-  const theme=mode==='light'?'light':'dark';
-  document.documentElement.dataset.theme=theme;
-  const button=document.getElementById('themeToggle');
-  if(button){const next=theme==='light'?'dark':'light';button.setAttribute('aria-label',next==='light'?'تفعيل الوضع الفاتح':'تفعيل الوضع الداكن');button.title=next==='light'?'تفعيل الوضع الفاتح':'تفعيل الوضع الداكن';}
-  safeLocalSet('mayadeen.themeMode',theme);
-}
-function toggleDashboardTheme(){setDashboardTheme(document.documentElement.dataset.theme==='light'?'dark':'light');}
 document.addEventListener('DOMContentLoaded',function(){
   document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
   document.querySelectorAll('.nav-group').forEach(g=>{if(safeLocalGet('mayadeen.navGroup.'+g.dataset.navGroup)==='1') g.classList.add('collapsed');});
   const app=document.getElementById('app'); if(app&&safeLocalGet('mayadeen.sidebarCollapsed')==='1') app.classList.add('sidebar-collapsed');
   document.body.classList.remove('war-display');
-  setDashboardTheme(safeLocalGet('mayadeen.themeMode')==='light'?'light':'dark');
-  const themeButton=document.getElementById('themeToggle');
-  if(themeButton&&!themeButton.dataset.bound){themeButton.dataset.bound='true';themeButton.addEventListener('click',toggleDashboardTheme);}
   bindPerformanceGuards();
   bootstrapSession();
 });
