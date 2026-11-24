@@ -5265,8 +5265,12 @@ let forceFreshHomeSync=false;
 // ===== عرض فوري لآخر بيانات (sessionStorage فقط: نفس التبويب ونفس المستخدم) =====
 // عند إعادة تحميل الصفحة تُعرض آخر بيانات وصلت لهذا المستخدم في هذا التبويب فوراً،
 // ثم يتحقق الخادم من الجلسة ويجلب البيانات الحالية في الخلفية. تُمسح عند الخروج أو فشل الجلسة.
-const HOME_CACHE_KEY='kag.homeCache.v2';
+const HOME_CACHE_KEY='kag.homeCache.v3';
+const LEGACY_HOME_CACHE_KEY='kag.homeCache.v2';
 const HOME_CACHE_MAX_AGE=30*60*1000;
+function homeCacheStorageKey(username){
+  return HOME_CACHE_KEY+':'+encodeURIComponent(String(username||'').trim().toLowerCase());
+}
 function homeCacheAccessKey(user){
   const u=user||currentUser||{};
   return [u.username||'',u.role||'',u.access_level||'',u.path_scope||'',
@@ -5281,14 +5285,21 @@ function dashboardDataTimestamp(data){
 function saveHomeCache(data){
   try{
     if(!data||data.__fromCache||!Array.isArray(data.rows)||!currentUser||!currentUser.username) return;
-    sessionStorage.setItem(HOME_CACHE_KEY,JSON.stringify({u:String(currentUser.username),a:homeCacheAccessKey(currentUser),t:Date.now(),d:data}));
+    const key=homeCacheStorageKey(currentUser.username);
+    const serialized=JSON.stringify({u:String(currentUser.username),a:homeCacheAccessKey(currentUser),t:Date.now(),d:data});
+    localStorage.setItem(key,serialized);
+    try{sessionStorage.setItem(LEGACY_HOME_CACHE_KEY,serialized);}catch(_){}
   }catch(e){console.warn('[Cache] تعذر حفظ نسخة الداشبورد محليًا',e);}
 }
 function readHomeCache(username,user){
   try{
-    const raw=sessionStorage.getItem(HOME_CACHE_KEY); if(!raw) return null;
-    const c=JSON.parse(raw);
-    if(!c||c.u!==String(username||'')||c.a!==homeCacheAccessKey(user||currentUser)||!c.d||Date.now()-Number(c.t||0)>HOME_CACHE_MAX_AGE) return null;
+    const key=homeCacheStorageKey(username);
+    let raw=safeLocalGet(key);
+    if(!raw){try{raw=sessionStorage.getItem(LEGACY_HOME_CACHE_KEY);}catch(_){}}
+    if(!raw) return null;
+    const c=JSON.parse(raw),age=Date.now()-Number(c?.t||0);
+    if(!c||c.u!==String(username||'')||c.a!==homeCacheAccessKey(user||currentUser)||!c.d||!Array.isArray(c.d.rows)||age<0||age>HOME_CACHE_MAX_AGE) return null;
+    if(!safeLocalGet(key)){try{localStorage.setItem(key,raw);}catch(_){}}
     c.d.__fromCache=true; c.d.__cacheSavedAt=Number(c.t||0); return c.d;
   }catch(e){return null;}
 }
@@ -5310,7 +5321,7 @@ async function loadExternalFromCache(payload){
   try{ return await loadExternal(true); }
   finally{ if(fresh&&!prefetchedHomeResponse) prefetchedHomeResponse=fresh; }
 }
-function clearHomeCache(){try{sessionStorage.removeItem(HOME_CACHE_KEY);}catch(e){}}
+function clearHomeCache(){try{if(currentUser?.username)localStorage.removeItem(homeCacheStorageKey(currentUser.username));sessionStorage.removeItem(LEGACY_HOME_CACHE_KEY);}catch(e){}}
 let prefetchedHomeResponse=null;
 let homeSyncFailed=false;
 let lastSuccessfulHomePayload=null;
