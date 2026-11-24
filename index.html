@@ -5878,7 +5878,7 @@ function renderDailyHome(){
   // const weekDelta=m&&m.completed_this_week!=null&&m.completed_last_week!=null?m.completed_this_week-m.completed_last_week:null;
   const items=[
     {v:num(m&&m.completed_yesterday),l:'أُنجزت أمس',c:'#4ade80',pending:!(m&&m.completed_yesterday!=null)},
-    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',pending:!(m&&m.completed_this_week!=null),action:'openTodayCompletedTasks'},
+    {v:num(m&&m.completed_this_week),l:'أُنجزت هذا الأسبوع',c:'#a78bfa',pending:!(m&&m.completed_this_week!=null)},
     {v:num(m&&m.moved_this_week),l:'بدأ العمل عليها هذا الأسبوع',c:'#60a5fa',pending:!(m&&m.moved_this_week!=null)},
     {v:ready?approvals.length:'—',l:'اعتمادات في الخطة',c:'#fbbf24'},
     {v:ready?high.length:'—',l:'أولوية عالية مفتوحة',c:'#f87171'},
