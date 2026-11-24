@@ -14,7 +14,7 @@
 
   function chartPalette(theme) {
     return theme === 'light'
-      ? { text: '#526173', grid: 'rgba(16, 43, 63, .10)', tooltip: '#102b3f', tooltipText: '#ffffff' }
+      ? { text: '#4B4963', grid: 'rgba(22, 15, 64, .12)', tooltip: '#211D50', tooltipText: '#FFFFFF' }
       : { text: '#6b7a9f', grid: 'rgba(255, 255, 255, .04)', tooltip: 'rgba(15, 18, 35, .95)', tooltipText: '#eef1ff' };
   }
 
