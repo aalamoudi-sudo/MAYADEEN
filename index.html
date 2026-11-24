@@ -3092,7 +3092,7 @@ async function bootstrapSession(){
       currentUser=authState.user; MayadeenAuth.write(sessionStorage,authState); applyPermissions();
       if(syncRequestInFlight){try{await syncRequestInFlight;}catch(_){}}
       await new Promise(r=>setTimeout(r,0)); // انتظر تنظيف syncRequestInFlight
-      nextSyncAllowedAt=0; loadExternal(false).catch(e=>console.warn('Refresh data sync failed',e));
+      nextSyncAllowedAt=0; forceFreshHomeSync=true; loadExternal(false).catch(e=>console.warn('Refresh data sync failed',e));
     }catch(e){
       console.warn('[Auth] session bootstrap failed',e); MayadeenAuth.clear(sessionStorage);
       dispatchAuth({type:'FAILURE',error:sanitizeUserError(e,'تعذر التحقق من الجلسة. سجّل الدخول مرة أخرى.')});
