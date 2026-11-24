@@ -5418,6 +5418,28 @@ async function loadExternal(initial=true){
     // بالقيم التي ستستخدمها الواجهة، ولا ينشئ بيانات بديلة أو تجريبية.
     console.table(timelineDataAuditRows(Array.isArray(data.rows)?data.rows:[],normalized));
     if(Array.isArray(data.task_headers)) console.table(data.task_headers.map((header,index)=>({index:index+1,normalized_header:header})));
+    if(Object.prototype.hasOwnProperty.call(data,'daily_metrics')) window.kagDailyMetrics=data.daily_metrics||null;
+    window.kagStatusChangeTrackingAvailable=data.status_change_tracking_available===true;
+    window.kagCompletedStatusChangesToday=Array.isArray(data.completed_status_changes_today)?data.completed_status_changes_today:[];
+    saveHomeCache(data);
+    const syncMeta=data.sync_meta||{};
+    if(Array.isArray(data.rows)){
+      if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
+      if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
+      rows=normalized;
+      const pageTaskCount=rows.filter(isTaskRecord_).length;
+      const payloadTaskCount=Number(syncMeta.payload_task_total||normalized.length);
+      const sheetTaskCount=Number(syncMeta.valid_task_count||payloadTaskCount);
+      if(sheetTaskCount!==payloadTaskCount||payloadTaskCount!==pageTaskCount){
+        throw new Error(`Unified data pipeline mismatch: Google Sheet=${sheetTaskCount}, Payload=${payloadTaskCount}, Home=${pageTaskCount}`);
+      }
+      officialDataReady=true;
+      if(initial){
+        // Paint the verified WBS KPIs before spending time normalizing secondary registers.
+        initData();
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        console.info('⏱️ [ApiTimeline]',{action:'data_sync',event:'primary_data_painted',duration_ms:Math.round(performance.now()-_syncStart),rows:rows.length});
+      }
     const normalizedApprovalChain=normalizeApprovalChainRows(data.approval_chain||[]);
     const normalizedEscalationChain=normalizeEscalationChainRows(data.escalation_chain||[]);
     const normalizedApprovals=normalizeApprovalRows(data.approvals||data.approvals_register||[]);
@@ -5425,10 +5447,6 @@ async function loadExternal(initial=true){
     const normalizedMeetings=normalizeMeetingRows(data.meetings||[]);
     const normalizedCommitments=normalizeCommitmentRows(data.commitments||[]);
     const normalizedFiles=normalizeFileRows(data.files||data.file_control||[]);
-    if(Object.prototype.hasOwnProperty.call(data,'daily_metrics')) window.kagDailyMetrics=data.daily_metrics||null;
-    window.kagStatusChangeTrackingAvailable=data.status_change_tracking_available===true;
-    window.kagCompletedStatusChangesToday=Array.isArray(data.completed_status_changes_today)?data.completed_status_changes_today:[];
-    saveHomeCache(data);
     const normalizedUrgentTasks=normalizeUrgentTaskRows(data.urgent_tasks||data.urgentTasks||[]);
     const normalizedProcurements=normalizeProcurementRows(data.procurements||data.procurement_requests||[]);
     const normalizedPermits=normalizePermitRows(data.permits||data.permits_register||[]);
@@ -5446,18 +5464,6 @@ async function loadExternal(initial=true){
     const normalizedRiskGovernance=normalizeRiskGovernanceRows(data.risk_governance_register||data.riskGovernanceRegister||data.risk_governance||data.risks_governance||[]);
     projectMasterRows=Array.isArray(data.project_master)?data.project_master.filter(r=>!isTestOrSyntheticRecord_(r)):[];
     employeeMaster=data.employee_master||[]; baselineManagement=data.baseline_management||[]; raciMatrix=data.raci_matrix||[]; employeeWorkload=data.employee_workload||[]; criticalPathAnalysis=data.critical_path||criticalPathAnalysis; dataQualityCenter=data.data_quality||dataQualityCenter;
-    const syncMeta=data.sync_meta||{};
-    if(Array.isArray(data.rows)){
-      if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
-      if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
-      rows=normalized;
-      const pageTaskCount=rows.filter(isTaskRecord_).length;
-      const payloadTaskCount=Number(syncMeta.payload_task_total||normalized.length);
-      const sheetTaskCount=Number(syncMeta.valid_task_count||payloadTaskCount);
-      if(sheetTaskCount!==payloadTaskCount||payloadTaskCount!==pageTaskCount){
-        throw new Error(`Unified data pipeline mismatch: Google Sheet=${sheetTaskCount}, Payload=${payloadTaskCount}, Home=${pageTaskCount}`);
-      }
-      officialDataReady=true;
       approvals=normalizedApprovals.filter(r=>!isTestOrSyntheticRecord_(r));
       assignments=normalizedAssignments.filter(r=>!isTestOrSyntheticRecord_(r));
       meetings=normalizedMeetings.filter(r=>!isTestOrSyntheticRecord_(r));
@@ -7946,10 +7952,53 @@ function recipientOptions(selected,taskId){if(!inquiryBootstrap||!Array.isArray(
 function inquiryRedirectOptions(selected){if(!Array.isArray(inquiryDetailUsers))throw inquiryApiError('بيانات مستخدمي المحادثة غير متاحة','server',0,'inquiry_detail');return inquiryDetailUsers.map(u=>`<option value="${escapeHtml(u.username)}" ${u.username===selected?'selected':''}>${escapeHtml(u.display_name)} — ${escapeHtml(u.role)}</option>`).join('');}
 function inquiryComposerValid(seq,identity){return inquiryComposerState?.seq===seq&&inquiryIdentityMatches(identity)&&document.getElementById('modal')?.classList.contains('active')&&document.getElementById('iqComposer');}
 function closeInquiryComposerState(){if(inquiryComposerState){inquiryComposerState.closed=true;inquiryComposerState=null;}inquiryComposerSeq++;}
-function setInquiryComposerReady(data,seq,identity){if(!data||!inquiryComposerValid(seq,identity))return;const state=inquiryComposerState,task=data.tasks.find(t=>t.id===state.taskId),recipient=document.getElementById('iqRecipient'),taskSelect=document.getElementById('iqTask'),submit=document.getElementById('iqSubmit');recipient.innerHTML=`<option value="">اختر مستخدمًا</option>${recipientOptions(task?.suggested_recipient||'',state.taskId)}`;taskSelect.innerHTML=`<option value="">بدون مهمة</option>${data.tasks.map(t=>`<option value="${escapeHtml(t.id)}" ${t.id===state.taskId?'selected':''}>${escapeHtml(t.id+' — '+t.title)}</option>`).join('')}`;recipient.disabled=false;taskSelect.disabled=false;submit.disabled=false;state.ready=true;try{performance.mark('inquiry-composer-ready');performance.measure('inquiry-composer-visible-to-ready','inquiry-composer-visible','inquiry-composer-ready');}catch(e){}document.getElementById('iqError').textContent='';recipient.addEventListener('change',()=>{if(submit)submit.disabled=!recipient.value;});submit.disabled=!recipient.value;}
+const INQUIRY_TASK_OPTION_LIMIT=50;
+function inquiryTaskOptions(query='',selected=''){
+  const tasks=Array.isArray(inquiryBootstrap?.tasks)?inquiryBootstrap.tasks:[];
+  const q=String(query||'').trim().toLocaleLowerCase();
+  const matches=tasks.filter(t=>!q||String(t.id||'').toLocaleLowerCase().includes(q)||String(t.title||'').toLocaleLowerCase().includes(q));
+  const chosen=selected?tasks.find(t=>String(t.id)===String(selected)):null;
+  const shown=matches.slice(0,INQUIRY_TASK_OPTION_LIMIT);
+  if(chosen&&!shown.some(t=>String(t.id)===String(chosen.id)))shown.unshift(chosen);
+  return `<option value="">بدون مهمة</option>${shown.slice(0,INQUIRY_TASK_OPTION_LIMIT).map(t=>`<option value="${escapeHtml(t.id)}" ${String(t.id)===String(selected)?'selected':''}>${escapeHtml(t.id+' — '+t.title)}</option>`).join('')}${matches.length>INQUIRY_TASK_OPTION_LIMIT?`<option disabled>اكتب للبحث — ${matches.length} نتيجة</option>`:''}`;
+}
+function setInquiryComposerReady(data,seq,identity){
+  if(!data||!inquiryComposerValid(seq,identity))return;
+  const state=inquiryComposerState,tasks=Array.isArray(data.tasks)?data.tasks:[],task=tasks.find(t=>String(t.id)===String(state.taskId)),
+    recipient=document.getElementById('iqRecipient'),taskSelect=document.getElementById('iqTask'),
+    taskSearch=document.getElementById('iqTaskSearch'),submit=document.getElementById('iqSubmit');
+  recipient.innerHTML=`<option value="">اختر مستخدمًا</option>${recipientOptions(task?.suggested_recipient||'',state.taskId)}`;
+  if(taskSearch){taskSearch.disabled=false;taskSearch.value='';taskSearch.placeholder='ابحث برمز المهمة أو اسمها…';}
+  taskSelect.innerHTML=inquiryTaskOptions('',state.taskId);
+  taskSelect.disabled=false;recipient.disabled=false;submit.disabled=false;state.ready=true;
+  if(taskSearch&&!taskSearch.dataset.bound){
+    taskSearch.dataset.bound='true';
+    taskSearch.addEventListener('input',()=>{
+      if(!inquiryComposerValid(seq,identity))return;
+      const selected=taskSelect.value;
+      taskSelect.innerHTML=inquiryTaskOptions(taskSearch.value,selected);
+      if(selected&&!Array.from(taskSelect.options).some(o=>o.value===selected))taskSelect.value='';
+    });
+  }
+  if(!taskSelect.dataset.bound){
+    taskSelect.dataset.bound='true';
+    taskSelect.addEventListener('change',()=>{
+      const selectedTask=tasks.find(t=>String(t.id)===String(taskSelect.value));
+      const currentRecipient=recipient.value;
+      recipient.innerHTML=`<option value="">اختر مستخدمًا</option>${recipientOptions(selectedTask?.suggested_recipient||'',taskSelect.value)}`;
+      if(Array.from(recipient.options).some(o=>o.value===currentRecipient))recipient.value=currentRecipient;
+      if(taskSearch)taskSearch.value=selectedTask?'':taskSearch.value;
+      if(submit)submit.disabled=!recipient.value;
+    });
+  }
+  try{performance.mark('inquiry-composer-ready');performance.measure('inquiry-composer-visible-to-ready','inquiry-composer-visible','inquiry-composer-ready');}catch(e){}
+  document.getElementById('iqError').textContent='';
+  recipient.addEventListener('change',()=>{if(submit)submit.disabled=!recipient.value;});
+  submit.disabled=!recipient.value;
+}
 async function hydrateInquiryComposer(seq,identity){const err=document.getElementById('iqError');if(err)err.textContent='جارٍ تحميل المستلمين والمهام…';try{const data=await loadInquiryBootstrap();setInquiryComposerReady(data,seq,identity);}catch(e){if(!inquiryComposerValid(seq,identity))return;const target=document.getElementById('iqError');if(target)target.innerHTML=`${escapeHtml(inquiryError(e))} <button type="button" onclick="retryInquiryComposer(${seq})">إعادة المحاولة</button>`;}}
 function retryInquiryComposer(seq){if(!inquiryComposerState||inquiryComposerState.seq!==seq)return;inquiryBootstrap=null;hydrateInquiryComposer(seq,inquiryComposerState.identity);}
-function openInquiryComposer(taskId=''){try{performance.mark('inquiry-composer-click');}catch(e){}const modal=document.getElementById('modal');if(inquiryComposerState&&modal?.classList.contains('active')){document.getElementById('iqTitle')?.focus();return;}const seq=++inquiryComposerSeq,identity=inquiryIdentity();inquiryComposerState={seq,identity,taskId:String(taskId||''),ready:false,pending:false,uncertain:false};document.getElementById('modalContent').innerHTML=`<h2>استفسار جديد</h2><form id="iqComposer" class="inquiry-form" data-request-id="${inquiryRequestId()}" onsubmit="submitInquiry(event)"><label>العنوان<input id="iqTitle" maxlength="150" required autofocus></label><label>تفاصيل الاستفسار<textarea id="iqDetails" maxlength="5000" rows="6" required></textarea></label><label>موجّه إلى<select id="iqRecipient" required disabled><option value="">جارٍ تحميل المستلمين…</option></select></label><label>المهمة المرتبطة (اختيارية)<select id="iqTask" disabled><option value="">جارٍ تحميل المهام…</option></select></label><label>الأولوية<select id="iqPriority"><option>عادي</option><option>عاجل</option></select></label><div id="iqError" class="inquiry-state" aria-live="polite">جارٍ تحميل بيانات النموذج…</div><button id="iqSubmit" class="ops-primary-btn" type="submit" disabled>إرسال الاستفسار</button></form>`;modal.classList.add('active');try{performance.mark('inquiry-composer-visible');performance.measure('inquiry-composer-click-to-visible','inquiry-composer-click','inquiry-composer-visible');}catch(e){}requestAnimationFrame(()=>document.getElementById('iqTitle')?.focus());if(inquiryBootstrap)setInquiryComposerReady(inquiryBootstrap,seq,identity);else hydrateInquiryComposer(seq,identity);}
+function openInquiryComposer(taskId=''){try{performance.mark('inquiry-composer-click');}catch(e){}const modal=document.getElementById('modal');if(inquiryComposerState&&modal?.classList.contains('active')){document.getElementById('iqTitle')?.focus();return;}const seq=++inquiryComposerSeq,identity=inquiryIdentity();inquiryComposerState={seq,identity,taskId:String(taskId||''),ready:false,pending:false,uncertain:false};document.getElementById('modalContent').innerHTML=`<h2>استفسار جديد</h2><form id="iqComposer" class="inquiry-form" data-request-id="${inquiryRequestId()}" onsubmit="submitInquiry(event)"><label>العنوان<input id="iqTitle" maxlength="150" required autofocus></label><label>تفاصيل الاستفسار<textarea id="iqDetails" maxlength="5000" rows="6" required></textarea></label><label>موجّه إلى<select id="iqRecipient" required disabled><option value="">جارٍ تحميل المستلمين…</option></select></label><label>المهمة المرتبطة (اختيارية)<input id="iqTaskSearch" type="search" autocomplete="off" placeholder="جارٍ تحميل المهام…" disabled><select id="iqTask" disabled><option value="">جارٍ تحميل المهام…</option></select></label><label>الأولوية<select id="iqPriority"><option>عادي</option><option>عاجل</option></select></label><div id="iqError" class="inquiry-state" aria-live="polite">جارٍ تحميل بيانات النموذج…</div><button id="iqSubmit" class="ops-primary-btn" type="submit" disabled>إرسال الاستفسار</button></form>`;modal.classList.add('active');try{performance.mark('inquiry-composer-visible');performance.measure('inquiry-composer-click-to-visible','inquiry-composer-click','inquiry-composer-visible');}catch(e){}requestAnimationFrame(()=>document.getElementById('iqTitle')?.focus());if(inquiryBootstrap)setInquiryComposerReady(inquiryBootstrap,seq,identity);else hydrateInquiryComposer(seq,identity);}
 async function submitInquiry(e){e.preventDefault();const state=inquiryComposerState,btn=e.submitter||document.getElementById('iqSubmit'),err=document.getElementById('iqError');if(!state||!state.ready||state.pending||!iqRecipient.value)return;state.pending=true;btn.disabled=true;err.textContent='جارٍ الحفظ…';const payload={action:'inquiry_create',request_id:e.currentTarget.dataset.requestId,title:iqTitle.value,details:iqDetails.value,recipient_username:iqRecipient.value,task_id:iqTask.value,priority:iqPriority.value};try{const d=await inquiryApi(payload);if(!inquiryComposerValid(state.seq,state.identity))return;closeModal();loadInquiries(true);openInquiryDetail(d.inquiry.inquiry_id);}catch(x){state.pending=false;state.uncertain=x?.inquiryKind==='timeout'||x?.inquiryKind==='network';if(!inquiryComposerValid(state.seq,state.identity))return;if(state.uncertain){err.innerHTML=`تعذر تأكيد الحفظ. قد يكون الاستفسار حُفظ؛ بقيت المسودة كما هي. <button type="button" onclick="verifyInquiryCreation()">التحقق من النتيجة</button>`;}else{err.textContent=inquiryError(x);btn.disabled=false;}}}
 async function verifyInquiryCreation(){const state=inquiryComposerState,form=document.getElementById('iqComposer');if(!state||!form)return;const err=document.getElementById('iqError');err.textContent='جارٍ التحقق من الحفظ…';try{const d=await inquiryReadWithRetry({action:'inquiry_request_status',request_kind:'create',request_id:form.dataset.requestId},2);if(!inquiryComposerValid(state.seq,state.identity))return;if(d.found){closeModal();loadInquiries(true);openInquiryDetail(d.inquiry_id);return;}state.uncertain=false;document.getElementById('iqSubmit').disabled=false;err.textContent='لم يُعثر على الاستفسار. يمكنك إعادة الإرسال الآن بنفس معرّف الطلب دون تكرار.';}catch(e){if(inquiryComposerValid(state.seq,state.identity))err.innerHTML=`تعذر التحقق الآن، وبقيت المسودة محفوظة. <button type="button" onclick="verifyInquiryCreation()">إعادة التحقق</button>`;}}
 function inquiryDetailValid(id,seq,identity){return inquirySelectedId===id&&seq===inquiryViewSeq&&inquiryIdentityMatches(identity)&&document.getElementById('drawer')?.classList.contains('active');}
