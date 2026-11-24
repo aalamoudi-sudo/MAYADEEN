@@ -5868,7 +5868,7 @@ function animateDashboardSummary(pulse,readiness){
   const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const digitMap={'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
   const parse=value=>{const normalized=String(value||'').replace(/[٠-٩۰-۹]/g,d=>digitMap[d]).replace(/[٬,\s]/g,'');const match=normalized.match(/-?\d+(?:\.\d+)?/);return match?Number(match[0]):NaN;};
-  const format=value=>Math.round(value).toLocaleString('ar-SA-u-nu-arab');
+  const format=value=>Math.round(value).toLocaleString('en-US');
   const animate=(element,target,suffix,duration=850)=>{
     if(!Number.isFinite(target)||target<0)return;
     const start=performance.now();
@@ -5877,7 +5877,7 @@ function animateDashboardSummary(pulse,readiness){
       element.textContent=format(target*eased)+suffix;
       if(p<1)requestAnimationFrame(frame);
     };
-    element.textContent='٠'+suffix;
+    element.textContent='0'+suffix;
     requestAnimationFrame(frame);
   };
   roots.forEach(root=>{
