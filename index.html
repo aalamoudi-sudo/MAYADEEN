@@ -1756,6 +1756,20 @@ input,select,textarea{min-height:var(--field-h);font-size:14px;line-height:1.6}l
   background:#F7F6FA!important;
   border-color:#E4E1E8!important;
 }
+
+/* Remove dark-mode ambient glows from the light canvas. */
+:root[data-theme="light"] body::before{
+  background:none!important;
+  opacity:0!important;
+}
+/* The reference uses a pale neutral fill for inset metric tiles. */
+:root[data-theme="light"] #overview .rd-kpi,
+:root[data-theme="light"] #overview .rd-att{
+  background:#F7F6FA!important;
+  background-image:none!important;
+  border-color:#E4E1E8!important;
+  box-shadow:none!important;
+}
 </style></head>
 <body>
 
