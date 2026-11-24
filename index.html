@@ -5418,28 +5418,6 @@ async function loadExternal(initial=true){
     // بالقيم التي ستستخدمها الواجهة، ولا ينشئ بيانات بديلة أو تجريبية.
     console.table(timelineDataAuditRows(Array.isArray(data.rows)?data.rows:[],normalized));
     if(Array.isArray(data.task_headers)) console.table(data.task_headers.map((header,index)=>({index:index+1,normalized_header:header})));
-    if(Object.prototype.hasOwnProperty.call(data,'daily_metrics')) window.kagDailyMetrics=data.daily_metrics||null;
-    window.kagStatusChangeTrackingAvailable=data.status_change_tracking_available===true;
-    window.kagCompletedStatusChangesToday=Array.isArray(data.completed_status_changes_today)?data.completed_status_changes_today:[];
-    saveHomeCache(data);
-    const syncMeta=data.sync_meta||{};
-    if(Array.isArray(data.rows)){
-      if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
-      if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
-      rows=normalized;
-      const pageTaskCount=rows.filter(isTaskRecord_).length;
-      const payloadTaskCount=Number(syncMeta.payload_task_total||normalized.length);
-      const sheetTaskCount=Number(syncMeta.valid_task_count||payloadTaskCount);
-      if(sheetTaskCount!==payloadTaskCount||payloadTaskCount!==pageTaskCount){
-        throw new Error(`Unified data pipeline mismatch: Google Sheet=${sheetTaskCount}, Payload=${payloadTaskCount}, Home=${pageTaskCount}`);
-      }
-      officialDataReady=true;
-      if(initial){
-        // Paint the verified WBS KPIs before spending time normalizing secondary registers.
-        initData();
-        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-        console.info('⏱️ [ApiTimeline]',{action:'data_sync',event:'primary_data_painted',duration_ms:Math.round(performance.now()-_syncStart),rows:rows.length});
-      }
     const normalizedApprovalChain=normalizeApprovalChainRows(data.approval_chain||[]);
     const normalizedEscalationChain=normalizeEscalationChainRows(data.escalation_chain||[]);
     const normalizedApprovals=normalizeApprovalRows(data.approvals||data.approvals_register||[]);
@@ -5447,6 +5425,10 @@ async function loadExternal(initial=true){
     const normalizedMeetings=normalizeMeetingRows(data.meetings||[]);
     const normalizedCommitments=normalizeCommitmentRows(data.commitments||[]);
     const normalizedFiles=normalizeFileRows(data.files||data.file_control||[]);
+    if(Object.prototype.hasOwnProperty.call(data,'daily_metrics')) window.kagDailyMetrics=data.daily_metrics||null;
+    window.kagStatusChangeTrackingAvailable=data.status_change_tracking_available===true;
+    window.kagCompletedStatusChangesToday=Array.isArray(data.completed_status_changes_today)?data.completed_status_changes_today:[];
+    saveHomeCache(data);
     const normalizedUrgentTasks=normalizeUrgentTaskRows(data.urgent_tasks||data.urgentTasks||[]);
     const normalizedProcurements=normalizeProcurementRows(data.procurements||data.procurement_requests||[]);
     const normalizedPermits=normalizePermitRows(data.permits||data.permits_register||[]);
@@ -5464,6 +5446,18 @@ async function loadExternal(initial=true){
     const normalizedRiskGovernance=normalizeRiskGovernanceRows(data.risk_governance_register||data.riskGovernanceRegister||data.risk_governance||data.risks_governance||[]);
     projectMasterRows=Array.isArray(data.project_master)?data.project_master.filter(r=>!isTestOrSyntheticRecord_(r)):[];
     employeeMaster=data.employee_master||[]; baselineManagement=data.baseline_management||[]; raciMatrix=data.raci_matrix||[]; employeeWorkload=data.employee_workload||[]; criticalPathAnalysis=data.critical_path||criticalPathAnalysis; dataQualityCenter=data.data_quality||dataQualityCenter;
+    const syncMeta=data.sync_meta||{};
+    if(Array.isArray(data.rows)){
+      if(normalizedApprovalChain.length) approvalChainRegister=normalizedApprovalChain.filter(r=>!isTestOrSyntheticRecord_(r));
+      if(normalizedEscalationChain.length) escalationChainRegister=normalizedEscalationChain.filter(r=>!isTestOrSyntheticRecord_(r));
+      rows=normalized;
+      const pageTaskCount=rows.filter(isTaskRecord_).length;
+      const payloadTaskCount=Number(syncMeta.payload_task_total||normalized.length);
+      const sheetTaskCount=Number(syncMeta.valid_task_count||payloadTaskCount);
+      if(sheetTaskCount!==payloadTaskCount||payloadTaskCount!==pageTaskCount){
+        throw new Error(`Unified data pipeline mismatch: Google Sheet=${sheetTaskCount}, Payload=${payloadTaskCount}, Home=${pageTaskCount}`);
+      }
+      officialDataReady=true;
       approvals=normalizedApprovals.filter(r=>!isTestOrSyntheticRecord_(r));
       assignments=normalizedAssignments.filter(r=>!isTestOrSyntheticRecord_(r));
       meetings=normalizedMeetings.filter(r=>!isTestOrSyntheticRecord_(r));
