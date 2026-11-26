@@ -7853,6 +7853,20 @@ function buildReportData(type='daily'){
     {title:'مؤشرات تشغيلية إضافية',rows:r.metrics},
     {title:'التوصيات التنفيذية',rows:r.recommendations.map((x,i)=>({الرقم:i+1,التوصية:x}))}
   ];
+  const phaseStats=getSharedProjectPhaseStats();
+  const currentPhase=getCurrentProjectPhaseStat(phaseStats);
+  const phaseJourneyRows=phaseStats.map(stat=>({
+    'المرحلة':stat.phase,
+    'الحالة':stat===currentPhase?'المرحلة الحالية':stat.total&&stat.done===stat.total?'مكتملة':stat.late>0?'متأخرة':stat.inprog||stat.done?'جارية':'لم تبدأ',
+    'نسبة الإنجاز':stat.pct+'%',
+    'المهام المكتملة':stat.done+' من '+stat.total,
+    'المهام المتبقية':Math.max(0,stat.total-stat.done),
+    'المهام المعلقة':stat.hold||0
+  }));
+  const phaseJourneySection={title:'رحلة المراحل',rows:reportEmptyMessage(phaseJourneyRows)};
+  if(!Array.isArray(r.sections)) r.sections=[];
+  const summarySectionIndex=r.sections.findIndex(section=>section.title==='الملخص التنفيذي');
+  r.sections.splice(summarySectionIndex>=0?summarySectionIndex+1:0,0,phaseJourneySection);
   return r;
 }
 
