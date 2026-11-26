@@ -7863,7 +7863,15 @@ function buildReportData(type='daily'){
     'المهام المتبقية':Math.max(0,stat.total-stat.done),
     'المهام المعلقة':stat.hold||0
   }));
-  const phaseJourneySection={title:'رحلة المراحل',rows:reportEmptyMessage(phaseJourneyRows)};
+  const phaseJourneySection={
+    title:'رحلة المراحل',
+    rows:reportEmptyMessage(phaseJourneyRows),
+    type:'journey',
+    journeyStats:phaseStats.map(stat=>({
+      phase:stat.phase,pct:stat.pct,total:stat.total,done:stat.done,hold:stat.hold||0,
+      current:stat===currentPhase,late:stat.late||0,inprog:stat.inprog||0
+    }))
+  };
   if(!Array.isArray(r.sections)) r.sections=[];
   const summarySectionIndex=r.sections.findIndex(section=>section.title==='الملخص التنفيذي');
   r.sections.splice(summarySectionIndex>=0?summarySectionIndex+1:0,0,phaseJourneySection);
@@ -7903,6 +7911,34 @@ function reportHtmlTable(rows){
   const keys=Object.keys(rows[0]);
   return '<div class="rpt-table-wrap"><table class="rpt-table"><thead><tr>'+keys.map(k=>'<th>'+escapeHtml(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+keys.map(k=>'<td>'+escapeHtml(row[k]==null?'':row[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
 }
+function reportJourneyHtml(section){
+  const stats=section?.journeyStats||[];
+  if(!stats.length) return '<p>لا توجد بيانات للمراحل.</p>';
+  const current=stats.find(st=>st.current);
+  const remain=current?Math.max(0,current.total-current.done):0;
+  const nodes=stats.map(st=>{
+    const complete=st.total>0&&st.done===st.total;
+    const isCurrent=!!st.current;
+    const color=complete?'#25b86a':isCurrent?'#8b63d9':'#59627a';
+    const bg=complete?'#e8f7ef':isCurrent?'#f1eafd':'#f4f6fa';
+    const border=complete?'#9cdbb7':isCurrent?'#c3a9f2':'#d5dce7';
+    const mark=complete?'✓':String(st.pct||0)+'%';
+    const details='<bdi dir="ltr">'+Number(st.done||0)+' / '+Number(st.total||0)+'</bdi> مكتملة'+(st.hold?' · '+Number(st.hold)+' معلّقة':'');
+    return '<div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;min-width:0;padding:0 3px;">'+
+      '<span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;box-sizing:border-box;border:2px solid '+border+';background:'+bg+';color:'+color+';font-size:13px;font-weight:800;">'+mark+'</span>'+
+      '<b style="font-size:13px;color:#17375e;line-height:1.35;">'+escapeHtml(st.phase)+'</b>'+
+      '<span style="font-size:10px;color:#59627a;line-height:1.5;">'+details+'</span>'+
+      (st.current?'<span style="font-size:9px;color:#7250b5;font-weight:700;">المرحلة الحالية</span>':'')+
+      '</div>';
+  }).join('');
+  return '<div dir="rtl" style="border:1px solid #d6e2f0;border-radius:12px;background:#f6f8fb;padding:13px 10px 11px;page-break-inside:avoid;">'+
+    '<div style="font-size:11px;color:#59627a;text-align:left;margin:0 0 12px;">'+
+    (current?'المرحلة الحالية: <b>'+escapeHtml(current.phase)+'</b> · '+remain+' مهمة متبقية فيها':'جميع المراحل مكتملة')+
+    '</div>'+
+    '<div style="position:relative;display:grid;grid-template-columns:repeat('+stats.length+',minmax(0,1fr));direction:rtl;align-items:start;gap:0;padding-top:2px;">'+
+    '<span aria-hidden="true" style="position:absolute;z-index:0;top:19px;left:9%;right:9%;height:3px;background:#29436a;border-radius:2px;"></span>'+
+    nodes+'</div></div>';
+}
 function generatePdfReport(type='daily'){
   const r=buildReportData(type);
   const el=document.getElementById('report-print-view'); if(!el) return;
@@ -7915,7 +7951,7 @@ function generatePdfReport(type='daily'){
   el.innerHTML='<header class="rpt-header"><div class="rpt-brand"><div class="rpt-brand-mark">M</div><div><h1>'+escapeHtml(r.brand.name)+'</h1><p>'+escapeHtml(r.brand.project)+'</p></div></div><div class="rpt-report-name">'+escapeHtml(r.title)+'</div></header>'+
     '<div class="rpt-meta-grid">'+metaRows.map(x=>'<div class="rpt-meta-cell"><span>'+escapeHtml(x[0])+'</span><b>'+escapeHtml(x[1])+'</b></div>').join('')+'</div>'+
     '<div class="rpt-title-bar">الملخص التنفيذي</div><div class="rpt-kpi-grid">'+r.kpis.map(k=>'<div class="rpt-kpi"><b style="color:'+k.color+'">'+escapeHtml(k.value)+'</b><span>'+escapeHtml(k.label)+'</span></div>').join('')+'</div>'+
-    r.sections.map((section,i)=>'<section class="rpt-section"><h2><span>'+String(i+1).padStart(2,'0')+'</span>'+escapeHtml(section.title)+'</h2>'+reportHtmlTable(section.rows)+'</section>').join('')+
+    r.sections.map((section,i)=>'<section class="rpt-section"><h2><span>'+String(i+1).padStart(2,'0')+'</span>'+escapeHtml(section.title)+'</h2>'+(section.type==='journey'?reportJourneyHtml(section):reportHtmlTable(section.rows))+'</section>').join('')+
     '<footer class="rpt-footer"><span>'+escapeHtml(r.brand.platform)+' — '+escapeHtml(r.brand.project)+'</span><span>'+escapeHtml(r.generatedAtText)+' · '+escapeHtml(r.version)+'</span></footer>';
   const appDiv=document.getElementById('app');
   const prevDisplay=appDiv?appDiv.style.display:'';
@@ -7941,6 +7977,26 @@ async function generatePptxReport(type='daily'){
     s.addText('الملخص التنفيذي',{x:.45,y:.25,w:9.1,h:.45,fontFace:'Arial',fontSize:22,bold:true,color:navy,align:'right',rtlMode:true});
     r.kpis.forEach((k,i)=>{const x=.45+(i%3)*3.05,y=.9+Math.floor(i/3)*1.45;s.addShape('roundRect',{x,y,w:2.8,h:1.2,rectRadius:.08,fill:{color:pale},line:{color:'D6E2F0'}});s.addText(String(k.value),{x:x+.08,y:y+.1,w:2.64,h:.48,fontFace:'Arial',fontSize:22,bold:true,color:blue,align:'center'});s.addText(k.label,{x:x+.08,y:y+.65,w:2.64,h:.32,fontFace:'Arial',fontSize:11,color:ink,align:'center',rtlMode:true});});
     r.sections.forEach(section=>{
+      if(section.type==='journey'){
+        const slide=P.addSlide();slide.background={color:white};
+        const journey=section.journeyStats||[];
+        const current=journey.find(st=>st.current);
+        slide.addText(section.title,{x:.45,y:.25,w:9.1,h:.45,fontFace:'Arial',fontSize:19,bold:true,color:navy,align:'right',rtlMode:true});
+        slide.addShape(P.ShapeType.rect,{x:.45,y:.78,w:9.1,h:.04,fill:{color:accent},line:{color:accent}});
+        slide.addText(current?'المرحلة الحالية: '+current.phase+' · '+Math.max(0,current.total-current.done)+' مهمة متبقية فيها':'جميع المراحل مكتملة',{x:.55,y:1.05,w:8.9,h:.35,fontFace:'Arial',fontSize:11,color:ink,align:'right',rtlMode:true});
+        slide.addShape(P.ShapeType.rect,{x:1.25,y:2.05,w:7.5,h:.035,fill:{color:'29436A'},line:{color:'29436A'}});
+        journey.forEach((st,i)=>{
+          const center=8.75-(journey.length>1?i*(7.5/(journey.length-1)):0);
+          const complete=st.total>0&&st.done===st.total, isCurrent=!!st.current;
+          const color=complete?'25B86A':isCurrent?'8B63D9':'59627A';
+          const fill=complete?'E8F7EF':isCurrent?'F1EAFD':'F4F6FA';
+          slide.addShape(P.ShapeType.ellipse,{x:center-.26,y:1.78,w:.52,h:.52,fill:{color:fill},line:{color:color,width:2}});
+          slide.addText(complete?'✓':String(st.pct||0)+'%',{x:center-.32,y:1.93,w:.64,h:.2,fontFace:'Arial',fontSize:10,bold:true,color:color,align:'center'});
+          slide.addText(st.phase,{x:center-.78,y:2.45,w:1.56,h:.32,fontFace:'Arial',fontSize:12,bold:true,color:navy,align:'center',rtlMode:true});
+          slide.addText(String(st.done)+' / '+String(st.total)+' مكتملة'+(st.hold?' · '+st.hold+' معلّقة':''),{x:center-.85,y:2.82,w:1.7,h:.58,fontFace:'Arial',fontSize:9,color:ink,align:'center',rtlMode:true,breakLine:false});
+        });
+        return;
+      }
       const rows=section.rows||[],keys=rows.length?Object.keys(rows[0]):['البيانات'];
       const body=rows.length?rows.map(row=>keys.map(k=>String(row[k]==null?'':row[k]))):[['لا توجد بيانات خلال الفترة المحددة']];
       const chunks=[];for(let i=0;i<body.length;i+=12)chunks.push(body.slice(i,i+12));
