@@ -3386,6 +3386,8 @@ function normalizeRow(raw){
   const lag=valueOf(raw,WBS_FIELD_ALIASES.lag);
   const lastUpdate=isoDate(valueOf(raw,WBS_FIELD_ALIASES.lastUpdate));
   const priority=String(valueOf(raw,WBS_FIELD_ALIASES.priority)||'').trim();
+  const criticalTask=String(valueOf(raw,WBS_FIELD_ALIASES.criticalTask)||'').trim();
+  const isCritical=isWbsCriticalValue(criticalTask);
   const dataSource=String(valueOf(raw,WBS_FIELD_ALIASES.dataSource)||raw._source||'google_sheets').trim();
   const version=valueOf(raw,WBS_FIELD_ALIASES.version);
   let type = typeRaw || 'Task';
@@ -3397,7 +3399,7 @@ function normalizeRow(raw){
   const record_type=String(valueOf(raw,['record_type'])||'').trim();
   const is_test=String(valueOf(raw,['is_test'])||'').trim();
   const progressDisplay=typeof raw.progress_display==='string'?raw.progress_display:(typeof raw._progress?.display==='string'?raw._progress.display:'');
-  const normalized={type,code,name,phase,rawPhase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,progressDisplay,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,followUpOwner,amanahFollowUpOwner,taskType,originalStatus,lag,lastUpdate,priority,dataSource,evidence,version,notes,sheet_status:originalStatus||status,status:originalStatus||status,source:dataSource||source,record_type,is_test,_source:raw._source||dataSource||source,raw};
+  const normalized={type,code,name,phase,rawPhase,mainPath,owner,ownerEmail,start,end,rawStart,rawEnd,actualStart:isoDate(rawActualStart),actualEnd:isoDate(rawActualEnd),rawActualStart,rawActualEnd,progress,progressDisplay,plannedDurationDays,sheetDelayDays,predecessor,dependencyType,approvalEntity,operationalDeliverable,executionOwner,followUpOwner,amanahFollowUpOwner,taskType,originalStatus,lag,lastUpdate,priority,criticalTask,isCritical,dataSource,evidence,version,notes,sheet_status:originalStatus||status,status:originalStatus||status,source:dataSource||source,record_type,is_test,_source:raw._source||dataSource||source,raw};
   normalized.computed_status=computeTaskStatus(normalized);
   normalized.delay_days=getTaskDelayDays(normalized);
   return normalized;
@@ -4589,6 +4591,7 @@ const WBS_FIELD_ALIASES={
   notes:['الملاحظات','notes','ملاحظات / عدد المهام','Notes','ملاحظات'],
   lastUpdate:['last_update','updated','آخر تحديث','تاريخ التحديث'],
   priority:['priority','الأولوية'],
+  criticalTask:['المهام الحرجة','مهمة حرجة','critical_task','critical_tasks','is_critical','isCritical','critical'],
   risk:['risk','المخاطر','blocker','المعوقات'],
   executionOwner:['مسؤول المسار','مسئول المسار','مسوول المسار','path_owner','track_owner','workstream_owner','جهة التنفيذ أو المالك','جهة التنفيذ','execution_owner','implementing_party','owner_entity','المالك'],
   followUpOwner:['مسؤول المتابعة','follow_up_owner','متابعة بواسطة'],
@@ -4601,6 +4604,15 @@ const WBS_FIELD_ALIASES={
 };
 const TASK_FIELD_ALIASES=WBS_FIELD_ALIASES;
 
+function isWbsCriticalValue(value){
+  const raw=String(value??'').trim().toLowerCase();
+  if(!raw||/^(?:لا|غير\s*حرج(?:ة)?|false|no|0|-)$/i.test(raw)) return false;
+  const normalized=normalizeArabic(raw).trim();
+  return ['حرجة','حرجه','حرج','critical','yes','true','نعم','1'].includes(normalized);
+}
+function isWbsCriticalTask(task){
+  return !!(task&&(task.isCritical===true||isWbsCriticalValue(task.criticalTask??valueOf(task.raw||task,WBS_FIELD_ALIASES.criticalTask))));
+}
 function normalizeTaskStatus(status){
   const raw=String(status||'').replace(/[*＊٭]/g,'').trim();
   const st=normalizeArabic(raw.toLowerCase());
@@ -5320,6 +5332,7 @@ function openDetail(code){
   <div><small>الكود</small><b>${escapeHtml(r.code)}</b></div>
   <div><small>النوع</small><b>${escapeHtml(r.type)}</b></div>
   <div><small>المرحلة</small><b>${escapeHtml(r.phase||'-')}</b></div>
+  <div><small>المهام الحرجة</small><b>${isWbsCriticalTask(r)?'حرجة':'—'}</b></div>
   <div><small>المسؤول</small><b>${escapeHtml(r.owner||'-')}</b></div>
   <div><small>البداية</small><b>${fmt(r.start)}</b></div>
   <div><small>النهاية</small><b>${fmt(r.end)}</b></div>
@@ -5763,7 +5776,7 @@ function isOverdueTasksView(){
 }
 
 function taskMatchesTaskFilters(r,{query='',phase='',owner='',path='',status='',amanahFollowUp=''}={}){
-  const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.amanahFollowUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
+  const haystack=[r.code,r.name,r.mainPath,r.executionOwner,r.phase,r.taskType,r.owner,r.followUpOwner,r.amanahFollowUpOwner,r.operationalDeliverable,r.approvalEntity,r.predecessor,r.dependencyType,r.lag,r.plannedDurationDays,r.start,r.end,r.actualStart,r.actualEnd,r.sheet_status,r.computed_status,r.progress,r.evidence,r.priority,r.criticalTask,r.lastUpdate,r.dataSource].join(' ').toLowerCase();
   if(query && !haystack.includes(query)) return false;
   if(phase&&r.phase!==phase) return false;
   if(path&&officialPathValue(r.mainPath)!==officialPathValue(path)) return false;
@@ -5841,7 +5854,7 @@ function applyFilters(){
     const showEscalate=canEscalateOverdueTask()&&isOverdueTasksView()&&isTaskStatusOverdue(r);
     const holdDash='<span class="hold-dash" tabindex="0" aria-label="يُحدد بعد اعتماد موعد التدشين">—</span>';
     return `<tr onclick="openDetail(${JSON.stringify(r.code)})"${onHold?' class="task-hold"':''}>
-      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(taskStatusDisplayLabel(s)||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-amanah-follow-up">${taskOverflowText(r.amanahFollowUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
+      <td class="task-col-code">${escapeHtml(stripHoldMark(r.code)||'-')}</td><td class="task-col-name">${taskOverflowText(r.name)}${isWbsCriticalTask(r)?'<span class="pill red" style="margin-inline-start:6px;font-size:10px">حرجة</span>':''}</td><td class="task-col-status"><span class="pill ${sc}">${onHold?'<i class="hold-ico" aria-hidden="true"></i>':''}${escapeHtml(taskStatusDisplayLabel(s)||'—')}</span></td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.start)}</td><td class="task-col-date">${onHold?holdDash:formatTaskTableDate(r.end)}${!onHold&&getTaskDelayDays(r)?`<div style="font-size:10.5px;color:#ff8fa0;margin-top:3px">${getTaskDelayDays(r)} يوم تأخير</div>`:''}</td><td class="task-col-path-owner">${taskOverflowText(r.executionOwner)}</td><td class="task-col-follow-up">${taskOverflowText(r.followUpOwner)}</td><td class="task-col-amanah-follow-up">${taskOverflowText(r.amanahFollowUpOwner)}</td><td class="task-col-priority">${escapeHtml(r.priority||'-')}</td><td class="task-col-path">${taskOverflowText(r.mainPath)}</td><td class="task-col-phase">${taskOverflowText(r.phase)}</td><td class="task-col-type"><span class="pill ${r.type==='Milestone'?'purple':'blue'}">${escapeHtml(r.taskType||r.type||'-')}</span></td><td class="task-col-duration">${escapeHtml(formatTaskTableDuration(r))}</td>${canViewCompletionEvidence()?`<td class="task-col-evidence">${taskEvidenceHtml(r)}</td>`:''}<td class="task-col-action" style="display:${showEscalate?'':'none'}"><button type="button" class="escalate-btn overdue-escalate-trigger" data-task-id="${escapeHtml(r.code)}">تصعيد</button></td>
     </tr>`;
   }).join('');
   initTaskOverflowTooltips();
@@ -7442,7 +7455,10 @@ function personPerformance(name){
 function buildCommandCriticalItems(){
   const today=futureDate(0);
   const items=[];
-  tasks.filter(t=>isTaskStatusOverdue(t)).slice(0,6).forEach(t=>items.push({type:'مهمة',title:t.name,owner:t.owner||'-',detail:`استحقاق: ${t.end||'-'}`,page:'tasks',severity:'مرتفع'}));
+  const wbsCriticalTasks=(tasks||[]).filter(isWbsCriticalTask);
+  wbsCriticalTasks.slice(0,6).forEach(t=>items.push({type:'مهمة حرجة',title:t.name,owner:t.owner||'-',detail:`WBS ${t.code||''} · الحالة: ${taskStatusDisplayLabel(classifyStatus(t))} · الاستحقاق: ${t.end||'-'}`,page:'tasks',severity:'حرج'}));
+  const criticalCodes=new Set(wbsCriticalTasks.map(t=>String(t.code||'')));
+  tasks.filter(t=>isTaskStatusOverdue(t)&&!criticalCodes.has(String(t.code||''))).slice(0,6).forEach(t=>items.push({type:'مهمة',title:t.name,owner:t.owner||'-',detail:`استحقاق: ${t.end||'-'}`,page:'tasks',severity:'مرتفع'}));
   permitsRegister.filter(p=>p.status==='نشط'&&p.end&&daysBetween(today,p.end)<=3).slice(0,5).forEach(p=>items.push({type:'تصريح',title:p.subject||p.party,owner:p.approver||'-',detail:`ينتهي: ${p.end||'-'}`,page:'permitsCenter',severity:daysBetween(today,p.end)<0?'حرج':'مرتفع'}));
   changeOrders.filter(c=>['حرج','مرتفع'].includes(c.risk)&&!['مرفوض','مغلق'].includes(c.status)).slice(0,5).forEach(c=>items.push({type:'أمر تغيير',title:c.title,owner:`${changeOrderCurrentResponsible(c)} ← ${changeOrderEscalationTarget(changeOrderCurrentResponsible(c))}`,detail:`الأثر: ${c.timeImpact} يوم / ${money(c.costImpact)}`,page:'changeOrdersCenter',severity:c.risk}));
   return items.slice(0,18);
@@ -7460,7 +7476,7 @@ function buildDailyCommandBrief(){
   return [
     `الملخص القيادي اليومي - ${new Date().toLocaleDateString('ar-SA')}`,
     '',
-    `أهم المهام المتأخرة: ${critical.filter(i=>i.type==='مهمة').slice(0,3).map(i=>i.title).join(' | ')||'لا يوجد'}`,
+    `أهم المهام الحرجة والمتأخرة: ${critical.filter(i=>i.type==='مهمة'||i.type==='مهمة حرجة').slice(0,3).map(i=>i.title).join(' | ')||'لا يوجد'}`,
     `أهم التصعيدات: ${active.slice(0,3).map(e=>`${e.itemTitle} إلى ${e.to}`).join(' | ')||'لا يوجد'}`,
     `الأشخاص الأكثر ضغطاً: ${people.map(p=>`${p.name} (${p.pressure})`).join(' | ')||'لا يوجد'}`,
     `القرارات المطلوبة: ${(window._approvalsData||[]).filter(a=>!['معتمد','مرفوض'].includes(a.status)).slice(0,3).map(a=>a.title).join(' | ')||'لا يوجد'}`,
@@ -7813,7 +7829,10 @@ function buildReportData(type='daily'){
     generatedAtText:generatedAt.toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short'}),
     generatedBy:meta.preparedBy,version:reportVersionTag(),meta,
     detailRows:batch4?batch4.rows:phaseRows,kpis,readiness,
-    criticalItems:critical.slice(0,10).map(c=>({title:c.title||c.name||'-',type:c.type||'-',detail:c.detail||c.owner||'-'})),
+    criticalItems:[
+      ...(tasks||[]).filter(isWbsCriticalTask).map(t=>({title:t.name||'-',type:'مهمة حرجة',detail:`WBS ${t.code||''} · الحالة: ${taskStatusDisplayLabel(classifyStatus(t))} · الاستحقاق: ${t.end||'-'}`})),
+      ...critical.filter(c=>c.type!=='مهمة حرجة').slice(0,10).map(c=>({title:c.title||c.name||'-',type:c.type||'-',detail:c.detail||c.owner||'-'}))
+    ],
     escalations:active.slice(0,10).map(e=>({id:e.id,title:e.itemTitle,level:e.level,to:e.to,status:e.status})),
     metrics:[
       {label:'الاعتمادات المفتوحة',value:noData?NO_KPI_DATA_TEXT:openApprovals},
