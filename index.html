@@ -7911,33 +7911,40 @@ function reportHtmlTable(rows){
   const keys=Object.keys(rows[0]);
   return '<div class="rpt-table-wrap"><table class="rpt-table"><thead><tr>'+keys.map(k=>'<th>'+escapeHtml(k)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+keys.map(k=>'<td>'+escapeHtml(row[k]==null?'':row[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
 }
-function reportJourneyHtml(section){
+function reportJourneyHtml(section,sectionNo='02'){
   const stats=section?.journeyStats||[];
-  if(!stats.length) return '<p>لا توجد بيانات للمراحل.</p>';
+  if(!stats.length) return '<section class="rpt-section rpt-journey-section"><h2><span>'+escapeHtml(sectionNo)+'</span>'+escapeHtml(section?.title||'رحلة المراحل')+'</h2><p>لا توجد بيانات للمراحل.</p></section>';
   const current=stats.find(st=>st.current);
-  const remain=current?Math.max(0,current.total-current.done):0;
+  const remain=current?Math.max(0,Number(current.total||0)-Number(current.done||0)):0;
   const nodes=stats.map(st=>{
-    const complete=st.total>0&&st.done===st.total;
+    const complete=Number(st.total||0)>0&&Number(st.done||0)>=Number(st.total||0);
     const isCurrent=!!st.current;
-    const color=complete?'#25b86a':isCurrent?'#8b63d9':'#59627a';
-    const bg=complete?'#e8f7ef':isCurrent?'#f1eafd':'#f4f6fa';
-    const border=complete?'#9cdbb7':isCurrent?'#c3a9f2':'#d5dce7';
+    const color=complete?'#20b56b':isCurrent?'#7650c5':'#5b657b';
+    const border=complete?'#8ed5ad':isCurrent?'#b69ae8':'#cbd5e1';
     const mark=complete?'✓':String(st.pct||0)+'%';
-    const details='<bdi dir="ltr">'+Number(st.done||0)+' / '+Number(st.total||0)+'</bdi> مكتملة'+(st.hold?' · '+Number(st.hold)+' معلّقة':'');
-    return '<div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;min-width:0;padding:0 3px;">'+
-      '<span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;box-sizing:border-box;border:2px solid '+border+';background:'+bg+';color:'+color+';font-size:13px;font-weight:800;">'+mark+'</span>'+
-      '<b style="font-size:13px;color:#17375e;line-height:1.35;">'+escapeHtml(st.phase)+'</b>'+
-      '<span style="font-size:10px;color:#59627a;line-height:1.5;">'+details+'</span>'+
-      (st.current?'<span style="font-size:9px;color:#7250b5;font-weight:700;">المرحلة الحالية</span>':'')+
+    const details='<bdi dir="ltr">'+Number(st.done||0)+' / '+Number(st.total||0)+'</bdi> مكتملة'+(Number(st.hold||0)>0?' · '+Number(st.hold)+' معلّقة':'');
+    return '<div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;min-width:0;padding:0 2px;">'+
+      '<span style="display:flex;align-items:center;justify-content:center;width:15mm;height:15mm;border-radius:50%;box-sizing:border-box;border:1.5px solid '+border+';background:#fff;color:'+color+';font-size:15px;font-weight:800;line-height:1;-webkit-print-color-adjust:exact;print-color-adjust:exact;">'+mark+'</span>'+
+      '<b style="font-size:11pt;color:#17375e;line-height:1.25;margin-top:1mm;">'+escapeHtml(st.phase)+'</b>'+
+      '<span style="font-size:8.5pt;color:#59627a;line-height:1.4;white-space:nowrap;">'+details+'</span>'+
+      (isCurrent?'<span style="font-size:8pt;color:#65439f;font-weight:800;background:#f1eafd;border-radius:999px;padding:2px 8px;margin-top:1mm;-webkit-print-color-adjust:exact;print-color-adjust:exact;">المرحلة الحالية</span>':'')+
       '</div>';
   }).join('');
-  return '<div dir="rtl" style="border:1px solid #d6e2f0;border-radius:12px;background:#f6f8fb;padding:13px 10px 11px;page-break-inside:avoid;">'+
-    '<div style="font-size:11px;color:#59627a;text-align:left;margin:0 0 12px;">'+
-    (current?'المرحلة الحالية: <b>'+escapeHtml(current.phase)+'</b> · '+remain+' مهمة متبقية فيها':'جميع المراحل مكتملة')+
+  return '<section class="rpt-section rpt-journey-section" dir="rtl" style="margin:10px 0 12px;border:1.5px solid #d4e1ef;border-radius:14px;background:#fff;padding:4mm 5mm 3mm;page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact;">'+
+    '<header style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5mm;">'+
+      '<div style="display:flex;align-items:center;gap:8px;color:#17375e;font-size:12pt;font-weight:900;">'+
+        '<span style="display:inline-flex;align-items:center;justify-content:center;background:#17375e;color:#fff;border-radius:3px;min-width:9mm;height:7mm;padding:0 2mm;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;">'+escapeHtml(sectionNo)+'</span>'+
+        '<span>'+escapeHtml(section.title||'رحلة المراحل')+'</span>'+
+      '</div>'+
+      '<div style="font-size:9.5pt;color:#59627a;text-align:left;white-space:nowrap;">'+
+        (current?'المرحلة الحالية: <b style="color:#17375e;">'+escapeHtml(current.phase)+'</b> · '+remain+' مهمة متبقية فيها':'جميع المراحل مكتملة')+
+      '</div>'+
+    '</header>'+
+    '<div style="position:relative;display:grid;grid-template-columns:repeat('+stats.length+',minmax(0,1fr));direction:rtl;align-items:start;gap:0;padding:0 2mm;">'+
+      '<span aria-hidden="true" style="position:absolute;z-index:0;top:7.5mm;left:8%;right:8%;height:1.2px;background:#17375e;"></span>'+
+      nodes+
     '</div>'+
-    '<div style="position:relative;display:grid;grid-template-columns:repeat('+stats.length+',minmax(0,1fr));direction:rtl;align-items:start;gap:0;padding-top:2px;">'+
-    '<span aria-hidden="true" style="position:absolute;z-index:0;top:19px;left:9%;right:9%;height:3px;background:#29436a;border-radius:2px;"></span>'+
-    nodes+'</div></div>';
+  '</section>';
 }
 function generatePdfReport(type='daily'){
   const r=buildReportData(type);
@@ -7951,7 +7958,7 @@ function generatePdfReport(type='daily'){
   el.innerHTML='<header class="rpt-header"><div class="rpt-brand"><div class="rpt-brand-mark">M</div><div><h1>'+escapeHtml(r.brand.name)+'</h1><p>'+escapeHtml(r.brand.project)+'</p></div></div><div class="rpt-report-name">'+escapeHtml(r.title)+'</div></header>'+
     '<div class="rpt-meta-grid">'+metaRows.map(x=>'<div class="rpt-meta-cell"><span>'+escapeHtml(x[0])+'</span><b>'+escapeHtml(x[1])+'</b></div>').join('')+'</div>'+
     '<div class="rpt-title-bar">الملخص التنفيذي</div><div class="rpt-kpi-grid">'+r.kpis.map(k=>'<div class="rpt-kpi"><b style="color:'+k.color+'">'+escapeHtml(k.value)+'</b><span>'+escapeHtml(k.label)+'</span></div>').join('')+'</div>'+
-    r.sections.map((section,i)=>'<section class="rpt-section"><h2><span>'+String(i+1).padStart(2,'0')+'</span>'+escapeHtml(section.title)+'</h2>'+(section.type==='journey'?reportJourneyHtml(section):reportHtmlTable(section.rows))+'</section>').join('')+
+    r.sections.map((section,i)=>section.type==='journey'?reportJourneyHtml(section,String(i+1).padStart(2,'0')):'<section class="rpt-section"><h2><span>'+String(i+1).padStart(2,'0')+'</span>'+escapeHtml(section.title)+'</h2>'+reportHtmlTable(section.rows)+'</section>').join('')+
     '<footer class="rpt-footer"><span>'+escapeHtml(r.brand.platform)+' — '+escapeHtml(r.brand.project)+'</span><span>'+escapeHtml(r.generatedAtText)+' · '+escapeHtml(r.version)+'</span></footer>';
   const appDiv=document.getElementById('app');
   const prevDisplay=appDiv?appDiv.style.display:'';
