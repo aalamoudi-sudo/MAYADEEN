@@ -7650,13 +7650,18 @@ function reportSourceMeta(scope){
 }
 function phaseOrderIndex(phase){const i=PROJECT_PHASE_ORDER.indexOf(normalizeProjectPhase(phase));return i<0?PROJECT_PHASE_ORDER.length:i;}
 function reportTaskRow(t){const row={الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:normalizeProjectPhase(t.phase),الحالة:taskStatusDisplayLabel(classifyStatus(t)),الاستحقاق:t.end||''}; if(canViewCompletionEvidence()) row.الدليل=t.evidence||''; return row;}
+function reportCompletedTaskRow(t){const row={الكود:t.code||'',المهمة:t.name||'',المسؤول:t.owner||t.executionOwner||'',المسار:t.mainPath||'',المرحلة:normalizeProjectPhase(t.phase),الحالة:'مكتملة','تاريخ الإنجاز':t.actualEnd||'غير مسجل','آخر تحديث':t.lastUpdate||'غير مسجل'}; if(canViewCompletionEvidence()) row.الدليل=t.evidence||''; return row;}
 function buildBatch4ReportSections(type){
   const today=riyadhTodayKey(), tomorrow=addDaysToDateKey(today,1);
   const baseTasks=tasks||[];
   const activeEsc=activeEscalations();
+  const latestCompleted=baseTasks.filter(t=>classifyStatus(t)==='مكتملة').sort((a,b)=>{
+    const dateKey=t=>reportDateKey(t.actualEnd)||reportDateKey(t.lastUpdate)||'';
+    return dateKey(b).localeCompare(dateKey(a))||Number(b.rowNumber||0)-Number(a.rowNumber||0);
+  }).slice(0,10).map(reportCompletedTaskRow);
   const approvalsData=(window._approvalsData||approvals||[]);
   const sections={
-    pmoDaily:{title:'التقرير اليومي لـ PMO',scope:'اليوم الحالي / PMO',rows:baseTasks.filter(t=>[today,tomorrow].includes(String(t.end||'').slice(0,10))||isTaskStatusOverdue(t)).map(reportTaskRow)},
+    pmoDaily:{title:'التقرير اليومي لـ PMO',scope:'آخر ما تم إنجازه — أحدث 10 مهام مكتملة',rows:latestCompleted},
     tomorrowTasks:{title:'تقرير مهام الغد',scope:'مهام مستحقة غداً',rows:baseTasks.filter(t=>String(t.end||'').slice(0,10)===tomorrow).map(reportTaskRow)},
     overdueTasks:{title:'تقرير المهام المتأخرة',scope:'كل المهام غير المكتملة بعد تاريخ الاستحقاق',rows:baseTasks.filter(t=>isTaskStatusOverdue(t)).map(reportTaskRow)},
     criticalPath:{title:'تقرير المسار الحرج',scope:'Critical Path Analysis من Google Sheets',rows:(criticalPathAnalysis.tasks||[]).map(t=>({الكود:t.task_code||t.code||'',المهمة:t.task_name||t.name||'',حرج:t.is_critical?'نعم':'لا','Total Float':t.total_float??'',المسار:t.path||'',المرحلة:normalizeProjectPhase(t.phase)})).sort((a,b)=>phaseOrderIndex(a.المرحلة)-phaseOrderIndex(b.المرحلة))},
@@ -7821,7 +7826,7 @@ function buildReportData(type='daily'){
   };
   r.sections=isWeekly?weekly.sections:[
     {title:'الملخص التنفيذي',rows:kpis.map(k=>({المؤشر:k.label,القيمة:k.value}))},
-    {title:'تفاصيل التقرير',rows:reportEmptyMessage(r.detailRows)},
+    {title:type==='pmoDaily'?'آخر ما تم إنجازه':'تفاصيل التقرير',rows:reportEmptyMessage(r.detailRows)},
     {title:'أهم البنود الحرجة',rows:reportEmptyMessage(r.criticalItems.map(c=>({النوع:c.type,البند:c.title,التفاصيل:c.detail})))},
     {title:'التصعيدات النشطة',rows:reportEmptyMessage(r.escalations.map(e=>({المستوى:e.level,البند:e.title,الجهة:e.to,الحالة:e.status})))},
     {title:'مؤشرات تشغيلية إضافية',rows:r.metrics},
